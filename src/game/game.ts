@@ -16,6 +16,8 @@ import { cloneKartState, interpolateKart, type KartState } from '../sim/kart/kar
 import { RaceWorld } from '../sim/world'
 import { createDebugPanel, isDebugEnabled, type DebugReadout } from '../ui/debugPanel'
 import { FpsOverlay } from '../ui/fpsOverlay'
+import { Hud } from '../ui/hud'
+import { buildHudModel } from '../ui/hudModel'
 
 const SIMULATION_HZ = 60
 const RESET_KEY = 'KeyR'
@@ -35,6 +37,7 @@ export class Game {
   private readonly chaseCamera: ChaseCamera
   private readonly inputSources: InputSource[] = [new KeyboardSource(), new GamepadSource()]
   private readonly fpsOverlay: FpsOverlay | null
+  private readonly hud = new Hud()
   private readonly readout: DebugReadout = { speedKmh: 0, onGround: true }
 
   private previousKart: KartState
@@ -84,6 +87,7 @@ export class Game {
     resizeToCanvas(this.scene)
     this.kartView.update(kart, input.steer, speed, speedRatio, dt)
     this.chaseCamera.update(kart.position, kart.heading, speedRatio, input.lookBack, dt)
+    this.hud.update(buildHudModel(kart, this.physics, this.driftConfig))
     this.scene.renderer.render(this.scene.scene, this.scene.camera)
 
     this.readout.speedKmh = Math.abs(speed) * MS_PER_KMH

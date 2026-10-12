@@ -1,0 +1,288 @@
+.hud {
+  --hud-font: 'Baloo 2', 'Arial Rounded MT Bold', 'Trebuchet MS', system-ui, sans-serif;
+  --hud-outline: #1b1033;
+  --hud-panel: #2a1a5e;
+  --hud-gap: clamp(8px, 2vw, 20px);
+
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  font-family: var(--hud-font);
+  font-weight: 800;
+  color: #fff;
+  pointer-events: none;
+  user-select: none;
+}
+
+.hud * {
+  box-sizing: border-box;
+}
+
+/* Speedometer, bottom-right */
+.hud-speed {
+  position: absolute;
+  right: var(--hud-gap);
+  bottom: var(--hud-gap);
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 2px 16px 4px;
+  background: var(--hud-panel);
+  border: 4px solid var(--hud-outline);
+  border-radius: 20px;
+  box-shadow: 0 4px 0 var(--hud-outline);
+  text-shadow:
+    -2px -2px 0 var(--hud-outline),
+    2px -2px 0 var(--hud-outline),
+    -2px 2px 0 var(--hud-outline),
+    2px 2px 0 var(--hud-outline),
+    0 4px 0 var(--hud-outline);
+}
+
+.hud-speed-value {
+  min-width: 2.2ch;
+  font-size: clamp(36px, 9vw, 72px);
+  line-height: 1;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: #ffd23f;
+}
+
+.hud-speed-unit {
+  font-size: clamp(14px, 3vw, 24px);
+}
+
+/* Drift bar, bottom-center */
+.hud-drift {
+  position: absolute;
+  left: 50%;
+  bottom: calc(var(--hud-gap) + 8px);
+  width: min(50vw, 420px);
+  opacity: 0;
+  transform: translateX(-50%) scale(0.9);
+  transition:
+    opacity 0.25s ease-out,
+    transform 0.25s ease-out;
+}
+
+.hud-drift.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+  transition-duration: 0.08s;
+}
+
+.hud-drift-track {
+  position: relative;
+  height: clamp(18px, 4vw, 28px);
+  overflow: hidden;
+  background: var(--hud-panel);
+  border: 4px solid var(--hud-outline);
+  border-radius: 999px;
+  box-shadow: 0 4px 0 var(--hud-outline);
+}
+
+.hud-drift-fill {
+  width: 0;
+  height: 100%;
+  border-radius: 999px;
+  box-shadow: inset 0 -5px 0 rgb(0 0 0 / 22%);
+}
+
+.hud-drift-marker {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  margin-left: -2px;
+  background: #ff3b30;
+  box-shadow: 0 0 0 2px var(--hud-outline);
+}
+
+.hud-pips {
+  display: flex;
+  justify-content: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.hud-pip {
+  --pip-color: transparent;
+
+  width: clamp(18px, 4vw, 26px);
+  height: clamp(18px, 4vw, 26px);
+  background: var(--hud-panel);
+  border: 4px solid var(--hud-outline);
+  border-radius: 50%;
+  box-shadow: 0 3px 0 var(--hud-outline);
+}
+
+.hud-pip.is-filled {
+  background: var(--pip-color);
+}
+
+.hud-pip.is-popping {
+  animation: hud-pop 0.35s cubic-bezier(0.3, 1.8, 0.5, 1);
+}
+
+.hud-drift.is-broken .hud-drift-track {
+  filter: grayscale(1);
+}
+
+.hud-drift.is-shaking {
+  animation: hud-shake 0.4s linear;
+}
+
+/* Active nitro badge, above the speedometer */
+.hud-nitro {
+  --nitro-color: #ffd23f;
+
+  position: absolute;
+  right: var(--hud-gap);
+  bottom: calc(var(--hud-gap) + clamp(60px, 14vw, 100px));
+  min-width: 120px;
+  padding: 2px 14px 6px;
+  text-align: center;
+  background: var(--nitro-color);
+  border: 4px solid var(--hud-outline);
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--hud-outline);
+  opacity: 0;
+  transform: scale(0.6);
+  transition:
+    opacity 0.2s ease-out,
+    transform 0.2s ease-out;
+}
+
+.hud-nitro.is-active {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.hud-nitro.is-starting {
+  animation: hud-pop 0.4s cubic-bezier(0.3, 1.8, 0.5, 1);
+}
+
+.hud-nitro-label {
+  font-size: clamp(18px, 4vw, 28px);
+  line-height: 1.2;
+  text-shadow:
+    -2px -2px 0 var(--hud-outline),
+    2px -2px 0 var(--hud-outline),
+    -2px 2px 0 var(--hud-outline),
+    2px 2px 0 var(--hud-outline);
+}
+
+.hud-nitro-track {
+  height: 10px;
+  overflow: hidden;
+  background: var(--hud-outline);
+  border-radius: 999px;
+}
+
+.hud-nitro-time {
+  width: 0;
+  height: 100%;
+  background: #fff;
+}
+
+/* "¡Perfecto!" pop-up */
+.hud-perfect {
+  position: absolute;
+  left: 50%;
+  top: 30%;
+  font-size: clamp(36px, 10vw, 80px);
+  color: #ffd23f;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(-50%);
+  text-shadow:
+    -3px -3px 0 var(--hud-outline),
+    3px -3px 0 var(--hud-outline),
+    -3px 3px 0 var(--hud-outline),
+    3px 3px 0 var(--hud-outline),
+    0 6px 0 var(--hud-outline);
+}
+
+.hud-perfect.is-showing {
+  animation: hud-perfect 1.1s ease-out;
+}
+
+@keyframes hud-pop {
+  0% {
+    transform: scale(0.4);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+@keyframes hud-shake {
+  0%,
+  100% {
+    transform: translateX(-50%);
+  }
+
+  20%,
+  60% {
+    transform: translateX(calc(-50% - 8px));
+  }
+
+  40%,
+  80% {
+    transform: translateX(calc(-50% + 8px));
+  }
+}
+
+@keyframes hud-perfect {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) scale(0.3) rotate(-8deg);
+  }
+
+  20% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1.2) rotate(4deg);
+  }
+
+  35%,
+  75% {
+    opacity: 1;
+    transform: translateX(-50%) scale(1) rotate(-2deg);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-30px) scale(1);
+  }
+}
+
+@keyframes hud-perfect-still {
+  0%,
+  80% {
+    opacity: 1;
+    transform: translateX(-50%);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(-50%);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-drift,
+  .hud-nitro {
+    transition: none;
+  }
+
+  .hud-pip.is-popping,
+  .hud-nitro.is-starting,
+  .hud-drift.is-shaking {
+    animation: none;
+  }
+
+  .hud-perfect.is-showing {
+    animation: hud-perfect-still 1.5s linear;
+  }
+}
