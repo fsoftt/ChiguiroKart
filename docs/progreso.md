@@ -12,7 +12,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | 1 — Kart que se maneja bien             | ✅     |
 | 2 — Derrape, nitros y saltos            | ✅     |
 | 3 — Primera pista real: Valle de Cocora | ✅     |
-| 4 — Bots                                | ⬜     |
+| 4 — Bots                                | ✅     |
 | 5 — Poderes y uchuvas                   | ⬜     |
 | 6 — Personajes y animaciones            | ⬜     |
 | 7 — Online: sala con código             | ⬜     |
