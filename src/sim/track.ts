@@ -1,4 +1,6 @@
 import { headingOf, type Vec2, type Vec3 } from './math'
+import type { Checkpoint } from './race/checkpoint'
+import type { SurfaceType } from './race/surface'
 
 export interface TrackDefinition {
   name: string
@@ -6,6 +8,12 @@ export interface TrackDefinition {
   centerline: readonly Vec2[]
   /** Distance from the centerline to each wall (m). */
   halfWidth: number
+  /** Optional custom ground height at position (x, z). Flat (0) if omitted. */
+  groundHeight?: (x: number, z: number) => number
+  /** Optional checkpoints. Automatically generated along centerline if omitted. */
+  checkpoints?: readonly Checkpoint[]
+  /** Optional surface lookup at position (x, z). Defaults to asphalt inside road, grass outside. */
+  surfaceAt?: (x: number, z: number) => SurfaceType
 }
 
 export interface TrackProjection {
@@ -23,12 +31,16 @@ export interface Pose {
 }
 
 const MIN_POINTS = 3
+const DEFAULT_CHECKPOINT_COUNT = 8
 
-/** Road geometry for the simulation: no rendering concerns. */
+/** Road geometry and race landmarks for the simulation: no rendering concerns. */
 export class Track {
   readonly name: string
   readonly centerline: readonly Vec2[]
   readonly halfWidth: number
+  readonly checkpoints: readonly Checkpoint[]
+  private readonly customGroundHeight?: ((x: number, z: number) => number) | undefined
+  private readonly customSurfaceAt?: ((x: number, z: number) => SurfaceType) | undefined
 
   constructor(definition: TrackDefinition) {
     if (definition.centerline.length < MIN_POINTS) {
@@ -37,6 +49,10 @@ export class Track {
     this.name = definition.name
     this.centerline = definition.centerline
     this.halfWidth = definition.halfWidth
+    this.customGroundHeight = definition.groundHeight
+    this.customSurfaceAt = definition.surfaceAt
+
+    this.checkpoints = definition.checkpoints ?? this.generateDefaultCheckpoints()
   }
 
   /** Point `index` of the loop; wraps around in both directions. */
@@ -47,9 +63,21 @@ export class Track {
     return point
   }
 
-  /** Ground height at a position. Flat for now; slopes and ramps come with real tracks. */
-  groundHeight(_x: number, _z: number): number {
+  /** Ground height at a position. */
+  groundHeight(x: number, z: number): number {
+    if (this.customGroundHeight) {
+      return this.customGroundHeight(x, z)
+    }
     return 0
+  }
+
+  /** Surface type at a position. */
+  surfaceAt(x: number, z: number): SurfaceType {
+    if (this.customSurfaceAt) {
+      return this.customSurfaceAt(x, z)
+    }
+    const proj = this.project(x, z)
+    return proj.distance <= this.halfWidth ? 'asphalt' : 'grass'
   }
 
   /** Where karts spawn: the first centerline point, facing along the road. */
@@ -75,6 +103,29 @@ export class Track {
       }
     }
     return best
+  }
+
+  private generateDefaultCheckpoints(): Checkpoint[] {
+    const numCheckpoints = Math.min(DEFAULT_CHECKPOINT_COUNT, this.centerline.length)
+    const step = Math.floor(this.centerline.length / numCheckpoints)
+    const checkpoints: Checkpoint[] = []
+
+    for (let i = 0; i < numCheckpoints; i++) {
+      const ptIndex = i * step
+      const p = this.point(ptIndex)
+      const next = this.point(ptIndex + 1)
+      const dx = next.x - p.x
+      const dz = next.z - p.z
+      const len = Math.hypot(dx, dz) || 1
+      checkpoints.push({
+        index: i,
+        position: { x: p.x, z: p.z },
+        forward: { x: dx / len, z: dz / len },
+        width: this.halfWidth * 2,
+        mandatory: true,
+      })
+    }
+    return checkpoints
   }
 }
 

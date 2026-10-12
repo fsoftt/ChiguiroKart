@@ -1,5 +1,8 @@
 import './hud.css'
-import type { HudModel } from './hudModel'
+import type { Vec2 } from '../sim/math'
+import type { Track } from '../sim/track'
+import type { FinalTimes, HudModel } from './hudModel'
+import { Minimap } from './minimap'
 
 const PIP_COUNT = 3
 const PERFECT_TEXT = '¡Perfecto!'
@@ -18,7 +21,6 @@ function percent(fraction: number): string {
   return `${(fraction * PERCENT).toFixed(PERCENT_DECIMALS)}%`
 }
 
-/** Restarts a CSS animation class on an element. */
 function replay(node: HTMLElement, className: string): void {
   node.classList.remove(className)
   void node.offsetWidth
@@ -31,6 +33,22 @@ function replay(node: HTMLElement, className: string): void {
  */
 export class Hud {
   private readonly root = el('div', 'hud')
+  readonly minimap = new Minimap()
+
+  // Race UI
+  private readonly lapBadge = el('div', 'hud-lap-badge', this.root)
+  private readonly timerContainer = el('div', 'hud-timer-badge', this.root)
+  private readonly timerValue: HTMLElement
+  private readonly bestLapValue: HTMLElement
+  private readonly countdownBadge = el('div', 'hud-countdown', this.root)
+  private readonly wrongWayBadge = el('div', 'hud-wrong-way', this.root)
+
+  // Results
+  private readonly resultsOverlay = el('div', 'hud-results', this.root)
+  private readonly resultsCard = el('div', 'hud-results-card', this.resultsOverlay)
+  private readonly resultsTable: HTMLTableElement
+
+  // Kart controls & physics UI
   private readonly speedValue: HTMLElement
   private readonly driftBar = el('div', 'hud-drift', this.root)
   private readonly fill: HTMLElement
@@ -41,6 +59,7 @@ export class Hud {
   private readonly nitroTime: HTMLElement
   private readonly perfectPopup: HTMLElement
 
+  // Cached state
   private speedKmh = -1
   private barVisible = false
   private fillFraction = -1
@@ -53,18 +72,47 @@ export class Hud {
   private timeFraction = -1
   private perfect = false
 
+  private lapText = ''
+  private timeText = ''
+  private bestLapText = ''
+  private countdownLabel = ''
+  private wrongWay = false
+  private finished = false
+
   constructor(parent: HTMLElement = document.body) {
+    this.root.append(this.minimap.element)
+
+    // Top race badges
+    this.lapBadge.textContent = 'VUELTA 1/3'
+    this.timerValue = el('span', 'hud-timer-value', this.timerContainer)
+    this.timerValue.textContent = '0:00.00'
+    this.bestLapValue = el('span', 'hud-best-lap', this.timerContainer)
+
+    this.wrongWayBadge.textContent = '¡VÍA CONTRARIA!'
+
+    // Results modal
+    const title = el('h2', 'hud-results-title', this.resultsCard)
+    title.textContent = '¡CARRERA TERMINADA!'
+    this.resultsTable = document.createElement('table')
+    this.resultsTable.className = 'hud-results-table'
+    this.resultsCard.append(this.resultsTable)
+    const restartPrompt = el('div', 'hud-results-restart', this.resultsCard)
+    restartPrompt.textContent = 'Presiona R para reiniciar la carrera'
+
+    // Speedometer
     const speed = el('div', 'hud-speed', this.root)
     this.speedValue = el('span', 'hud-speed-value', speed)
     this.speedValue.textContent = '0'
     el('span', 'hud-speed-unit', speed).textContent = SPEED_UNIT
 
+    // Drift Bar
     const track = el('div', 'hud-drift-track', this.driftBar)
     this.fill = el('div', 'hud-drift-fill', track)
     this.marker = el('div', 'hud-drift-marker', track)
     const pipRow = el('div', 'hud-pips', this.driftBar)
     for (let i = 0; i < PIP_COUNT; i++) this.pips.push(el('div', 'hud-pip', pipRow))
 
+    // Nitro badge
     this.nitroLabel = el('div', 'hud-nitro-label', this.nitro)
     this.nitroTime = el('div', 'hud-nitro-time', el('div', 'hud-nitro-track', this.nitro))
     this.perfectPopup = el('div', 'hud-perfect', this.root)
@@ -73,11 +121,66 @@ export class Hud {
     parent.append(this.root)
   }
 
+  setTrack(track: Track): void {
+    this.minimap.setTrack(track)
+  }
+
   /** Draws the model, touching only what changed since the previous call. */
-  update(model: HudModel): void {
+  update(model: HudModel, playerPos?: Vec2, playerHeading?: number): void {
     this.updateSpeed(model)
     this.updateDrift(model)
     this.updateNitro(model)
+    this.updateRace(model)
+
+    if (playerPos && playerHeading !== undefined) {
+      this.minimap.update(playerPos, playerHeading)
+    }
+  }
+
+  private updateRace(model: HudModel): void {
+    if (model.lapText !== this.lapText) {
+      this.lapText = model.lapText
+      this.lapBadge.textContent = model.lapText
+    }
+
+    if (model.timeText !== this.timeText) {
+      this.timeText = model.timeText
+      this.timerValue.textContent = model.timeText
+    }
+
+    if (model.bestLapText !== this.bestLapText) {
+      this.bestLapText = model.bestLapText
+      this.bestLapValue.textContent = model.bestLapText
+    }
+
+    if (model.countdownLabel !== this.countdownLabel) {
+      this.countdownLabel = model.countdownLabel
+      this.countdownBadge.textContent = model.countdownLabel
+      this.countdownBadge.classList.toggle('is-active', model.countdownLabel !== '')
+    }
+
+    if (model.wrongWay !== this.wrongWay) {
+      this.wrongWay = model.wrongWay
+      this.wrongWayBadge.classList.toggle('is-visible', model.wrongWay)
+    }
+
+    if (model.finished !== this.finished) {
+      this.finished = model.finished
+      this.resultsOverlay.classList.toggle('is-visible', model.finished)
+      if (model.finished && model.finalTimes) {
+        this.renderResultsTable(model.finalTimes)
+      }
+    }
+  }
+
+  private renderResultsTable(times: FinalTimes): void {
+    this.resultsTable.innerHTML = `
+      <tr><td>Vuelta 1:</td><td>${times.lap1}</td></tr>
+      <tr><td>Vuelta 2:</td><td>${times.lap2}</td></tr>
+      <tr><td>Vuelta 3:</td><td>${times.lap3}</td></tr>
+      <tr style="border-top: 2px solid rgba(255,255,255,0.2)"><td>Total:</td><td>${times.total}</td></tr>
+      <tr><td>Mejor Vuelta:</td><td style="color: #a8e6cf">${times.best}</td></tr>
+    `
   }
 
   private updateSpeed(model: HudModel): void {
@@ -91,7 +194,6 @@ export class Hud {
       this.barVisible = model.barVisible
       this.driftBar.classList.toggle('is-visible', model.barVisible)
     }
-    // Keep the last values while fading out so the bar does not jump to empty.
     if (!model.barVisible) return
     if (model.redZoneStart !== this.redZoneStart) {
       this.redZoneStart = model.redZoneStart

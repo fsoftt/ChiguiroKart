@@ -18,6 +18,176 @@
   box-sizing: border-box;
 }
 
+/* Minimap radar, bottom-left */
+.hud-minimap {
+  position: absolute;
+  left: var(--hud-gap);
+  bottom: var(--hud-gap);
+  border-radius: 50%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.45);
+  pointer-events: none;
+}
+
+/* Lap Counter, top-left */
+.hud-lap-badge {
+  position: absolute;
+  left: var(--hud-gap);
+  top: var(--hud-gap);
+  padding: 4px 18px;
+  background: var(--hud-panel);
+  border: 4px solid var(--hud-outline);
+  border-radius: 18px;
+  font-size: clamp(16px, 3.5vw, 28px);
+  color: #ffd23f;
+  box-shadow: 0 4px 0 var(--hud-outline);
+  text-shadow:
+    -2px -2px 0 var(--hud-outline),
+    2px -2px 0 var(--hud-outline),
+    -2px 2px 0 var(--hud-outline),
+    2px 2px 0 var(--hud-outline);
+}
+
+/* Lap Timer, top-right */
+.hud-timer-badge {
+  position: absolute;
+  right: var(--hud-gap);
+  top: var(--hud-gap);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  padding: 4px 18px;
+  background: var(--hud-panel);
+  border: 4px solid var(--hud-outline);
+  border-radius: 18px;
+  font-size: clamp(18px, 3.5vw, 30px);
+  color: #fff;
+  font-variant-numeric: tabular-nums;
+  box-shadow: 0 4px 0 var(--hud-outline);
+  text-shadow:
+    -2px -2px 0 var(--hud-outline),
+    2px -2px 0 var(--hud-outline),
+    -2px 2px 0 var(--hud-outline),
+    2px 2px 0 var(--hud-outline);
+}
+
+.hud-best-lap {
+  font-size: clamp(11px, 2vw, 15px);
+  color: #a8e6cf;
+}
+
+/* Big center countdown banner */
+.hud-countdown {
+  position: absolute;
+  left: 50%;
+  top: 40%;
+  transform: translate(-50%, -50%) scale(0.6);
+  font-size: clamp(64px, 16vw, 150px);
+  color: #ffd23f;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  text-shadow:
+    -4px -4px 0 var(--hud-outline),
+    4px -4px 0 var(--hud-outline),
+    -4px 4px 0 var(--hud-outline),
+    4px 4px 0 var(--hud-outline),
+    0 8px 0 var(--hud-outline);
+  transition:
+    transform 0.15s ease-out,
+    opacity 0.15s ease-out;
+}
+
+.hud-countdown.is-active {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+/* Wrong way alert */
+.hud-wrong-way {
+  position: absolute;
+  left: 50%;
+  top: 22%;
+  transform: translateX(-50%);
+  padding: 6px 24px;
+  background: #ff3b30;
+  border: 4px solid #fff;
+  border-radius: 20px;
+  font-size: clamp(18px, 4vw, 32px);
+  color: #fff;
+  display: none;
+  box-shadow: 0 4px 0 var(--hud-outline);
+  text-shadow:
+    -2px -2px 0 #000,
+    2px -2px 0 #000;
+  animation: hud-shake 0.4s infinite;
+}
+
+.hud-wrong-way.is-visible {
+  display: block;
+}
+
+/* Final Results Card Overlay */
+.hud-results {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: rgba(12, 16, 28, 0.75);
+  backdrop-filter: blur(4px);
+  pointer-events: auto;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.4s ease;
+}
+
+.hud-results.is-visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.hud-results-card {
+  padding: 24px 44px;
+  background: var(--hud-panel);
+  border: 6px solid var(--hud-outline);
+  border-radius: 28px;
+  box-shadow: 0 10px 0 var(--hud-outline);
+  text-align: center;
+  color: #fff;
+}
+
+.hud-results-title {
+  margin: 0 0 16px;
+  font-size: clamp(28px, 6vw, 44px);
+  color: #ffd23f;
+  text-shadow:
+    -2px -2px 0 var(--hud-outline),
+    2px -2px 0 var(--hud-outline);
+}
+
+.hud-results-table {
+  width: 100%;
+  margin: 16px 0 24px;
+  border-collapse: collapse;
+  font-size: clamp(16px, 3.5vw, 24px);
+}
+
+.hud-results-table td {
+  padding: 6px 16px;
+  text-align: left;
+}
+
+.hud-results-table td:last-child {
+  text-align: right;
+  color: #ffd23f;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-results-restart {
+  font-size: clamp(14px, 2.8vw, 18px);
+  color: #a8e6cf;
+}
+
 /* Speedometer, bottom-right */
 .hud-speed {
   position: absolute;

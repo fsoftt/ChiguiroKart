@@ -3,32 +3,36 @@ import { headingOf, type Vec2 } from '../sim/math'
 import type { Track } from '../sim/track'
 
 const ROAD_COLOR = '#5b5f66'
-const GRASS_COLOR = '#6cbf4a'
+const WOOD_COLOR = '#8d5524'
+const MUD_COLOR = '#5c3a21'
+const GRASS_COLOR = '#4a9934'
 const CURB_COLORS = ['#e8413c', '#ffffff'] as const
-const WALL_COLOR = '#f2c14e'
+const WALL_COLOR = '#e5b842'
 const TREE_TRUNK_COLOR = '#8b5a2b'
 const TREE_LEAVES_COLOR = '#2f8f3a'
+const PALM_TRUNK_COLOR = '#cfcbbd'
+const PALM_FROND_COLOR = '#207833'
 
 const CURB_WIDTH = 1
 const WALL_HEIGHT = 0.8
 const WALL_THICKNESS = 0.5
-const TREE_COUNT = 260
+const TREE_COUNT = 240
 const TREE_MIN_GAP = 6
-const TREE_SPREAD = 60
+const TREE_SPREAD = 70
 const UP = new THREE.Vector3(0, 1, 0)
 
-/** Builds the 3D scenery for a track: ground, road, curbs, walls and trees. */
+/** Builds the 3D scenery for a track: ground, road, curbs, walls and foliage. */
 export function createTrackView(track: Track): THREE.Group {
   const group = new THREE.Group()
   group.name = `track:${track.name}`
   group.add(createGround())
-  group.add(createRibbon(track, -track.halfWidth, track.halfWidth, 0.01, ROAD_COLOR))
+  group.add(createRoadRibbon(track))
   group.add(createCurbs(track, track.halfWidth - CURB_WIDTH, track.halfWidth))
   group.add(createCurbs(track, -track.halfWidth, -track.halfWidth + CURB_WIDTH))
   group.add(createWall(track, track.halfWidth))
   group.add(createWall(track, -track.halfWidth - WALL_THICKNESS))
   group.add(createStartLine(track))
-  group.add(createTrees(track))
+  group.add(createFoliage(track))
   return group
 }
 
@@ -37,12 +41,12 @@ function toon(color: string): THREE.MeshToonMaterial {
 }
 
 function createGround(): THREE.Mesh {
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(600, 600), toon(GRASS_COLOR))
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), toon(GRASS_COLOR))
   ground.rotation.x = -Math.PI / 2
+  ground.position.y = -0.05
   return ground
 }
 
-/** Unit vector perpendicular to the road at point `i`, pointing to the driver's left. */
 function sideAt(track: Track, i: number): Vec2 {
   const before = track.point(i - 1)
   const after = track.point(i + 1)
@@ -52,7 +56,6 @@ function sideAt(track: Track, i: number): Vec2 {
   return { x: dz / length, z: -dx / length }
 }
 
-/** Points offset sideways from the centerline, one per centerline point plus a closing one. */
 function offsetLoop(track: Track, offset: number): Vec2[] {
   return Array.from({ length: track.centerline.length + 1 }, (_, i) => {
     const point = track.point(i)
@@ -61,28 +64,57 @@ function offsetLoop(track: Track, offset: number): Vec2[] {
   })
 }
 
-/** Flat strip between two sideways offsets, optionally split into colored segments. */
+/** 3D strip between two sideways offsets, conforming to track elevation. */
 function stripGeometry(
   track: Track,
   inner: number,
   outer: number,
-  y: number,
+  yOffset: number,
   colorAt?: (segment: number) => THREE.Color,
 ): THREE.BufferGeometry {
   const a = offsetLoop(track, inner)
   const b = offsetLoop(track, outer)
   const positions: number[] = []
   const colors: number[] = []
+
   for (let i = 0; i < track.centerline.length; i++) {
     const [a0, a1, b0, b1] = [a[i], a[i + 1], b[i], b[i + 1]]
     if (!a0 || !a1 || !b0 || !b1) continue
-    // Two triangles per segment, wound to face up
-    for (const p of [a0, b0, a1, a1, b0, b1]) positions.push(p.x, y, p.z)
+
+    const ya0 = track.groundHeight(a0.x, a0.z) + yOffset
+    const ya1 = track.groundHeight(a1.x, a1.z) + yOffset
+    const yb0 = track.groundHeight(b0.x, b0.z) + yOffset
+    const yb1 = track.groundHeight(b1.x, b1.z) + yOffset
+
+    // Two triangles per segment
+    positions.push(
+      a0.x,
+      ya0,
+      a0.z,
+      b0.x,
+      yb0,
+      b0.z,
+      a1.x,
+      ya1,
+      a1.z,
+
+      a1.x,
+      ya1,
+      a1.z,
+      b0.x,
+      yb0,
+      b0.z,
+      b1.x,
+      yb1,
+      b1.z,
+    )
+
     if (colorAt) {
       const color = colorAt(i)
       for (let v = 0; v < 6; v++) colors.push(color.r, color.g, color.b)
     }
   }
+
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   if (colorAt) geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
@@ -90,16 +122,20 @@ function stripGeometry(
   return geometry
 }
 
-function createRibbon(
-  track: Track,
-  inner: number,
-  outer: number,
-  y: number,
-  color: string,
-): THREE.Mesh {
-  const mesh = new THREE.Mesh(stripGeometry(track, inner, outer, y), toon(color))
-  mesh.material.side = THREE.DoubleSide
-  return mesh
+function createRoadRibbon(track: Track): THREE.Mesh {
+  const asphaltCol = new THREE.Color(ROAD_COLOR)
+  const woodCol = new THREE.Color(WOOD_COLOR)
+  const mudCol = new THREE.Color(MUD_COLOR)
+
+  const geometry = stripGeometry(track, -track.halfWidth, track.halfWidth, 0.01, (segment) => {
+    const pt = track.point(segment)
+    const surface = track.surfaceAt(pt.x, pt.z)
+    if (surface === 'wood') return woodCol
+    if (surface === 'mud') return mudCol
+    return asphaltCol
+  })
+  const material = new THREE.MeshToonMaterial({ vertexColors: true, side: THREE.DoubleSide })
+  return new THREE.Mesh(geometry, material)
 }
 
 function createCurbs(track: Track, inner: number, outer: number): THREE.Mesh {
@@ -119,21 +155,86 @@ function createWall(track: Track, offset: number): THREE.Mesh {
   const near = offsetLoop(track, offset)
   const far = offsetLoop(track, offset + WALL_THICKNESS)
   const positions: number[] = []
+
   for (let i = 0; i < track.centerline.length; i++) {
     const [n0, n1, f0, f1] = [near[i], near[i + 1], far[i], far[i + 1]]
     if (!n0 || !n1 || !f0 || !f1) continue
-    for (const [p, q] of [
-      [n0, n1],
-      [f1, f0],
-    ] as const) {
-      // Vertical face from p to q
-      positions.push(p.x, 0, p.z, q.x, 0, q.z, p.x, WALL_HEIGHT, p.z)
-      positions.push(p.x, WALL_HEIGHT, p.z, q.x, 0, q.z, q.x, WALL_HEIGHT, q.z)
-    }
+
+    const yn0 = track.groundHeight(n0.x, n0.z)
+    const yn1 = track.groundHeight(n1.x, n1.z)
+    const yf0 = track.groundHeight(f0.x, f0.z)
+    const yf1 = track.groundHeight(f1.x, f1.z)
+
+    // Near face
+    positions.push(
+      n0.x,
+      yn0,
+      n0.z,
+      n1.x,
+      yn1,
+      n1.z,
+      n0.x,
+      yn0 + WALL_HEIGHT,
+      n0.z,
+
+      n0.x,
+      yn0 + WALL_HEIGHT,
+      n0.z,
+      n1.x,
+      yn1,
+      n1.z,
+      n1.x,
+      yn1 + WALL_HEIGHT,
+      n1.z,
+    )
+
+    // Far face
+    positions.push(
+      f1.x,
+      yf1,
+      f1.z,
+      f0.x,
+      yf0,
+      f0.z,
+      f1.x,
+      yf1 + WALL_HEIGHT,
+      f1.z,
+
+      f1.x,
+      yf1 + WALL_HEIGHT,
+      f1.z,
+      f0.x,
+      yf0,
+      f0.z,
+      f0.x,
+      yf0 + WALL_HEIGHT,
+      f0.z,
+    )
+
     // Top face
-    positions.push(n0.x, WALL_HEIGHT, n0.z, f0.x, WALL_HEIGHT, f0.z, n1.x, WALL_HEIGHT, n1.z)
-    positions.push(n1.x, WALL_HEIGHT, n1.z, f0.x, WALL_HEIGHT, f0.z, f1.x, WALL_HEIGHT, f1.z)
+    positions.push(
+      n0.x,
+      yn0 + WALL_HEIGHT,
+      n0.z,
+      f0.x,
+      yf0 + WALL_HEIGHT,
+      f0.z,
+      n1.x,
+      yn1 + WALL_HEIGHT,
+      n1.z,
+
+      n1.x,
+      yn1 + WALL_HEIGHT,
+      n1.z,
+      f0.x,
+      yf0 + WALL_HEIGHT,
+      f0.z,
+      f1.x,
+      yf1 + WALL_HEIGHT,
+      f1.z,
+    )
   }
+
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   geometry.computeVertexNormals()
@@ -162,17 +263,15 @@ function createStartLine(track: Track): THREE.Mesh {
   const texture = new THREE.CanvasTexture(canvas)
   texture.magFilter = THREE.NearestFilter
   const line = new THREE.Mesh(
-    new THREE.PlaneGeometry(track.halfWidth * 2, 2),
+    new THREE.PlaneGeometry(track.halfWidth * 2, 2.5),
     new THREE.MeshBasicMaterial({ map: texture }),
   )
   line.rotation.x = -Math.PI / 2
-  // Lay the stripe across the road: its width follows the driver's left/right
   line.rotateOnWorldAxis(UP, headingOf(next.x - start.x, next.z - start.z))
-  line.position.set(start.x, 0.03, start.z)
+  line.position.set(start.x, track.groundHeight(start.x, start.z) + 0.03, start.z)
   return line
 }
 
-/** Small deterministic random generator so the scenery is the same on every load. */
 function seededRandom(seed: number): () => number {
   let state = seed
   return () => {
@@ -181,34 +280,56 @@ function seededRandom(seed: number): () => number {
   }
 }
 
-function createTrees(track: Track): THREE.Group {
+/** Generates signature wax palms for Cocora, or pine trees for other tracks. */
+function createFoliage(track: Track): THREE.Group {
+  const isCocora = track.name.toLowerCase().includes('cocora')
   const random = seededRandom(42)
+
+  const trunkGeo = isCocora
+    ? new THREE.CylinderGeometry(0.2, 0.35, 14, 6)
+    : new THREE.CylinderGeometry(0.3, 0.4, 2, 6)
+
+  const leavesGeo = isCocora
+    ? new THREE.ConeGeometry(2.8, 2.0, 7) // tuft crown of palm leaves
+    : new THREE.ConeGeometry(1.8, 4, 7)
+
   const trunk = new THREE.InstancedMesh(
-    new THREE.CylinderGeometry(0.3, 0.4, 2, 6),
-    toon(TREE_TRUNK_COLOR),
+    trunkGeo,
+    toon(isCocora ? PALM_TRUNK_COLOR : TREE_TRUNK_COLOR),
     TREE_COUNT,
   )
   const leaves = new THREE.InstancedMesh(
-    new THREE.ConeGeometry(1.8, 4, 7),
-    toon(TREE_LEAVES_COLOR),
+    leavesGeo,
+    toon(isCocora ? PALM_FROND_COLOR : TREE_LEAVES_COLOR),
     TREE_COUNT,
   )
+
   const matrix = new THREE.Matrix4()
   const minDistance = track.halfWidth + TREE_MIN_GAP
 
   let placed = 0
-  for (let attempt = 0; placed < TREE_COUNT && attempt < TREE_COUNT * 10; attempt++) {
+  for (let attempt = 0; placed < TREE_COUNT && attempt < TREE_COUNT * 12; attempt++) {
     const anchor = track.point(Math.floor(random() * track.centerline.length))
     const x = anchor.x + (random() - 0.5) * TREE_SPREAD * 2
     const z = anchor.z + (random() - 0.5) * TREE_SPREAD * 2
     if (track.project(x, z).distance < minDistance) continue
-    const scale = 0.8 + random() * 0.8
-    matrix.makeScale(scale, scale, scale).setPosition(x, scale, z)
+
+    const groundY = track.groundHeight(x, z)
+    const scale = isCocora ? 0.9 + random() * 0.7 : 0.8 + random() * 0.8
+    const height = isCocora ? 14 * scale : 2 * scale
+
+    // Trunk centered at groundY + height / 2
+    matrix.makeScale(scale, scale, scale).setPosition(x, groundY + height / 2, z)
     trunk.setMatrixAt(placed, matrix)
-    matrix.makeScale(scale, scale, scale).setPosition(x, scale * 4, z)
+
+    // Crown placed on top of trunk
+    const crownY = isCocora ? groundY + height : groundY + scale * 4
+    matrix.makeScale(scale, scale, scale).setPosition(x, crownY, z)
     leaves.setMatrixAt(placed, matrix)
+
     placed++
   }
+
   trunk.count = placed
   leaves.count = placed
 

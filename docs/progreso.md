@@ -11,7 +11,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | 0 — Base del proyecto                   | ✅     |
 | 1 — Kart que se maneja bien             | ✅     |
 | 2 — Derrape, nitros y saltos            | ✅     |
-| 3 — Primera pista real: Valle de Cocora | ⬜     |
+| 3 — Primera pista real: Valle de Cocora | ✅     |
 | 4 — Bots                                | ⬜     |
 | 5 — Poderes y uchuvas                   | ⬜     |
 | 6 — Personajes y animaciones            | ⬜     |
@@ -77,4 +77,23 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - Las partículas usan una reserva fija reciclada, sin asignaciones por frame. Dos nubes de puntos: humo con mezcla normal y llamas con mezcla aditiva.
 - `Espacio`/`Shift` en teclado; bumper derecho (salto) e izquierdo (nitro) en mando.
 
-## Etapa 3 — Primera pista real: Valle de Cocora ⬜
+## Etapa 3 — Primera pista real: Valle de Cocora ✅
+
+- ✅ Formato de pista por datos con elevaciones 3D, compuertas de checkpoints, superficies y puntos de reaparición (`sim/track.ts`, `sim/race/checkpoint.ts`, `sim/race/surface.ts`).
+- ✅ Circuito completo de Valle de Cocora con curvas de montaña, subida a cordillera, puente de madera colgante, atajo de barro en horquilla y rampa de salto entre palmas de cera (`config/tracks/cocoraTrack.ts`).
+- ✅ Superficies físicas con agarre, velocidad máxima y aceleración (`asphalt`, `wood`, `mud`, `grass`).
+- ✅ Conteo de vueltas por checkpoints obligatorios, validación de atajos legítimos y bloqueo de cortes indebidos (`sim/race/raceManager.ts`).
+- ✅ Cuenta regresiva ("3, 2, 1, ¡YA!"), con turbo de salida por aceleración a tiempo y ahogo de motor (1s) por acelerar antes de tiempo.
+- ✅ Detección de caída al vacío con reaparición automática en el último checkpoint válido.
+- ✅ Minimapa 2D en tiempo real con trazado de la pista, meta y flecha de orientación del kart (`ui/minimap.ts`).
+- ✅ HUD completo de carrera: contador de vueltas, cronómetro de vuelta actual, mejor vuelta, aviso de vía contraria y modal de resultados finales (`ui/hud.ts`, `ui/hudModel.ts`).
+- ✅ Persistencia de récords en el navegador (`localStorage`) con detección de mejores tiempos (`sim/race/records.ts`).
+- ✅ Render 3D con elevaciones en la pista, cinta coloreada según la superficie (madera/barro/asfalto) y palmas de cera gigantes instanciadas (`render/trackView.ts`).
+- ✅ Pruebas completas de checkpoints, reglas de carrera, circuito y récords (19 pruebas nuevas en esta etapa, 135 en total).
+
+**Notas:**
+
+- Los atajos en Cocora (salto de cresta y trocha de barro) están rodeados de checkpoints obligatorios antes y después, lo que garantiza que tomar el atajo sea una maniobra válida sin que se pueda cortar camino arbitrariamente por el pasto.
+- El minimapa renderiza el circuito en un canvas fuera de pantalla y solo actualiza el marcador del jugador en cada fotograma.
+
+## Etapa 4 — Bots ⬜

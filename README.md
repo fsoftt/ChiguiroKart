@@ -4,16 +4,17 @@ Juego de karts en 3D estilo _Crash Team Racing_ con animales colombianos. Corre 
 
 **Jugar:** https://fsoftt.github.io/ChiguiroKart/
 
-> En desarrollo. Hoy se puede derrapar y encadenar nitros en una pista de prueba. Mira el [progreso](docs/progreso.md).
+> En desarrollo. Ya se puede correr una carrera completa de 3 vueltas en el Valle de Cocora con atajos y minimapa. Mira el [progreso](docs/progreso.md).
 
 ## Estado actual
 
-| Etapa                        | Estado     |
-| ---------------------------- | ---------- |
-| 0 — Base del proyecto        | ✅         |
-| 1 — Kart que se maneja bien  | ✅         |
-| 2 — Derrape, nitros y saltos | ✅         |
-| 3 a 11                       | Pendientes |
+| Etapa                                   | Estado     |
+| --------------------------------------- | ---------- |
+| 0 — Base del proyecto                   | ✅         |
+| 1 — Kart que se maneja bien             | ✅         |
+| 2 — Derrape, nitros y saltos            | ✅         |
+| 3 — Primera pista real: Valle de Cocora | ✅         |
+| 4 a 11                                  | Pendientes |
 
 ## Controles
 

@@ -2,6 +2,7 @@ import type { DriftConfig } from '../config/drift'
 import type { KartPhysicsConfig } from '../config/kartPhysics'
 import { forwardSpeed } from '../sim/kart/kartPhysics'
 import type { KartState } from '../sim/kart/kartState'
+import type { RaceState } from '../sim/race/raceState'
 
 const KMH_PER_MS = 3.6
 const FALLBACK_COLOR = '#ff3b30'
@@ -14,6 +15,14 @@ export interface HudPip {
   filled: boolean
   /** Level color when filled, empty string otherwise. */
   color: string
+}
+
+export interface FinalTimes {
+  lap1: string
+  lap2: string
+  lap3: string
+  total: string
+  best: string
 }
 
 /** Plain data the HUD draws; contains no DOM and no simulation references. */
@@ -35,6 +44,15 @@ export interface HudModel {
   /** Remaining nitro time over the reserve cap, 0..1. */
   nitroTimeFraction: number
   perfect: boolean
+
+  // Race data
+  countdownLabel: string
+  lapText: string
+  timeText: string
+  bestLapText: string
+  wrongWay: boolean
+  finished: boolean
+  finalTimes: FinalTimes | null
 }
 
 function clamp01(value: number): number {
@@ -54,6 +72,14 @@ function parseHex(color: string): number[] {
 function toHex(channel: number): string {
   const clamped = Math.min(CHANNEL_MAX, Math.max(0, Math.round(channel)))
   return clamped.toString(HEX_RADIX).padStart(HEX_DIGITS_PER_CHANNEL, '0')
+}
+
+/** Formats seconds into MM:SS.cc */
+export function formatTime(seconds: number): string {
+  const mins = Math.floor(seconds / 60)
+  const secs = Math.floor(seconds % 60)
+  const hundredths = Math.floor((seconds % 1) * 100)
+  return `${mins}:${secs.toString().padStart(2, '0')}.${hundredths.toString().padStart(2, '0')}`
 }
 
 /** Linear interpolation between two `#rrggbb` colors. */
@@ -81,15 +107,62 @@ function pipAt(kart: KartState, drift: DriftConfig, index: number): HudPip {
   return { filled, color: filled ? (drift.levels[index]?.color ?? '') : '' }
 }
 
-/** Builds everything the HUD needs for one frame from the (interpolated) kart. */
+function computeCountdownLabel(race: RaceState): string {
+  if (race.phase === 'finished') return ''
+  if (race.phase === 'countdown') {
+    if (race.countdown > 2.0) return '3'
+    if (race.countdown > 1.0) return '2'
+    if (race.countdown > 0.0) return '1'
+    return '¡YA!'
+  }
+  if (race.totalRaceTime < 1.4) return '¡YA!'
+  return ''
+}
+
+function computeLapText(race: RaceState): string {
+  if (race.phase === 'countdown') return `VUELTA 1/${race.totalLaps}`
+  if (race.currentLap === race.totalLaps) return `¡ÚLTIMA VUELTA!`
+  return `VUELTA ${race.currentLap}/${race.totalLaps}`
+}
+
+/** Builds everything the HUD needs for one frame from the kart and race state. */
 export function buildHudModel(
   kart: KartState,
   physics: KartPhysicsConfig,
   drift: DriftConfig,
+  race?: RaceState,
 ): HudModel {
   const speed = Math.max(0, forwardSpeed(kart))
   const level = kart.boost.level
   const active = level > 0
+
+  let countdownLabel = ''
+  let lapText = ''
+  let timeText = ''
+  let bestLapText = ''
+  let wrongWay = false
+  let finished = false
+  let finalTimes: FinalTimes | null = null
+
+  if (race) {
+    countdownLabel = computeCountdownLabel(race)
+    lapText = computeLapText(race)
+    timeText = formatTime(race.phase === 'finished' ? race.totalRaceTime : race.currentLapTime)
+    bestLapText = race.bestLapTime !== null ? `MEJOR: ${formatTime(race.bestLapTime)}` : ''
+    wrongWay = race.wrongWay
+    finished = race.phase === 'finished'
+
+    if (finished) {
+      finalTimes = {
+        lap1: formatTime(race.lapTimes[0] ?? 0),
+        lap2: formatTime(race.lapTimes[1] ?? 0),
+        lap3: formatTime(race.lapTimes[2] ?? 0),
+        total: formatTime(race.totalRaceTime),
+        best: formatTime(race.bestLapTime ?? 0),
+      }
+    }
+  }
+
   return {
     speedKmh: Math.round(speed * KMH_PER_MS),
     speedRatio: clamp01(speed / physics.maxSpeed),
@@ -103,5 +176,13 @@ export function buildHudModel(
     nitroColor: active ? (drift.levels[level - 1]?.color ?? '') : '',
     nitroTimeFraction: active ? clamp01(kart.boost.timeLeft / drift.maxReserve) : 0,
     perfect: active && kart.boost.perfect,
+
+    countdownLabel,
+    lapText,
+    timeText,
+    bestLapText,
+    wrongWay,
+    finished,
+    finalTimes,
   }
 }
