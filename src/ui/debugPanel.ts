@@ -1,4 +1,5 @@
 import type { ChaseCameraConfig } from '../config/camera'
+import type { DriftConfig } from '../config/drift'
 import type { KartPhysicsConfig } from '../config/kartPhysics'
 
 export interface DebugReadout {
@@ -8,6 +9,7 @@ export interface DebugReadout {
 
 export interface DebugPanelOptions {
   physics: KartPhysicsConfig
+  drift: DriftConfig
   camera: ChaseCameraConfig
   readout: DebugReadout
   onReset: () => void
@@ -47,6 +49,23 @@ export async function createDebugPanel(options: DebugPanelOptions): Promise<void
   physics.add(p, 'wallBounce', 0, 1, 0.05).name('Rebote en pared')
   physics.add(p, 'wallFriction', 0, 2, 0.05).name('Fricción en pared')
   physics.add(p, 'wallAlignRate', 0, 30, 0.5).name('Alinear con pared')
+
+  const drift = gui.addFolder('Derrape y nitro')
+  const d = options.drift
+  drift.add(d, 'chargeRate', 0.2, 3, 0.05).name('Carga de la barra (1/s)')
+  drift.add(d, 'redZoneStart', 0.3, 1, 0.01).name('Inicio zona roja')
+  drift.add(d, 'perfectWindow', 0, 0.3, 0.005).name('Ventana perfecta')
+  drift.add(d, 'overchargeGrace', 0, 1.5, 0.05).name('Gracia de sobrecarga (s)')
+  drift.add(d, 'maxReserve', 0.5, 6, 0.1).name('Reserva máx. (s)')
+  drift.add(d, 'hopSpeed', 1, 10, 0.05).name('Velocidad del salto')
+  drift.add(d, 'minDriftSpeed', 2, 20, 0.5).name('Vel. mín. de derrape')
+  drift.add(d, 'driftSteerThreshold', 0, 1, 0.05).name('Umbral de dirección')
+  drift.add(d, 'driftBaseTurn', 0, 1, 0.05).name('Giro base derrapando')
+  drift.add(d, 'driftSteerInfluence', 0, 1, 0.05).name('Influencia del volante')
+  drift.add(d, 'driftLateralGrip', 0.5, 20, 0.5).name('Agarre derrapando')
+  drift.add(d, 'boostAcceleration', 10, 150, 1).name('Acel. con nitro')
+  drift.add(d, 'landingBoostMinAirTime', 0, 2, 0.05).name('Aire mín. para turbo')
+  drift.add(d, 'landingBoostPerAirSecond', 0, 3, 0.05).name('Turbo por segundo de aire')
 
   const camera = gui.addFolder('Cámara')
   const c = options.camera

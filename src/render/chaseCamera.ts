@@ -2,6 +2,15 @@ import type * as THREE from 'three'
 import type { ChaseCameraConfig } from '../config/camera'
 import { clamp, damp, forwardOf, type Vec3 } from '../sim/math'
 
+/** One-frame camera extra: nitro fov kick (degrees) and shake offset (m). */
+export interface CameraFeedback {
+  fovKick: number
+  shakeX: number
+  shakeY: number
+}
+
+const NO_FEEDBACK: CameraFeedback = { fovKick: 0, shakeX: 0, shakeY: 0 }
+
 /** Third-person camera that trails the kart and widens its view with speed. */
 export class ChaseCamera {
   private initialized = false
@@ -15,8 +24,16 @@ export class ChaseCamera {
   /**
    * @param speedRatio forward speed divided by top speed, 0..1
    * @param lookBack true to look behind the kart
+   * @param feedback extra field of view from a fresh nitro (degrees) and a shake offset (m)
    */
-  update(target: Vec3, heading: number, speedRatio: number, lookBack: boolean, dt: number): void {
+  update(
+    target: Vec3,
+    heading: number,
+    speedRatio: number,
+    lookBack: boolean,
+    dt: number,
+    feedback: CameraFeedback = NO_FEEDBACK,
+  ): void {
     const forward = forwardOf(heading)
     const side = lookBack ? -1 : 1
     const desired = {
@@ -39,6 +56,8 @@ export class ChaseCamera {
         damp(position.z, desired.z, k, dt),
       )
     }
+    position.x += feedback.shakeX
+    position.y += feedback.shakeY
 
     this.camera.lookAt(
       target.x + forward.x * this.config.lookAhead * side,
@@ -46,7 +65,8 @@ export class ChaseCamera {
       target.z + forward.z * this.config.lookAhead * side,
     )
 
-    const fov = this.config.baseFov + this.config.speedFovBoost * clamp(speedRatio, 0, 1)
+    const fov =
+      this.config.baseFov + this.config.speedFovBoost * clamp(speedRatio, 0, 1) + feedback.fovKick
     if (Math.abs(fov - this.camera.fov) > 0.01) {
       this.camera.fov = damp(this.camera.fov, fov, 5, dt)
       this.camera.updateProjectionMatrix()

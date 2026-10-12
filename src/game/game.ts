@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { defaultChaseCamera } from '../config/camera'
 import { defaultDrift } from '../config/drift'
+import { defaultEffects } from '../config/effects'
 import { defaultKartPhysics } from '../config/kartPhysics'
 import { testTrack } from '../config/tracks/testTrack'
 import { GamepadSource } from '../input/gamepad'
@@ -8,6 +9,10 @@ import { combineInputs, type InputSource, type KartInput } from '../input/kartIn
 import { KeyboardSource } from '../input/keyboard'
 import { ChaseCamera } from '../render/chaseCamera'
 import { createScene, resizeToCanvas, type SceneContext } from '../render/createScene'
+import { speedLineTarget } from '../render/effects/effectsLogic'
+import { KartEffects } from '../render/effects/kartEffects'
+import { KartFeedback } from '../render/effects/kartFeedback'
+import { SpeedLines } from '../render/effects/speedLines'
 import { KartView } from '../render/kartView'
 import { createTrackView } from '../render/trackView'
 import { FixedStep } from '../sim/fixedStep'
@@ -22,11 +27,13 @@ import { buildHudModel } from '../ui/hudModel'
 const SIMULATION_HZ = 60
 const RESET_KEY = 'KeyR'
 const MS_PER_KMH = 3.6
+const SPEED_LINE_STREAKS = 90
 
 /** Wires input, simulation and rendering together and runs the frame loop. */
 export class Game {
   private readonly physics = { ...defaultKartPhysics }
   private readonly driftConfig = { ...defaultDrift }
+  private readonly effectsConfig = defaultEffects
   private readonly cameraConfig = { ...defaultChaseCamera }
   private readonly world = new RaceWorld(testTrack, this.physics, this.driftConfig)
   private readonly fixedStep = new FixedStep(1 / SIMULATION_HZ)
@@ -34,6 +41,9 @@ export class Game {
 
   private readonly scene: SceneContext
   private readonly kartView = new KartView()
+  private readonly kartEffects = new KartEffects(defaultEffects, this.driftConfig)
+  private readonly speedLines = new SpeedLines(SPEED_LINE_STREAKS, defaultEffects.speedLines.color)
+  private readonly kartFeedback = new KartFeedback(defaultEffects.camera)
   private readonly chaseCamera: ChaseCamera
   private readonly inputSources: InputSource[] = [new KeyboardSource(), new GamepadSource()]
   private readonly fpsOverlay: FpsOverlay | null
@@ -44,7 +54,12 @@ export class Game {
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene = createScene(canvas)
-    this.scene.scene.add(createTrackView(this.world.track), this.kartView.object)
+    this.scene.scene.add(
+      createTrackView(this.world.track),
+      this.kartView.object,
+      this.kartEffects.object,
+      this.speedLines.object,
+    )
     this.chaseCamera = new ChaseCamera(this.scene.camera, this.cameraConfig)
     this.previousKart = cloneKartState(this.world.kart)
 
@@ -53,6 +68,7 @@ export class Game {
     if (debug) {
       void createDebugPanel({
         physics: this.physics,
+        drift: this.driftConfig,
         camera: this.cameraConfig,
         readout: this.readout,
         onReset: () => this.resetKart(),
@@ -86,7 +102,15 @@ export class Game {
 
     resizeToCanvas(this.scene)
     this.kartView.update(kart, input.steer, speed, speedRatio, dt)
-    this.chaseCamera.update(kart.position, kart.heading, speedRatio, input.lookBack, dt)
+    this.kartEffects.update(kart, speedRatio, dt)
+
+    const feedback = this.kartFeedback.update(kart.boost, kart.drift, this.timer.getElapsed(), dt)
+    this.chaseCamera.update(kart.position, kart.heading, speedRatio, input.lookBack, dt, feedback)
+    this.speedLines.update(
+      speedLineTarget(speedRatio, kart.boost.level, this.effectsConfig.speedLines),
+      dt,
+    )
+
     this.hud.update(buildHudModel(kart, this.physics, this.driftConfig))
     this.scene.renderer.render(this.scene.scene, this.scene.camera)
 

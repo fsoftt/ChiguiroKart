@@ -30,7 +30,7 @@ export function tickBoost(state: KartState, dt: number): void {
 export function boostSpeedBonus(state: KartState, config: DriftConfig): number {
   const { level, perfect } = state.boost
   if (level === 0) return 0
-  return config.levels[level - 1].speedBonus + (perfect ? config.perfectBonus : 0)
+  return (config.levels[level - 1]?.speedBonus ?? 0) + (perfect ? config.perfectBonus : 0)
 }
 
 /** Gives a boost proportional to the airtime of the jump just finished. */

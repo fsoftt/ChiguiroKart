@@ -89,7 +89,7 @@ function pressBoost(state: KartState, config: DriftConfig): void {
   }
   const level = (drift.nitrosInChain + 1) as Exclude<NitroLevel, 0>
   const perfect = drift.charge - config.redZoneStart <= config.perfectWindow
-  addBoost(state, level, config.levels[level - 1].duration, perfect, config)
+  addBoost(state, level, config.levels[level - 1]?.duration ?? 0, perfect, config)
   drift.nitrosInChain++
   drift.charge = 0
   drift.overchargeTime = 0
