@@ -1,0 +1,25 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #87ceeb;
+}
+
+#game {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fps-overlay {
+  position: fixed;
+  top: 8px;
+  left: 8px;
+  padding: 2px 6px;
+  font: 12px/1.4 monospace;
+  color: #fff;
+  background: rgb(0 0 0 / 50%);
+  border-radius: 4px;
+  pointer-events: none;
+}
