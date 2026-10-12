@@ -1,3 +1,4 @@
+import type { DriftConfig } from '../config/drift'
 import type { KartPhysicsConfig } from '../config/kartPhysics'
 import type { KartInput } from '../input/kartInput'
 import { stepKart } from './kart/kartPhysics'
@@ -13,13 +14,21 @@ export class RaceWorld {
   constructor(
     trackDefinition: TrackDefinition,
     readonly physics: KartPhysicsConfig,
+    readonly drift: DriftConfig,
   ) {
     this.track = new Track(trackDefinition)
     this.kart = this.spawnKart()
   }
 
   step(input: KartInput, dt: number): void {
-    stepKart(this.kart, input, this.physics, (x, z) => this.track.groundHeight(x, z), dt)
+    stepKart(
+      this.kart,
+      input,
+      this.physics,
+      this.drift,
+      (x, z) => this.track.groundHeight(x, z),
+      dt,
+    )
     resolveTrackCollision(this.kart, this.track, this.physics, dt)
   }
 

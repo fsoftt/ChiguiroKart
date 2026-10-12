@@ -10,6 +10,10 @@ export interface KartState {
   onGround: boolean
   /** Seconds spent in the air in the current jump; 0 on the ground. */
   airTime: number
+  /** Jump button state at the previous step, for rising-edge detection. */
+  jumpHeld: boolean
+  /** Boost button state at the previous step, for rising-edge detection. */
+  boostHeld: boolean
   drift: DriftState
   boost: BoostState
 }
@@ -21,6 +25,8 @@ export function createKartState(position: Vec3, heading: number): KartState {
     heading,
     onGround: true,
     airTime: 0,
+    jumpHeld: false,
+    boostHeld: false,
     drift: createDriftState(),
     boost: createBoostState(),
   }

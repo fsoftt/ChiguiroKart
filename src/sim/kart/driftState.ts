@@ -19,6 +19,8 @@ export interface DriftState {
   nitrosInChain: number
   /** True after a mistimed nitro or overcharge; no more nitros until the next drift. */
   chainBroken: boolean
+  /** Seconds the bar has stayed full; the chain breaks past the overcharge grace. */
+  overchargeTime: number
 }
 
 export interface BoostState {
@@ -31,7 +33,7 @@ export interface BoostState {
 }
 
 export function createDriftState(): DriftState {
-  return { direction: 0, charge: 0, nitrosInChain: 0, chainBroken: false }
+  return { direction: 0, charge: 0, nitrosInChain: 0, chainBroken: false, overchargeTime: 0 }
 }
 
 export function createBoostState(): BoostState {

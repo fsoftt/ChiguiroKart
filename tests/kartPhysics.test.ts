@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { defaultDrift } from '../src/config/drift'
 import { defaultKartPhysics } from '../src/config/kartPhysics'
 import { NEUTRAL_INPUT, type KartInput } from '../src/input/kartInput'
 import { forwardSpeed, stepKart } from '../src/sim/kart/kartPhysics'
@@ -7,10 +8,13 @@ import { createKartState, type KartState } from '../src/sim/kart/kartState'
 const DT = 1 / 60
 const flatGround = (): number => 0
 const config = defaultKartPhysics
+const driftConfig = defaultDrift
 
 function simulate(state: KartState, input: Partial<KartInput>, seconds: number): KartState {
   const fullInput = { ...NEUTRAL_INPUT, ...input }
-  for (let t = 0; t < seconds; t += DT) stepKart(state, fullInput, config, flatGround, DT)
+  for (let t = 0; t < seconds; t += DT) {
+    stepKart(state, fullInput, config, driftConfig, flatGround, DT)
+  }
   return state
 }
 

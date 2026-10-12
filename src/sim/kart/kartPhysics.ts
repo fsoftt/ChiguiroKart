@@ -1,6 +1,9 @@
+import type { DriftConfig } from '../../config/drift'
 import type { KartPhysicsConfig } from '../../config/kartPhysics'
 import type { KartInput } from '../../input/kartInput'
 import { clamp, dotXZ, forwardOf, lerp, moveTowards, rightOf, wrapAngle } from '../math'
+import { applyLandingBoost, boostSpeedBonus, tickBoost } from './boost'
+import { checkDriftEnd, driftSteer, readEdges, tryHop, tryStartDrift, updateDrift } from './drift'
 import type { KartState } from './kartState'
 
 /** Ground height lookup, so physics does not depend on a concrete track type. */
@@ -11,13 +14,33 @@ export function stepKart(
   state: KartState,
   input: KartInput,
   config: KartPhysicsConfig,
+  driftConfig: DriftConfig,
   groundHeight: GroundHeight,
   dt: number,
 ): void {
-  if (state.onGround) drive(state, input, config, dt)
+  const edges = readEdges(state, input)
+
+  if (state.onGround) {
+    tryHop(state, edges.jumpPressed, driftConfig)
+    updateDrift(state, edges.boostPressed, driftConfig, dt)
+    checkDriftEnd(state, input, driftConfig)
+    drive(state, input, config, driftConfig, dt)
+  } else {
+    state.airTime += dt
+  }
+
   applyGravity(state, config, dt)
   integrate(state, dt)
+
+  const wasAirborne = !state.onGround
   landOnGround(state, groundHeight)
+  if (state.onGround && wasAirborne) {
+    applyLandingBoost(state, driftConfig)
+    state.airTime = 0
+    tryStartDrift(state, input, driftConfig)
+  }
+
+  tickBoost(state, dt)
 }
 
 /** Forward speed (m/s); negative when reversing. */
@@ -25,14 +48,33 @@ export function forwardSpeed(state: KartState): number {
   return dotXZ(state.velocity, forwardOf(state.heading))
 }
 
-function drive(state: KartState, input: KartInput, config: KartPhysicsConfig, dt: number): void {
+function drive(
+  state: KartState,
+  input: KartInput,
+  config: KartPhysicsConfig,
+  driftConfig: DriftConfig,
+  dt: number,
+): void {
   const speed = dotXZ(state.velocity, forwardOf(state.heading))
   const sideways = dotXZ(state.velocity, rightOf(state.heading))
+  const drifting = state.drift.direction !== 0
 
-  state.heading = wrapAngle(state.heading - turnRate(speed, input.steer, config) * dt)
+  const steer = drifting ? driftSteer(state, input.steer, driftConfig) : input.steer
+  state.heading = wrapAngle(state.heading - turnRate(speed, steer, config) * dt)
 
-  const newSpeed = applyPedals(speed, input.throttle - input.brake, config, dt)
-  const newSideways = sideways * Math.exp(-config.lateralGrip * dt)
+  const bonus = boostSpeedBonus(state, driftConfig)
+  const topSpeed = config.maxSpeed * (1 + bonus)
+  const acceleration = bonus > 0 ? driftConfig.boostAcceleration : config.acceleration
+  const newSpeed = applyPedals(
+    speed,
+    input.throttle - input.brake,
+    config,
+    topSpeed,
+    acceleration,
+    dt,
+  )
+  const grip = drifting ? driftConfig.driftLateralGrip : config.lateralGrip
+  const newSideways = sideways * Math.exp(-grip * dt)
 
   // Rebuild velocity on the new heading so the kart carries its speed through the turn
   const forward = forwardOf(state.heading)
@@ -56,14 +98,24 @@ function turnRate(speed: number, steer: number, config: KartPhysicsConfig): numb
   return steer * config.turnRate * lowSpeedFactor * highSpeedFactor * Math.sign(speed)
 }
 
-/** `pedal` is throttle minus brake, in -1..1. Returns the new forward speed. */
-function applyPedals(speed: number, pedal: number, config: KartPhysicsConfig, dt: number): number {
+/**
+ * `pedal` is throttle minus brake, in -1..1. Returns the new forward speed.
+ * `topSpeed` and `acceleration` rise while a boost burns, so the kart pulls past its base cap.
+ */
+function applyPedals(
+  speed: number,
+  pedal: number,
+  config: KartPhysicsConfig,
+  topSpeed: number,
+  acceleration: number,
+  dt: number,
+): number {
   if (pedal > 0) {
     if (speed < 0) return moveTowards(speed, 0, config.brakeDeceleration * pedal * dt)
-    if (speed > config.maxSpeed) {
-      return moveTowards(speed, config.maxSpeed, config.coastDeceleration * dt)
+    if (speed > topSpeed) {
+      return moveTowards(speed, topSpeed, config.coastDeceleration * dt)
     }
-    return Math.min(speed + config.acceleration * pedal * dt, config.maxSpeed)
+    return Math.min(speed + acceleration * pedal * dt, topSpeed)
   }
   if (pedal < 0) {
     if (speed > 0) return moveTowards(speed, 0, config.brakeDeceleration * -pedal * dt)

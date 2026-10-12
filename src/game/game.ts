@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { defaultChaseCamera } from '../config/camera'
+import { defaultDrift } from '../config/drift'
 import { defaultKartPhysics } from '../config/kartPhysics'
 import { testTrack } from '../config/tracks/testTrack'
 import { GamepadSource } from '../input/gamepad'
@@ -23,8 +24,9 @@ const MS_PER_KMH = 3.6
 /** Wires input, simulation and rendering together and runs the frame loop. */
 export class Game {
   private readonly physics = { ...defaultKartPhysics }
+  private readonly driftConfig = { ...defaultDrift }
   private readonly cameraConfig = { ...defaultChaseCamera }
-  private readonly world = new RaceWorld(testTrack, this.physics)
+  private readonly world = new RaceWorld(testTrack, this.physics, this.driftConfig)
   private readonly fixedStep = new FixedStep(1 / SIMULATION_HZ)
   private readonly timer = new THREE.Timer()
 
