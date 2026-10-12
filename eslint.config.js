@@ -10,5 +10,9 @@ export default tseslint.config(
   prettier,
   {
     languageOptions: { globals: globals.browser },
+    rules: {
+      // Allow intentionally unused parameters when prefixed with _
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
   },
 )

@@ -1,11 +1,13 @@
 import * as THREE from 'three'
 
+const SKY_COLOR = '#87ceeb'
+const FOG_NEAR = 80
+const FOG_FAR = 260
+
 export interface SceneContext {
   renderer: THREE.WebGLRenderer
   scene: THREE.Scene
   camera: THREE.PerspectiveCamera
-  /** Placeholder object until the kart exists (stage 1). */
-  cube: THREE.Mesh
 }
 
 export function createScene(canvas: HTMLCanvasElement): SceneContext {
@@ -13,30 +15,26 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color('#87ceeb')
+  scene.background = new THREE.Color(SKY_COLOR)
+  scene.fog = new THREE.Fog(SKY_COLOR, FOG_NEAR, FOG_FAR)
 
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, 100)
-  camera.position.set(0, 1.5, 4)
-  camera.lookAt(0, 0, 0)
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, FOG_FAR + 20)
 
   scene.add(new THREE.HemisphereLight('#ffffff', '#5a8f3c', 1.2))
   const sun = new THREE.DirectionalLight('#ffffff', 1.5)
-  sun.position.set(3, 5, 2)
+  sun.position.set(30, 50, 20)
   scene.add(sun)
 
-  const cube = new THREE.Mesh(
-    new THREE.BoxGeometry(1, 1, 1),
-    new THREE.MeshToonMaterial({ color: '#c8873a' }),
-  )
-  scene.add(cube)
-
-  return { renderer, scene, camera, cube }
+  return { renderer, scene, camera }
 }
 
 export function resizeToCanvas({ renderer, camera }: SceneContext): void {
   const canvas = renderer.domElement
   const { clientWidth: width, clientHeight: height } = canvas
-  if (canvas.width === width && canvas.height === height) return
+  const ratio = renderer.getPixelRatio()
+  if (canvas.width === Math.floor(width * ratio) && canvas.height === Math.floor(height * ratio)) {
+    return
+  }
   renderer.setSize(width, height, false)
   camera.aspect = width / height
   camera.updateProjectionMatrix()
