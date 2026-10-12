@@ -10,7 +10,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | --------------------------------------- | ------ |
 | 0 — Base del proyecto                   | ✅     |
 | 1 — Kart que se maneja bien             | ✅     |
-| 2 — Derrape, nitros y saltos            | ⬜     |
+| 2 — Derrape, nitros y saltos            | ✅     |
 | 3 — Primera pista real: Valle de Cocora | ⬜     |
 | 4 — Bots                                | ⬜     |
 | 5 — Poderes y uchuvas                   | ⬜     |
@@ -55,15 +55,26 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - El suelo es plano. Las pendientes y rampas llegan con la etapa 2 (saltos) y la etapa 3 (pista real).
 - `R` reinicia el kart en la salida. Es temporal, hasta tener reaparición en la etapa 3.
 
-## Etapa 2 — Derrape, nitros y saltos ⬜
+## Etapa 2 — Derrape, nitros y saltos ✅
 
-- ⬜ Salto con `Espacio` y entrada al derrape al aterrizar mientras se gira.
-- ⬜ Máquina de estados del kart: conduciendo, en el aire, derrapando, con nitro.
-- ⬜ Barra de carga del derrape con zona roja.
-- ⬜ Cadena de hasta 3 nitros por derrape (+15 %, +25 %, +35 %).
-- ⬜ Ruptura de la cadena por mal tiempo, con humo negro.
-- ⬜ Nitro perfecto y reserva de turbo hasta 3 s.
-- ⬜ Turbo de salida y turbo de aterrizaje en saltos largos.
-- ⬜ Efectos: humo de color por carga, llamas por nivel, líneas de velocidad.
-- ⬜ HUD mínimo: velocidad, barra de derrape, nivel de nitro.
-- ⬜ Pruebas de la cadena de nitros y de sus tiempos.
+- ✅ Salto con `Espacio` (o bumper derecho) y entrada al derrape al aterrizar mientras se gira.
+- ✅ Máquina de estados del kart en `drift` y `boost` de `KartState`: conduciendo, en el aire (`airTime`), derrapando y con nitro.
+- ✅ Barra de carga del derrape con zona roja y colores del humo (`ui/hud.ts`, `ui/hudModel.ts`).
+- ✅ Cadena de hasta 3 nitros por derrape (+15 %, +25 %, +35 %) en `sim/kart/drift.ts`.
+- ✅ Ruptura de la cadena por mal tiempo, con humo negro y sacudida de cámara.
+- ✅ Nitro perfecto y reserva de turbo hasta 3 s (`sim/kart/boost.ts`).
+- ✅ Turbo de aterrizaje en saltos largos. El turbo de salida queda pendiente de la etapa 3, con la cuenta regresiva.
+- ✅ Efectos: humo de color por carga, llamas por nivel, líneas de velocidad y empuje de FOV (`render/effects/`).
+- ✅ HUD: velocidad, barra de derrape, pips de la cadena y nivel de nitro.
+- ✅ Pruebas de la cadena de nitros y de sus tiempos (61 pruebas nuevas en esta etapa).
+
+**Notas:**
+
+- El contrato compartido `drift`/`boost` de `KartState` fue lo primero que se definió, para poder construir simulación, HUD y efectos en paralelo contra el mismo formato. La simulación escribe esos campos; el HUD y los efectos solo los leen.
+- El derrape reduce el agarre lateral (`driftLateralGrip`) y fija un giro base hacia el lado del derrape; el volante lo estrecha o lo ensancha, pero nunca lo invierte. Así se evita que el kart girara en sentido contrario al derrape.
+- Un nitro activo sube la velocidad máxima y acelera con `boostAcceleration`, por lo que el kart supera su tope base mientras quema turbo.
+- El nitro de salida no está: requiere la cuenta regresiva de salida, que llega con la etapa 3.
+- Las partículas usan una reserva fija reciclada, sin asignaciones por frame. Dos nubes de puntos: humo con mezcla normal y llamas con mezcla aditiva.
+- `Espacio`/`Shift` en teclado; bumper derecho (salto) e izquierdo (nitro) en mando.
+
+## Etapa 3 — Primera pista real: Valle de Cocora ⬜

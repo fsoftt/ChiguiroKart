@@ -4,7 +4,7 @@ Juego de karts en 3D estilo _Crash Team Racing_ con animales colombianos. Corre 
 
 **Jugar:** https://fsoftt.github.io/ChiguiroKart/
 
-> En desarrollo. Hoy se puede manejar un kart provisional en una pista de prueba. Mira el [progreso](docs/progreso.md).
+> En desarrollo. Hoy se puede derrapar y encadenar nitros en una pista de prueba. Mira el [progreso](docs/progreso.md).
 
 ## Estado actual
 
@@ -12,20 +12,22 @@ Juego de karts en 3D estilo _Crash Team Racing_ con animales colombianos. Corre 
 | ---------------------------- | ---------- |
 | 0 — Base del proyecto        | ✅         |
 | 1 — Kart que se maneja bien  | ✅         |
-| 2 — Derrape, nitros y saltos | Siguiente  |
+| 2 — Derrape, nitros y saltos | ✅         |
 | 3 a 11                       | Pendientes |
 
 ## Controles
 
-| Acción           | Teclado           | Mando                 |
-| ---------------- | ----------------- | --------------------- |
-| Acelerar         | `W` / `↑`         | A o gatillo derecho   |
-| Frenar / reversa | `S` / `↓`         | B o gatillo izquierdo |
-| Girar            | `A` `D` / `←` `→` | Stick izquierdo       |
-| Mirar atrás      | `Q`               | Y                     |
-| Reiniciar kart   | `R`               | —                     |
+| Acción            | Teclado           | Mando                 |
+| ----------------- | ----------------- | --------------------- |
+| Acelerar          | `W` / `↑`         | A o gatillo derecho   |
+| Frenar / reversa  | `S` / `↓`         | B o gatillo izquierdo |
+| Girar             | `A` `D` / `←` `→` | Stick izquierdo       |
+| Saltar y derrapar | `Espacio`         | Bumper derecho        |
+| Nitro             | `Shift`           | Bumper izquierdo      |
+| Mirar atrás       | `Q`               | Y                     |
+| Reiniciar kart    | `R`               | —                     |
 
-Saltar, derrapar, nitro y poderes llegan en las próximas etapas.
+Para derrapar, salta con `Espacio` y sigue girando al aterrizar. Mantén pulsado y carga la barra hasta la zona roja; cada `Shift` dentro de esa zona encadena un nitro más fuerte hasta tres. Pulsar antes de la zona roja o dejar la barra llena demasiado tiempo rompe la cadena.
 
 ## Panel de depuración
 
