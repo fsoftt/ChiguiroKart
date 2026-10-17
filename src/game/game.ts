@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { activeDriftPalette, feedbackScales } from '../config/accessibility'
+import { RaceAudio } from '../audio/raceAudio'
 import { defaultChaseCamera } from '../config/camera'
 import { defaultDrift, type DriftConfig } from '../config/drift'
 import { defaultEffects } from '../config/effects'
@@ -196,6 +197,7 @@ export class Game {
   /** Seconds of unpaused game time; drives the shake oscillator and the showroom camera. */
   private gameTime = 0
   private startButtonHeld = false
+  private readonly audio = new RaceAudio()
   private readonly readout: DebugReadout = { speedKmh: 0, onGround: true }
 
   private previousKart: KartState
@@ -303,8 +305,11 @@ export class Game {
     this.hud.setColorblind(settings.colorblind)
     this.kartFeedback.setScales(feedbackScales(settings.reduceShake))
     this.keyboard.setBindings(settings.keyBindings)
-    // AUDIO HOOK: the audio module will expose setVolumes({ master, music, sfx }); call it
-    // here with settings.masterVolume, settings.musicVolume and settings.sfxVolume.
+    this.audio.setVolumes({
+      master: settings.masterVolume,
+      music: settings.musicVolume,
+      sfx: settings.sfxVolume,
+    })
   }
 
   private openOptions(): void {
@@ -382,6 +387,11 @@ export class Game {
   private currentTrackSource(): TrackSource {
     if (this.cup) return tracks[cupTrackId(this.cup)]
     return this.trackOverride ?? tracks[this.settings.track]
+  }
+
+  /** Catalog id of the loaded track (picks its music), or null for the test/custom tracks. */
+  private currentTrackId(): TrackId | null {
+    return Object.values(tracks).find((track) => track === this.trackSource)?.id ?? null
   }
 
   /** Loads the track of the current race, then builds the bots and starts the countdown. */
@@ -602,6 +612,7 @@ export class Game {
     const events = this.items.drainEvents()
     if (events.length === 0) return
     this.itemView.handleEvents(events, this.racers)
+    this.audio.onItemEvents(events, PLAYER_SLOT)
     for (const event of events) {
       if (event.type === 'powerUsed') this.playThrow(event.slot, event.power)
       const text = eventPopupText(event, PLAYER_SLOT)
@@ -703,6 +714,17 @@ export class Game {
       const other = racers[i]
       if (other) this.botPositions.push(other.kart.position)
     }
+    this.audio.update({
+      kart,
+      speedRatio,
+      throttle: input.throttle,
+      race: this.world.raceManager.state,
+      rank: position.rank,
+      racing: this.racing,
+      trackId: this.currentTrackId(),
+      character: this.currentCharacter,
+      paused: this.pauseState.isPaused,
+    })
     const timeTrial = this.settings.mode === 'contrarreloj' && this.racing
     if (timeTrial) this.updateTimeTrial()
     this.hud.update(
