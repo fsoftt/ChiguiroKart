@@ -155,7 +155,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - Las uchuvas también suben la velocidad de los bots, así que los tiempos de la etapa 4 ya no aplican tal cual con poderes; el ajuste de dificultad debe rehacerse en la prueba de juego.
 - La máscara toca a un kart a 2,6 m (más que la distancia de choque entre karts, 2,2 m), si no nunca llegaría a tocarlo.
 - Sin rival a su alcance, las hormigas no se gastan. Sin nadie adelante, la avispa sale recta y desaparece.
-- Comprobado en Chromium: la carrera arranca, los bots usan poderes y no hay errores de consola (solo el 404 de `favicon.ico`, que ya estaba).
+- Comprobado en Chromium: la carrera arranca, los bots usan poderes y no hay errores de consola.
 
 ## Etapa 6 — Personajes y animaciones 🚧
 
