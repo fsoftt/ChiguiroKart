@@ -1,7 +1,7 @@
 import type { Vec2 } from '../../sim/math'
 import type { Checkpoint } from '../../sim/race/checkpoint'
 import type { SurfaceType } from '../../sim/race/surface'
-import type { TrackDefinition } from '../../sim/track'
+import { Track, type TrackBranch, type TrackDefinition } from '../../sim/track'
 
 interface ControlPoint {
   x: number
@@ -71,8 +71,96 @@ function buildCocoraCenterline(): { points: Vec2[]; heights: number[] } {
 
 const { points: centerlinePoints, heights: centerlineHeights } = buildCocoraCenterline()
 
+const ROAD_HALF_WIDTH = 9
+const BRANCH_START_INDEX = 96
+/** Distance beyond the main corridor over which ground height blends into the branch ramp (m). */
+const BRANCH_BLEND_DISTANCE = 6
+const BRANCH_END_INDEX = 134
+
+function centerlinePoint(index: number): Vec2 {
+  const point = centerlinePoints[index]
+  if (!point) throw new Error(`Missing Cocora centerline point ${index}`)
+  return point
+}
+
+/** Mud trail that cuts across the inside of the hairpin, leaving and rejoining the road. */
+const mudShortcut: TrackBranch = {
+  name: 'Trocha de barro',
+  points: [
+    centerlinePoint(BRANCH_START_INDEX),
+    { x: 16, z: 112 },
+    { x: 0, z: 107.5 },
+    { x: -22, z: 100 },
+    { x: -42, z: 94 },
+    { x: -58, z: 87 },
+    { x: -65, z: 80 },
+    centerlinePoint(BRANCH_END_INDEX),
+  ],
+  halfWidth: 6,
+  surface: 'mud',
+}
+
+/** Geometry-only track used by the surface and height lookups below. */
+const shape = new Track({
+  name: 'Valle de Cocora',
+  centerline: centerlinePoints,
+  halfWidth: ROAD_HALF_WIDTH,
+  branches: [mudShortcut],
+})
+
+/** Length of the branch polyline (m). */
+function branchLength(branch: TrackBranch): number {
+  let length = 0
+  for (let i = 0; i + 1 < branch.points.length; i++) {
+    const a = branch.points[i]
+    const b = branch.points[i + 1]
+    if (a && b) length += Math.hypot(b.x - a.x, b.z - a.z)
+  }
+  return length
+}
+
+/** Distance along the branch (0..1) of the point closest to (x, z). */
+function branchProgress(branch: TrackBranch, x: number, z: number): number {
+  const total = branchLength(branch) || 1
+  let travelled = 0
+  let bestDistance = Infinity
+  let bestAlong = 0
+  for (let i = 0; i + 1 < branch.points.length; i++) {
+    const a = branch.points[i]
+    const b = branch.points[i + 1]
+    if (!a || !b) continue
+    const abx = b.x - a.x
+    const abz = b.z - a.z
+    const length = Math.hypot(abx, abz) || 1
+    const t = Math.min(Math.max(((x - a.x) * abx + (z - a.z) * abz) / (length * length), 0), 1)
+    const distance = Math.hypot(x - (a.x + abx * t), z - (a.z + abz * t))
+    if (distance < bestDistance) {
+      bestDistance = distance
+      bestAlong = travelled + t * length
+    }
+    travelled += length
+  }
+  return bestAlong / total
+}
+
 /** Look up elevation at arbitrary x, z based on nearest centerline segment. */
 function cocoraGroundHeight(x: number, z: number): number {
+  const roadHeight = nearestCenterlineHeight(x, z)
+  const projection = shape.project(x, z)
+  if (projection.branch < 0 || projection.distance > projection.halfWidth) return roadHeight
+
+  // Inside the shortcut, blend from the road height (at the main corridor edge) into a linear
+  // ramp between the heights at the two junctions, so there are no steps
+  const awayFromRoad = shape.mainProjection(x, z).distance - ROAD_HALF_WIDTH
+  if (awayFromRoad <= 0) return roadHeight
+  const weight = Math.min(awayFromRoad / BRANCH_BLEND_DISTANCE, 1)
+  const t = branchProgress(mudShortcut, x, z)
+  const from = centerlineHeights[BRANCH_START_INDEX] ?? 0
+  const to = centerlineHeights[BRANCH_END_INDEX] ?? 0
+  return roadHeight + (from + (to - from) * t - roadHeight) * weight
+}
+
+function nearestCenterlineHeight(x: number, z: number): number {
   let closestDistSq = Infinity
   let closestIndex = 0
 
@@ -91,12 +179,6 @@ function cocoraGroundHeight(x: number, z: number): number {
   return centerlineHeights[closestIndex] ?? 0
 }
 
-/** Mud shortcut polygon bounds around hairpin (from x: 20, z: 115 to x: -75, z: 95). */
-function isInsideMudShortcut(x: number, z: number): boolean {
-  // Bounding box of the mud trail that cuts across the hairpin
-  return x >= -50 && x <= 10 && z >= 80 && z <= 125
-}
-
 function isInsideWoodenBridge(x: number, z: number): boolean {
   return x >= 55 && x <= 110 && z >= 60 && z <= 95
 }
@@ -105,25 +187,15 @@ function cocoraSurfaceAt(x: number, z: number): SurfaceType {
   if (isInsideWoodenBridge(x, z)) {
     return 'wood'
   }
-  if (isInsideMudShortcut(x, z)) {
-    return 'mud'
-  }
-  // Offroad area
-  let minDistSq = Infinity
-  for (let i = 0; i < centerlinePoints.length; i += 4) {
-    const pt = centerlinePoints[i]
-    if (!pt) continue
-    const dx = x - pt.x
-    const dz = z - pt.z
-    const dSq = dx * dx + dz * dz
-    if (dSq < minDistSq) minDistSq = dSq
-  }
-  // Road half-width is 9m
-  return minDistSq <= 9 * 9 ? 'asphalt' : 'grass'
+  // Mud comes from the shortcut corridor; the rest is asphalt road or grass
+  return shape.surfaceAt(x, z)
 }
 
+const HAIRPIN_APEX_INDEX = 110
+
 function buildCocoraCheckpoints(): Checkpoint[] {
-  // 7 mandatory checkpoints distributed at key sections of the loop
+  // 7 checkpoints at key sections of the loop; the hairpin apex (110) is optional
+  // because the mud shortcut legally skips it
   const keyIndices = [0, 35, 75, 110, 140, 165, 190]
   const checkpoints: Checkpoint[] = []
 
@@ -141,7 +213,7 @@ function buildCocoraCheckpoints(): Checkpoint[] {
       position: { x: p.x, z: p.z },
       forward: { x: dx / len, z: dz / len },
       width: 24, // wide enough to catch drifts and shortcut entries
-      mandatory: true,
+      mandatory: ptIndex !== HAIRPIN_APEX_INDEX,
     })
   })
 
@@ -151,7 +223,8 @@ function buildCocoraCheckpoints(): Checkpoint[] {
 export const cocoraTrack: TrackDefinition = {
   name: 'Valle de Cocora',
   centerline: centerlinePoints,
-  halfWidth: 9,
+  halfWidth: ROAD_HALF_WIDTH,
+  branches: [mudShortcut],
   groundHeight: cocoraGroundHeight,
   surfaceAt: cocoraSurfaceAt,
   checkpoints: buildCocoraCheckpoints(),

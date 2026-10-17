@@ -23,9 +23,10 @@ export const SURFACE_PROPERTIES: Record<SurfaceType, SurfaceProperties> = {
     accelerationMultiplier: 0.85,
   },
   mud: {
-    speedMultiplier: 0.65,
-    gripMultiplier: 0.6,
-    accelerationMultiplier: 0.6,
+    // Mild enough that the Cocora mud shortcut still saves time over the hairpin
+    speedMultiplier: 0.8,
+    gripMultiplier: 0.7,
+    accelerationMultiplier: 0.75,
   },
   grass: {
     speedMultiplier: 0.5,

@@ -101,6 +101,19 @@ export class Minimap {
     ctx.lineWidth = 5
     ctx.stroke()
 
+    // Shortcut branches (thinner, on top of the main road)
+    for (const branch of track.branches) {
+      ctx.beginPath()
+      branch.points.forEach((pt, i) => {
+        const { x, y } = this.toCanvas(pt)
+        if (i === 0) ctx.moveTo(x, y)
+        else ctx.lineTo(x, y)
+      })
+      ctx.strokeStyle = branch.surface === 'mud' ? '#7a5230' : '#2b2f38'
+      ctx.lineWidth = 3
+      ctx.stroke()
+    }
+
     // Start/Finish line marker
     const start = this.toCanvas(track.point(0))
     ctx.fillStyle = '#ffdd44'

@@ -17,8 +17,8 @@ export function resolveTrackCollision(
   config: KartPhysicsConfig,
   dt: number,
 ): boolean {
-  const limit = track.halfWidth - config.radius
-  const { closest, distance, normal } = track.project(state.position.x, state.position.z)
+  const { closest, distance, normal, halfWidth } = track.project(state.position.x, state.position.z)
+  const limit = halfWidth - config.radius
   if (distance <= limit) return false
 
   state.position.x = closest.x + normal.x * limit

@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { headingOf, type Vec2 } from '../sim/math'
 import type { Track } from '../sim/track'
+import type { SurfaceType } from '../sim/race/surface'
 
 const ROAD_COLOR = '#5b5f66'
 const WOOD_COLOR = '#8d5524'
@@ -26,11 +27,35 @@ export function createTrackView(track: Track): THREE.Group {
   const group = new THREE.Group()
   group.name = `track:${track.name}`
   group.add(createGround())
-  group.add(createRoadRibbon(track))
-  group.add(createCurbs(track, track.halfWidth - CURB_WIDTH, track.halfWidth))
-  group.add(createCurbs(track, -track.halfWidth, -track.halfWidth + CURB_WIDTH))
-  group.add(createWall(track, track.halfWidth))
-  group.add(createWall(track, -track.halfWidth - WALL_THICKNESS))
+  const main: Path = {
+    points: track.centerline,
+    closed: true,
+    halfWidth: track.halfWidth,
+    surfaceAt: (i) => track.surfaceAt(track.point(i).x, track.point(i).z),
+    // Leave the road open where a branch joins it
+    openAt: (p) => {
+      const projection = track.project(p.x, p.z)
+      return projection.branch >= 0 && projection.distance <= projection.halfWidth
+    },
+  }
+  group.add(createRoadRibbon(track, main))
+  group.add(createCurbs(track, main, main.halfWidth - CURB_WIDTH, main.halfWidth))
+  group.add(createCurbs(track, main, -main.halfWidth, -main.halfWidth + CURB_WIDTH))
+  group.add(createWall(track, main, main.halfWidth))
+  group.add(createWall(track, main, -main.halfWidth - WALL_THICKNESS))
+  for (const branch of track.branches) {
+    const path: Path = {
+      points: branch.points,
+      closed: false,
+      halfWidth: branch.halfWidth,
+      surfaceAt: () => branch.surface,
+      // Leave the branch open where it meets the main road
+      openAt: (p) => track.mainProjection(p.x, p.z).distance <= track.halfWidth,
+    }
+    group.add(createRoadRibbon(track, path))
+    group.add(createWall(track, path, path.halfWidth))
+    group.add(createWall(track, path, -path.halfWidth - WALL_THICKNESS))
+  }
   group.add(createStartLine(track))
   group.add(createFoliage(track))
   return group
@@ -47,19 +72,41 @@ function createGround(): THREE.Mesh {
   return ground
 }
 
-function sideAt(track: Track, i: number): Vec2 {
-  const before = track.point(i - 1)
-  const after = track.point(i + 1)
+/** A road piece (main loop or branch) that can be drawn as a ribbon with walls. */
+interface Path {
+  points: readonly Vec2[]
+  closed: boolean
+  halfWidth: number
+  surfaceAt: (segment: number) => SurfaceType
+  /** True where walls and curbs must be left out (junction openings). */
+  openAt: (point: Vec2) => boolean
+}
+
+function pathPoint(path: Path, i: number): Vec2 {
+  const count = path.points.length
+  const index = path.closed ? ((i % count) + count) % count : Math.min(Math.max(i, 0), count - 1)
+  const point = path.points[index]
+  if (!point) throw new Error(`Missing path point ${i}`)
+  return point
+}
+
+function segmentCount(path: Path): number {
+  return path.closed ? path.points.length : path.points.length - 1
+}
+
+function sideAt(path: Path, i: number): Vec2 {
+  const before = pathPoint(path, i - 1)
+  const after = pathPoint(path, i + 1)
   const dx = after.x - before.x
   const dz = after.z - before.z
   const length = Math.hypot(dx, dz) || 1
   return { x: dz / length, z: -dx / length }
 }
 
-function offsetLoop(track: Track, offset: number): Vec2[] {
-  return Array.from({ length: track.centerline.length + 1 }, (_, i) => {
-    const point = track.point(i)
-    const side = sideAt(track, i)
+function offsetPath(path: Path, offset: number): Vec2[] {
+  return Array.from({ length: segmentCount(path) + 1 }, (_, i) => {
+    const point = pathPoint(path, i)
+    const side = sideAt(path, i)
     return { x: point.x + side.x * offset, z: point.z + side.z * offset }
   })
 }
@@ -67,19 +114,26 @@ function offsetLoop(track: Track, offset: number): Vec2[] {
 /** 3D strip between two sideways offsets, conforming to track elevation. */
 function stripGeometry(
   track: Track,
+  path: Path,
   inner: number,
   outer: number,
   yOffset: number,
   colorAt?: (segment: number) => THREE.Color,
+  skipOpenings = false,
 ): THREE.BufferGeometry {
-  const a = offsetLoop(track, inner)
-  const b = offsetLoop(track, outer)
+  const a = offsetPath(path, inner)
+  const b = offsetPath(path, outer)
   const positions: number[] = []
   const colors: number[] = []
 
-  for (let i = 0; i < track.centerline.length; i++) {
+  for (let i = 0; i < segmentCount(path); i++) {
     const [a0, a1, b0, b1] = [a[i], a[i + 1], b[i], b[i + 1]]
     if (!a0 || !a1 || !b0 || !b1) continue
+    if (
+      skipOpenings &&
+      path.openAt({ x: (a0.x + a1.x + b0.x + b1.x) / 4, z: (a0.z + a1.z + b0.z + b1.z) / 4 })
+    )
+      continue
 
     const ya0 = track.groundHeight(a0.x, a0.z) + yOffset
     const ya1 = track.groundHeight(a1.x, a1.z) + yOffset
@@ -122,14 +176,13 @@ function stripGeometry(
   return geometry
 }
 
-function createRoadRibbon(track: Track): THREE.Mesh {
+function createRoadRibbon(track: Track, path: Path): THREE.Mesh {
   const asphaltCol = new THREE.Color(ROAD_COLOR)
   const woodCol = new THREE.Color(WOOD_COLOR)
   const mudCol = new THREE.Color(MUD_COLOR)
 
-  const geometry = stripGeometry(track, -track.halfWidth, track.halfWidth, 0.01, (segment) => {
-    const pt = track.point(segment)
-    const surface = track.surfaceAt(pt.x, pt.z)
+  const geometry = stripGeometry(track, path, -path.halfWidth, path.halfWidth, 0.01, (segment) => {
+    const surface = path.surfaceAt(segment)
     if (surface === 'wood') return woodCol
     if (surface === 'mud') return mudCol
     return asphaltCol
@@ -138,27 +191,30 @@ function createRoadRibbon(track: Track): THREE.Mesh {
   return new THREE.Mesh(geometry, material)
 }
 
-function createCurbs(track: Track, inner: number, outer: number): THREE.Mesh {
+function createCurbs(track: Track, path: Path, inner: number, outer: number): THREE.Mesh {
   const palette = CURB_COLORS.map((c) => new THREE.Color(c))
   const geometry = stripGeometry(
     track,
+    path,
     inner,
     outer,
     0.02,
     (segment) => palette[segment % palette.length] ?? new THREE.Color(),
+    true,
   )
   const material = new THREE.MeshToonMaterial({ vertexColors: true, side: THREE.DoubleSide })
   return new THREE.Mesh(geometry, material)
 }
 
-function createWall(track: Track, offset: number): THREE.Mesh {
-  const near = offsetLoop(track, offset)
-  const far = offsetLoop(track, offset + WALL_THICKNESS)
+function createWall(track: Track, path: Path, offset: number): THREE.Mesh {
+  const near = offsetPath(path, offset)
+  const far = offsetPath(path, offset + WALL_THICKNESS)
   const positions: number[] = []
 
-  for (let i = 0; i < track.centerline.length; i++) {
+  for (let i = 0; i < segmentCount(path); i++) {
     const [n0, n1, f0, f1] = [near[i], near[i + 1], far[i], far[i + 1]]
     if (!n0 || !n1 || !f0 || !f1) continue
+    if (path.openAt({ x: (n0.x + n1.x) / 2, z: (n0.z + n1.z) / 2 })) continue
 
     const yn0 = track.groundHeight(n0.x, n0.z)
     const yn1 = track.groundHeight(n1.x, n1.z)
@@ -305,14 +361,14 @@ function createFoliage(track: Track): THREE.Group {
   )
 
   const matrix = new THREE.Matrix4()
-  const minDistance = track.halfWidth + TREE_MIN_GAP
 
   let placed = 0
   for (let attempt = 0; placed < TREE_COUNT && attempt < TREE_COUNT * 12; attempt++) {
     const anchor = track.point(Math.floor(random() * track.centerline.length))
     const x = anchor.x + (random() - 0.5) * TREE_SPREAD * 2
     const z = anchor.z + (random() - 0.5) * TREE_SPREAD * 2
-    if (track.project(x, z).distance < minDistance) continue
+    const nearest = track.project(x, z)
+    if (nearest.distance - nearest.halfWidth < TREE_MIN_GAP) continue
 
     const groundY = track.groundHeight(x, z)
     const scale = isCocora ? 0.9 + random() * 0.7 : 0.8 + random() * 0.8
