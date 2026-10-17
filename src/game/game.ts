@@ -25,6 +25,7 @@ import { saveTrackRecord } from '../sim/race/records'
 import { createDebugPanel, isDebugEnabled, type DebugReadout } from '../ui/debugPanel'
 import { FpsOverlay } from '../ui/fpsOverlay'
 import { Hud } from '../ui/hud'
+import { racePosition } from '../sim/race/standings'
 import { buildHudModel } from '../ui/hudModel'
 import { BotManager } from '../sim/botManager'
 import { SimpleBot } from '../input/botInput'
@@ -158,8 +159,13 @@ export class Game {
       dt,
     )
 
+    const racers = [this.world.player, ...this.botManager.getBotRacers()]
+    const position = {
+      rank: racePosition(this.world.player, racers),
+      total: racers.length,
+    }
     this.hud.update(
-      buildHudModel(kart, this.physics, this.driftConfig, this.world.raceManager.state),
+      buildHudModel(kart, this.physics, this.driftConfig, this.world.raceManager.state, position),
       { x: kart.position.x, z: kart.position.z },
       kart.heading,
     )

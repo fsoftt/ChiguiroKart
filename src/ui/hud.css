@@ -456,3 +456,37 @@
     animation: hud-perfect-still 1.5s linear;
   }
 }
+
+/* Race position, below the lap badge (top-left) */
+.hud-position {
+  position: absolute;
+  left: var(--hud-gap);
+  top: calc(var(--hud-gap) + 64px);
+  padding: 2px 18px 4px;
+  background: var(--hud-panel);
+  border: 4px solid var(--hud-outline);
+  border-radius: 18px;
+  color: #fff;
+  box-shadow: 0 4px 0 var(--hud-outline);
+  text-shadow:
+    -2px -2px 0 var(--hud-outline),
+    2px -2px 0 var(--hud-outline),
+    -2px 2px 0 var(--hud-outline),
+    2px 2px 0 var(--hud-outline);
+}
+
+.hud-position-value {
+  font-size: clamp(32px, 7vw, 56px);
+  color: #ffd23f;
+}
+
+.hud-position-total {
+  font-size: clamp(16px, 3vw, 24px);
+  margin-left: 4px;
+}
+
+.hud-results-position {
+  font-size: 1.2em;
+  margin-bottom: 8px;
+  color: #ffd23f;
+}

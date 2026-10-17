@@ -104,8 +104,9 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - ✅ Parrilla de salida: `gridPose(track, slot)` (dos karts por fila, escalonados a ambos lados de la línea central y cada fila más atrás sobre la dirección de salida; valores en `config/grid.ts`). El jugador usa la casilla 0, los bots 1, 2, ... en orden de `addBot`, y `resetRacer` devuelve cada kart a su casilla (`sim/racer.ts`).
 - ✅ La partida lleva 3 bots por ahora (la Carrera rápida contra 7 llegará después).
 - ⬜ Línea de bots en la pista, derrape y nitros por dificultad, uso de atajos y ayuda de remontada.
-- ⬜ Posiciones en tiempo real, HUD de posición y modo Carrera rápida contra 7 bots.
-- 🚧 Pruebas de los bots: estado de carrera por kart, `BotManager` y `SimpleBot` (9 pruebas en `tests/racer.test.ts`, más 6 de parrilla en `tests/grid.test.ts` y 7 de choques en `tests/kartCollision.test.ts`; 156 en total).
+- ✅ Posiciones en tiempo real y HUD de posición: `raceProgress` (vueltas completadas · N + último checkpoint + fracción del tramo al siguiente, medida sobre la dirección de cada compuerta para que el desvío lateral no altere el orden; sin límite inferior) y `computeStandings` (los que terminaron primero por tiempo total, el resto por progreso, desempate por casilla) en `sim/race/standings.ts`; `BotManager.getBotRacers()`; insignia grande "1.º /4" bajo la vuelta y línea "Posición: 2.º de 4" en el modal de resultados (`ui/hudModel.ts`, `ui/hud.ts`).
+- ⬜ Modo Carrera rápida contra 7 bots.
+- 🚧 Pruebas de los bots: estado de carrera por kart, `BotManager` y `SimpleBot` (9 pruebas en `tests/racer.test.ts`, más 6 de parrilla en `tests/grid.test.ts` y 7 de choques en `tests/kartCollision.test.ts`; 14 de posiciones y HUD de posición en `tests/standings.test.ts`; 170 en total).
 
 **Notas:**
 

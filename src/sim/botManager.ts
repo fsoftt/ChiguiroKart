@@ -61,6 +61,11 @@ export class BotManager {
     return this.bots.map((b) => b.racer.kart)
   }
 
+  /** Racers of every bot (read-only view), in slot order. */
+  getBotRacers(): readonly Racer[] {
+    return this.bots.map((b) => b.racer)
+  }
+
   /** Player kart followed by every bot kart, for kart-vs-kart collisions. */
   allKarts(): KartState[] {
     return [this.world.kart, ...this.bots.map((b) => b.racer.kart)]

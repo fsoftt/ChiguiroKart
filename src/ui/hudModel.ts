@@ -53,6 +53,18 @@ export interface HudModel {
   wrongWay: boolean
   finished: boolean
   finalTimes: FinalTimes | null
+  /** Player position badge, e.g. "1.º"; empty when no standings were given. */
+  positionText: string
+  /** Total racers badge, e.g. "/4". */
+  positionTotalText: string
+  /** Results line, e.g. "Posición: 2.º de 4"; empty unless the race is finished. */
+  finalPositionText: string
+}
+
+/** Player rank (1-based) and number of racers. */
+export interface RacePosition {
+  rank: number
+  total: number
 }
 
 function clamp01(value: number): number {
@@ -119,6 +131,11 @@ function computeCountdownLabel(race: RaceState): string {
   return ''
 }
 
+/** Spanish ordinal with masculine marker, e.g. "3.º". */
+export function formatOrdinal(rank: number): string {
+  return `${rank}.º`
+}
+
 function computeLapText(race: RaceState): string {
   if (race.phase === 'countdown') return `VUELTA 1/${race.totalLaps}`
   if (race.currentLap === race.totalLaps) return `¡ÚLTIMA VUELTA!`
@@ -131,6 +148,7 @@ export function buildHudModel(
   physics: KartPhysicsConfig,
   drift: DriftConfig,
   race?: RaceState,
+  position?: RacePosition,
 ): HudModel {
   const speed = Math.max(0, forwardSpeed(kart))
   const level = kart.boost.level
@@ -144,6 +162,10 @@ export function buildHudModel(
   let finished = false
   let finalTimes: FinalTimes | null = null
 
+  const positionText = position ? formatOrdinal(position.rank) : ''
+  const positionTotalText = position ? `/${position.total}` : ''
+  let finalPositionText = ''
+
   if (race) {
     countdownLabel = computeCountdownLabel(race)
     lapText = computeLapText(race)
@@ -153,6 +175,9 @@ export function buildHudModel(
     finished = race.phase === 'finished'
 
     if (finished) {
+      if (position) {
+        finalPositionText = `Posición: ${formatOrdinal(position.rank)} de ${position.total}`
+      }
       finalTimes = {
         lap1: formatTime(race.lapTimes[0] ?? 0),
         lap2: formatTime(race.lapTimes[1] ?? 0),
@@ -184,5 +209,8 @@ export function buildHudModel(
     wrongWay,
     finished,
     finalTimes,
+    positionText,
+    positionTotalText,
+    finalPositionText,
   }
 }

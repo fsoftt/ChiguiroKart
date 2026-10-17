@@ -37,6 +37,9 @@ export class Hud {
 
   // Race UI
   private readonly lapBadge = el('div', 'hud-lap-badge', this.root)
+  private readonly positionBadge = el('div', 'hud-position', this.root)
+  private readonly positionValue: HTMLElement
+  private readonly positionTotal: HTMLElement
   private readonly timerContainer = el('div', 'hud-timer-badge', this.root)
   private readonly timerValue: HTMLElement
   private readonly bestLapValue: HTMLElement
@@ -46,6 +49,7 @@ export class Hud {
   // Results
   private readonly resultsOverlay = el('div', 'hud-results', this.root)
   private readonly resultsCard = el('div', 'hud-results-card', this.resultsOverlay)
+  private readonly resultsPosition: HTMLElement
   private readonly resultsTable: HTMLTableElement
 
   // Kart controls & physics UI
@@ -73,6 +77,9 @@ export class Hud {
   private perfect = false
 
   private lapText = ''
+  private positionText = ''
+  private positionTotalText = ''
+  private finalPositionText = ''
   private timeText = ''
   private bestLapText = ''
   private countdownLabel = ''
@@ -84,6 +91,8 @@ export class Hud {
 
     // Top race badges
     this.lapBadge.textContent = 'VUELTA 1/3'
+    this.positionValue = el('span', 'hud-position-value', this.positionBadge)
+    this.positionTotal = el('span', 'hud-position-total', this.positionBadge)
     this.timerValue = el('span', 'hud-timer-value', this.timerContainer)
     this.timerValue.textContent = '0:00.00'
     this.bestLapValue = el('span', 'hud-best-lap', this.timerContainer)
@@ -93,6 +102,7 @@ export class Hud {
     // Results modal
     const title = el('h2', 'hud-results-title', this.resultsCard)
     title.textContent = '¡CARRERA TERMINADA!'
+    this.resultsPosition = el('div', 'hud-results-position', this.resultsCard)
     this.resultsTable = document.createElement('table')
     this.resultsTable.className = 'hud-results-table'
     this.resultsCard.append(this.resultsTable)
@@ -141,6 +151,21 @@ export class Hud {
     if (model.lapText !== this.lapText) {
       this.lapText = model.lapText
       this.lapBadge.textContent = model.lapText
+    }
+
+    if (model.positionText !== this.positionText) {
+      this.positionText = model.positionText
+      this.positionValue.textContent = model.positionText
+    }
+
+    if (model.positionTotalText !== this.positionTotalText) {
+      this.positionTotalText = model.positionTotalText
+      this.positionTotal.textContent = model.positionTotalText
+    }
+
+    if (model.finalPositionText !== this.finalPositionText) {
+      this.finalPositionText = model.finalPositionText
+      this.resultsPosition.textContent = model.finalPositionText
     }
 
     if (model.timeText !== this.timeText) {
