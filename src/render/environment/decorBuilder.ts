@@ -102,6 +102,14 @@ export class DecorBuilder {
     return this
   }
 
+  /** Half sphere (dome) standing on `position`, squashed to `height`. */
+  dome(color: string, radius: number, height: number, position: Vec3Tuple, segments = 12): this {
+    const g = new THREE.SphereGeometry(radius, segments, 5, 0, Math.PI * 2, 0, Math.PI / 2)
+    this.push(g, color, position, [0, 0, 0], [1, height / radius, 1])
+    g.dispose()
+    return this
+  }
+
   ball(color: string, radius: number, position: Vec3Tuple, scale: Vec3Tuple = [1, 1, 1]): this {
     const g = new THREE.IcosahedronGeometry(radius, 1)
     this.push(g, color, position, [0, 0, 0], scale)
