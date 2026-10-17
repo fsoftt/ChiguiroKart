@@ -11,12 +11,42 @@ export interface QualityProfile {
   particleScale: number
   /** Speed lines on. */
   speedLines: boolean
+  /** Side of the sun's shadow map in texels; 0 turns real-time shadows off. */
+  shadowMapSize: number
+  /** Cheap dark circle under each kart (used where the shadow map is off). */
+  blobShadows: boolean
+  /** Scale of the theme's fog distances, which also sets the camera far plane (draw distance). */
+  fogScale: number
 }
 
 export const qualityProfiles: Record<Quality, QualityProfile> = {
-  low: { maxPixelRatio: 1, bloom: false, particleScale: 0.5, speedLines: false },
-  medium: { maxPixelRatio: 1.5, bloom: true, particleScale: 0.75, speedLines: true },
-  high: { maxPixelRatio: 2, bloom: true, particleScale: 1, speedLines: true },
+  low: {
+    maxPixelRatio: 1,
+    bloom: false,
+    particleScale: 0.5,
+    speedLines: false,
+    shadowMapSize: 0,
+    blobShadows: true,
+    fogScale: 0.65,
+  },
+  medium: {
+    maxPixelRatio: 1.5,
+    bloom: true,
+    particleScale: 0.75,
+    speedLines: true,
+    shadowMapSize: 1024,
+    blobShadows: false,
+    fogScale: 0.85,
+  },
+  high: {
+    maxPixelRatio: 2,
+    bloom: true,
+    particleScale: 1,
+    speedLines: true,
+    shadowMapSize: 2048,
+    blobShadows: false,
+    fogScale: 1,
+  },
 }
 
 export const QUALITY_LABELS: Record<Quality, string> = {
@@ -31,6 +61,9 @@ export interface ResolvedQuality {
   bloom: boolean
   particleScale: number
   speedLines: boolean
+  shadowMapSize: number
+  blobShadows: boolean
+  fogScale: number
 }
 
 /**
@@ -48,5 +81,8 @@ export function resolveQuality(
     bloom: profile.bloom && !bloomForcedOff,
     particleScale: profile.particleScale,
     speedLines: profile.speedLines,
+    shadowMapSize: profile.shadowMapSize,
+    blobShadows: profile.blobShadows,
+    fogScale: profile.fogScale,
   }
 }

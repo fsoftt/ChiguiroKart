@@ -30,6 +30,8 @@ export function createScenery(track: Track, theme: TrackTheme): THREE.Group {
     for (const part of model.parts) {
       const mesh = new THREE.InstancedMesh(part.geometry, sceneryMaterial(part.layer), items.length)
       mesh.name = `${set.kind}:${part.layer}`
+      // Confetti is a thin decoration; everything else is solid enough to cast
+      mesh.castShadow = set.kind !== 'confetti'
       items.forEach((item, i) => {
         position.set(item.x, item.y, item.z)
         rotation.setFromAxisAngle(up, item.yaw)
