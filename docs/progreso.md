@@ -198,6 +198,7 @@ Flujo de juego (elegir pista y modo Copa). Las pistas, los elementos especiales 
 - ✅ HUD: «Carrera 2/4 · Copa Andina» durante las carreras de copa.
 - ✅ Pruebas: ajustes, puntos, desempates, avance de la copa, vistas de resultados y selección de pista.
 - ✅ Comprobado en Chromium: menú → pista → carrera sin errores de consola, cambio de pista desde el menú después de una carrera y la copa completa (4 carreras y repetir copa) forzando la llegada con `window.game` (solo en desarrollo).
+- ✅ Prueba de integración `tests/tracksRace.test.ts`: las 12 pistas con 8 karts (el jugador conducido por un bot), poderes, colisiones y peligros activos, 1 vuelta cada una (San Andrés además 3 vueltas para ver la marea). Todos terminan, sin NaN, sin karts atascados (>8 s sin avanzar 3 m) y con 0 reapariciones en cada pista; las vacas de los Llanos y las carrozas de Barranquilla se mueven, los bots no chocan contra el muro de hielo del Nevado y en San Andrés usan el banco de arena solo con marea baja (vuelta 2). Comprobado en Chromium (`?pista=<id>` en las 12 pistas, sin errores de consola ni peticiones fallidas).
 - ⬜ Falta: las pistas (diseños, atajos, elementos especiales), copas online y el cierre de la etapa.
 
 ## Etapa 10 — Pulido 🚧
