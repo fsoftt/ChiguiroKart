@@ -1,4 +1,5 @@
 import { GAMEPAD_DEADZONE } from '../config/controls'
+import { GAMEPAD_START_BUTTON } from '../game/pause'
 import { NEUTRAL_INPUT, type InputSource, type KartInput } from './kartInput'
 
 /** Subset of the browser Gamepad API, so mapping can be tested without a device. */
@@ -40,6 +41,12 @@ export function gamepadToInput(pad: GamepadLike, deadzone = GAMEPAD_DEADZONE): K
     useItem: pressed(Button.X),
     lookBack: pressed(Button.Y),
   }
+}
+
+/** True while the Start button of the first standard-mapping gamepad is held. */
+export function gamepadStartHeld(): boolean {
+  const pad = navigator.getGamepads().find((p) => p?.connected && p.mapping === 'standard')
+  return pad?.buttons[GAMEPAD_START_BUTTON]?.pressed ?? false
 }
 
 /** Reads the first connected gamepad that uses the standard mapping. */

@@ -45,7 +45,7 @@ export class KartEffects {
   private readonly flameRing: ParticleRing
   private readonly smokeView: ParticlePoints
   private readonly flameView: ParticlePoints
-  private readonly palette: SmokePalette
+  private palette: SmokePalette
   private readonly smokeColor: Rgb = { ...ZERO }
 
   private previousBoost: BoostState = { level: 0, timeLeft: 0, perfect: false }
@@ -61,7 +61,7 @@ export class KartEffects {
 
   constructor(
     private readonly effects: EffectsConfig,
-    private readonly drift: DriftConfig,
+    private drift: DriftConfig,
   ) {
     this.palette = createSmokePalette(drift)
     this.smokeRing = new ParticleRing(effects.smoke.maxParticles, effects.smoke.drag)
@@ -69,6 +69,18 @@ export class KartEffects {
     this.smokeView = new ParticlePoints(this.smokeRing, false)
     this.flameView = new ParticlePoints(this.flameRing, true, FLAME_GAIN)
     this.object.add(this.smokeView.object, this.flameView.object)
+  }
+
+  /** Switches the nitro tier colors (flames and smoke) to those of `drift`, live. */
+  setDrift(drift: DriftConfig): void {
+    this.drift = drift
+    this.palette = createSmokePalette(drift)
+  }
+
+  /** Scales the particle pools (graphics quality), 0..1. */
+  setParticleScale(scale: number): void {
+    this.smokeRing.setShare(scale)
+    this.flameRing.setShare(scale)
   }
 
   /**

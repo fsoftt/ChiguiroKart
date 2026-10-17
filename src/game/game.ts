@@ -1,6 +1,7 @@
 import * as THREE from 'three'
+import { activeDriftPalette, feedbackScales } from '../config/accessibility'
 import { defaultChaseCamera } from '../config/camera'
-import { defaultDrift } from '../config/drift'
+import { defaultDrift, type DriftConfig } from '../config/drift'
 import { defaultEffects } from '../config/effects'
 import { defaultKartPhysics } from '../config/kartPhysics'
 import { cocoraTrack } from '../config/tracks/cocoraTrack'
@@ -8,12 +9,13 @@ import { cupInfo, tracks, type TrackId } from '../config/tracks/catalog'
 import { DEFAULT_THEME, type TrackTheme } from '../config/tracks/theme'
 import { testTrack } from '../config/tracks/testTrack'
 import { CUSTOM_TRACK_KEY, buildTrackDefinition, parseTrackDataText } from '../sim/trackData'
-import { GamepadSource } from '../input/gamepad'
+import { GamepadSource, gamepadStartHeld } from '../input/gamepad'
 import { combineInputs, NEUTRAL_INPUT, type InputSource, type KartInput } from '../input/kartInput'
 import { KeyboardSource } from '../input/keyboard'
 import { TouchControls } from '../input/touchView'
 import { ChaseCamera } from '../render/chaseCamera'
 import {
+  applyQuality,
   applySceneTheme,
   createScene,
   renderScene,
@@ -64,6 +66,8 @@ import { BotManager } from '../sim/botManager'
 import { RacingBot } from '../ai/racingBot'
 import { botDifficulties } from '../config/bots'
 import { characterIds, type CharacterId } from '../config/characters'
+import { OptionsMenu } from '../ui/optionsMenu'
+import { PauseMenu } from '../ui/pauseMenu'
 import { QuickRaceMenu } from '../ui/quickRaceMenu'
 import {
   advanceCup,
@@ -74,6 +78,8 @@ import {
   type CupState,
 } from './cup'
 import { disposeObject } from './disposeObject'
+import { canPause, PauseState, risingEdge } from './pause'
+import { SettingsStore, type GameSettings } from './settings'
 import { parseRaceSettings, rubberBandFor, type RaceSettings } from './raceSettings'
 
 const SIMULATION_HZ = 60
@@ -171,13 +177,25 @@ export class Game {
   private readonly menu: QuickRaceMenu
   private settings: RaceSettings
   private readonly touchControls = new TouchControls()
+  /** Player options (quality, volumes, accessibility, keys); saved on every change. */
+  private readonly settingsStore = new SettingsStore()
+  private readonly keyboard = new KeyboardSource(this.settingsStore.get().keyBindings)
   private readonly inputSources: InputSource[] = [
-    new KeyboardSource(),
+    this.keyboard,
     new GamepadSource(),
     this.touchControls.source,
   ]
   private readonly fpsOverlay: FpsOverlay | null
   private readonly hud = new Hud()
+  private readonly pauseState = new PauseState()
+  private readonly pauseMenu = new PauseMenu()
+  private readonly optionsMenu = new OptionsMenu(this.settingsStore)
+  /** The drift config with the active nitro palette (normal or color-blind safe). */
+  private driftView: DriftConfig = this.driftConfig
+  private speedLinesEnabled = true
+  /** Seconds of unpaused game time; drives the shake oscillator and the showroom camera. */
+  private gameTime = 0
+  private startButtonHeld = false
   private readonly readout: DebugReadout = { speedKmh: 0, onGround: true }
 
   private previousKart: KartState
@@ -209,7 +227,7 @@ export class Game {
     this.currentCharacter = this.settings.character
     this.kartView = new CharacterView(this.settings.character)
     this.ghostView = new CharacterView(this.settings.character)
-    this.scene = createScene(canvas)
+    this.scene = createScene(canvas, this.settingsStore.get().quality)
     this.setupTrack()
     this.scene.scene.add(
       this.kartView.object,
@@ -229,10 +247,14 @@ export class Game {
       this.trackOverride = null
     }
     this.menu.onCharacterChange = (id) => this.setPlayerCharacter(id)
+    this.menu.onOptions = () => this.openOptions()
     this.menu.show(this.settings)
     this.hud.setVisible(false)
     this.hud.onRematch = () => this.primaryAction()
     this.hud.onMenu = () => this.showMenu()
+    this.setupPause()
+    this.applySettings(this.settingsStore.get())
+    this.settingsStore.subscribe((next) => this.applySettings(next))
 
     const debug = isDebugEnabled()
     this.fpsOverlay = debug ? new FpsOverlay() : null
@@ -250,7 +272,75 @@ export class Game {
     window.addEventListener('keydown', (event) => {
       if (event.code === RESET_KEY && this.racing && !this.raceLocked()) this.resetKart()
       if (event.code === 'Enter' && this.hud.isFinished) this.primaryAction()
+      if ((event.code === 'Escape' || event.code === 'KeyP') && !event.repeat) this.pause()
     })
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden) this.pause()
+    })
+  }
+
+  /** Pause button of a gamepad (Start), and the touch button's visibility. */
+  private pollPauseButton(): void {
+    const held = gamepadStartHeld()
+    if (risingEdge(this.startButtonHeld, held)) {
+      if (this.pauseState.isPaused) {
+        if (this.pauseMenu.isOpen && !this.optionsMenu.isOpen) this.resume()
+      } else {
+        this.pause()
+      }
+    }
+    this.startButtonHeld = held
+    this.pauseMenu.setButtonVisible(canPause(this.pauseContext()) && !this.pauseState.isPaused)
+  }
+
+  /** Applies the options to the running game; runs at start and after every change. */
+  private applySettings(settings: GameSettings): void {
+    const resolved = applyQuality(this.scene, settings.quality)
+    this.kartEffects.setParticleScale(resolved.particleScale)
+    this.speedLinesEnabled = resolved.speedLines
+    this.driftView = activeDriftPalette(this.driftConfig, settings.colorblind)
+    this.kartEffects.setDrift(this.driftView)
+    this.hud.setColorblind(settings.colorblind)
+    this.kartFeedback.setScales(feedbackScales(settings.reduceShake))
+    this.keyboard.setBindings(settings.keyBindings)
+    // AUDIO HOOK: the audio module will expose setVolumes({ master, music, sfx }); call it
+    // here with settings.masterVolume, settings.musicVolume and settings.sfxVolume.
+  }
+
+  private openOptions(): void {
+    this.pauseMenu.setSuspended(true)
+    this.optionsMenu.open(() => this.pauseMenu.setSuspended(false))
+  }
+
+  private setupPause(): void {
+    this.pauseMenu.onResume = () => this.resume()
+    this.pauseMenu.onPauseRequest = () => this.pause()
+    this.pauseMenu.onOptions = () => this.openOptions()
+    this.pauseMenu.onRestart = () => {
+      this.resume()
+      this.launchRace()
+    }
+    this.pauseMenu.onQuit = () => this.showMenu()
+  }
+
+  private pauseContext(): { racing: boolean; finished: boolean; locked: boolean } {
+    return {
+      racing: this.racing,
+      finished: this.world.raceManager.state.phase === 'finished',
+      locked: this.raceLocked(),
+    }
+  }
+
+  /** Pauses the race if that is allowed now (not in the menu or at the results). */
+  private pause(): void {
+    if (this.pauseState.isPaused || !this.pauseState.pause(this.pauseContext())) return
+    this.touchControls.source.releaseAll()
+    this.pauseMenu.show()
+  }
+
+  private resume(): void {
+    this.pauseState.resume()
+    this.pauseMenu.hide()
   }
 
   /**
@@ -351,6 +441,7 @@ export class Game {
 
   /** Stops the race, removes the bots and shows the menu again. */
   showMenu(): void {
+    this.resume()
     this.clearBots()
     this.racing = false
     this.ghost = null
@@ -463,25 +554,31 @@ export class Game {
 
   private frame(time: number): void {
     this.timer.update(time)
-    const dt = this.timer.getDelta()
+    const paused = this.pauseState.isPaused
+    // While paused no time passes: the sim clock, race timers and animations all see dt = 0
+    const dt = this.pauseState.frameSeconds(this.timer.getDelta())
+    this.gameTime += dt
+    this.pollPauseButton()
     const input = combineInputs(this.inputSources.map((source) => source.read()))
 
     const bots = this.botManager
     // The simulation only runs during a race; the menu shows the idle grid
-    const alpha = this.racing
-      ? this.fixedStep.advance(dt, (stepSeconds) => {
-          this.previousKart = cloneKartState(this.world.kart)
-          this.world.step(input, stepSeconds)
-          if (!bots) {
-            this.ghostRecorder.record(this.world.kart, this.world.raceManager.state)
-            return
-          }
-          this.previousBotKarts = bots.getBotKarts().map(cloneKartState)
-          bots.update(stepSeconds)
-          bots.resolveCollisions()
-          this.stepItems(input, bots, stepSeconds)
-        })
-      : 1
+    const alpha = paused
+      ? this.lastAlpha
+      : this.racing
+        ? this.fixedStep.advance(dt, (stepSeconds) => {
+            this.previousKart = cloneKartState(this.world.kart)
+            this.world.step(input, stepSeconds)
+            if (!bots) {
+              this.ghostRecorder.record(this.world.kart, this.world.raceManager.state)
+              return
+            }
+            this.previousBotKarts = bots.getBotKarts().map(cloneKartState)
+            bots.update(stepSeconds)
+            bots.resolveCollisions()
+            this.stepItems(input, bots, stepSeconds)
+          })
+        : 1
     this.lastAlpha = alpha
 
     this.updateTrack(dt)
@@ -587,10 +684,12 @@ export class Game {
     this.itemView.update(this.items, this.racers, dt)
     this.kartEffects.update(kart, speedRatio, dt)
 
-    const feedback = this.kartFeedback.update(kart.boost, kart.drift, this.timer.getElapsed(), dt)
+    const feedback = this.kartFeedback.update(kart.boost, kart.drift, this.gameTime, dt)
     this.updateCamera(kart, speedRatio, input, dt, feedback)
     this.speedLines.update(
-      speedLineTarget(speedRatio, kart.boost.level, this.effectsConfig.speedLines),
+      this.speedLinesEnabled
+        ? speedLineTarget(speedRatio, kart.boost.level, this.effectsConfig.speedLines)
+        : 0,
       dt,
     )
 
@@ -610,7 +709,7 @@ export class Game {
       buildHudModel(
         kart,
         this.physics,
-        this.driftConfig,
+        this.driftView,
         this.world.raceManager.state,
         position,
         this.world.player.items,
@@ -653,7 +752,7 @@ export class Game {
   ): void {
     const camera = this.scene.camera
     if (!this.racing) {
-      placeShowroomCamera(camera, kart.position, kart.heading, this.timer.getElapsed())
+      placeShowroomCamera(camera, kart.position, kart.heading, this.gameTime)
       return
     }
     const state = this.world.raceManager.state

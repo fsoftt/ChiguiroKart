@@ -29,6 +29,7 @@ export class ParticleRing {
   private readonly sizeEnd: Float32Array
   private readonly alpha: Float32Array
   private cursor = 0
+  private active: number
 
   /**
    * @param capacity maximum simultaneous particles
@@ -38,6 +39,7 @@ export class ParticleRing {
     readonly capacity: number,
     private readonly drag: number,
   ) {
+    this.active = capacity
     this.offsets = new Float32Array(capacity * 3)
     this.colors = new Float32Array(capacity * 3)
     this.params = new Float32Array(capacity * 2)
@@ -47,6 +49,20 @@ export class ParticleRing {
     this.sizeStart = new Float32Array(capacity)
     this.sizeEnd = new Float32Array(capacity)
     this.alpha = new Float32Array(capacity)
+  }
+
+  /**
+   * Uses only the first `share` (0..1) of the slots from now on; the rest die at once. Lets the
+   * graphics quality shrink the pool without reallocating the GPU buffers.
+   */
+  setShare(share: number): void {
+    this.active = Math.max(1, Math.round(this.capacity * Math.min(1, Math.max(0, share))))
+    for (let slot = this.active; slot < this.capacity; slot += 1) {
+      this.age[slot] = Infinity
+      this.params[slot * 2] = 0
+      this.params[slot * 2 + 1] = 0
+    }
+    this.cursor %= this.active
   }
 
   /** Starts a particle in the next slot, recycling the oldest one when full. Returns its slot. */
@@ -60,7 +76,7 @@ export class ParticleRing {
     alpha: number,
   ): number {
     const slot = this.cursor
-    this.cursor = (this.cursor + 1) % this.capacity
+    this.cursor = (this.cursor + 1) % this.active
     const v = slot * 3
     this.offsets[v] = position.x
     this.offsets[v + 1] = position.y

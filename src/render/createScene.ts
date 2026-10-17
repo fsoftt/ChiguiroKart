@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+import { resolveQuality, type Quality, type ResolvedQuality } from '../config/quality'
 import { DEFAULT_THEME, type TrackTheme } from '../config/tracks/theme'
 import { createSky, undergroundLook, type Sky } from './sky'
 
@@ -17,7 +18,7 @@ export interface SceneContext {
   renderer: THREE.WebGLRenderer
   scene: THREE.Scene
   camera: THREE.PerspectiveCamera
-  /** Null when the bloom is off (`?bloom=0`). */
+  /** Null when the bloom is off (`?bloom=0` or low quality). */
   composer: EffectComposer | null
   /** Lights and sky that `applySceneTheme` recolors when the track changes. */
   hemisphere: THREE.HemisphereLight
@@ -25,14 +26,15 @@ export interface SceneContext {
   sky: Sky
 }
 
-/** Bloom is on unless the URL says `?bloom=0`. */
-function bloomEnabled(): boolean {
-  return new URLSearchParams(window.location.search).get('bloom') !== '0'
+/** The URL says `?bloom=0`: no bloom at any quality. */
+function bloomForcedOff(): boolean {
+  return new URLSearchParams(window.location.search).get('bloom') === '0'
 }
 
-export function createScene(canvas: HTMLCanvasElement): SceneContext {
+export function createScene(canvas: HTMLCanvasElement, quality: Quality = 'high'): SceneContext {
   const renderer = new THREE.WebGLRenderer({ canvas, antialias: true })
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
+  const resolved = resolveQuality(quality, window.devicePixelRatio, bloomForcedOff())
+  renderer.setPixelRatio(resolved.pixelRatio)
 
   const scene = new THREE.Scene()
   const camera = new THREE.PerspectiveCamera(60, 1, 0.1, DEFAULT_THEME.fogFar + 20)
@@ -47,13 +49,30 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
     renderer,
     scene,
     camera,
-    composer: bloomEnabled() ? createComposer(renderer, scene, camera) : null,
+    composer: resolved.bloom ? createComposer(renderer, scene, camera) : null,
     hemisphere,
     sun,
     sky,
   }
   applySceneTheme(context, DEFAULT_THEME)
   return context
+}
+
+/**
+ * Changes the graphics quality of a running scene: pixel ratio and bloom. The canvas size is
+ * refreshed by the next `resizeToCanvas`. Returns the resolved values (particles, speed lines).
+ */
+export function applyQuality(context: SceneContext, quality: Quality): ResolvedQuality {
+  const resolved = resolveQuality(quality, window.devicePixelRatio, bloomForcedOff())
+  const { renderer, scene, camera } = context
+  renderer.setPixelRatio(resolved.pixelRatio)
+  if (resolved.bloom && !context.composer) {
+    context.composer = createComposer(renderer, scene, camera)
+  } else if (!resolved.bloom && context.composer) {
+    context.composer.dispose()
+    context.composer = null
+  }
+  return resolved
 }
 
 function createComposer(

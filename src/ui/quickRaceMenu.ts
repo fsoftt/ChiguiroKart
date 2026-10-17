@@ -105,6 +105,8 @@ export class QuickRaceMenu {
   onCharacterChange: ((id: CharacterId) => void) | null = null
   /** Called when the player picks a track or a cup, not when the menu shows its initial one. */
   onTrackChange: (() => void) | null = null
+  /** Called when the player asks for the Options screen (button or the O key). */
+  onOptions: (() => void) | null = null
 
   constructor(
     initial: RaceSettings,
@@ -212,7 +214,11 @@ export class QuickRaceMenu {
     next.type = 'button'
     next.textContent = 'Siguiente'
     next.addEventListener('click', () => this.goTo('track'))
-    el('div', 'qr-hint', card).textContent = 'Enter: siguiente · ↑ ↓: modo'
+    const options = el('button', 'qr-back', card) as HTMLButtonElement
+    options.type = 'button'
+    options.textContent = 'Opciones'
+    options.addEventListener('click', () => this.onOptions?.())
+    el('div', 'qr-hint', card).textContent = 'Enter: siguiente · ↑ ↓: modo · O: opciones'
     return hint
   }
 
@@ -342,7 +348,10 @@ export class QuickRaceMenu {
 
   private onModeKey(event: KeyboardEvent): void {
     const direction = KEY_DIRECTIONS[event.code]
-    if (isConfirm(event)) {
+    if (event.code === 'KeyO') {
+      event.preventDefault()
+      this.onOptions?.()
+    } else if (isConfirm(event)) {
       event.preventDefault()
       this.goTo('track')
     } else if (direction === 'up' || direction === 'left') {

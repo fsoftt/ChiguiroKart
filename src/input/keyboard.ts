@@ -20,16 +20,25 @@ export function keysToInput(pressed: ReadonlySet<string>, bindings: KeyBindings)
 
 export class KeyboardSource implements InputSource {
   private readonly pressed = new Set<string>()
-  private readonly boundCodes: ReadonlySet<string>
+  private bindings: KeyBindings
+  private boundCodes: ReadonlySet<string>
 
   constructor(
-    private readonly bindings: KeyBindings = defaultKeyBindings,
+    bindings: KeyBindings = defaultKeyBindings,
     private readonly target: Window = window,
   ) {
+    this.bindings = bindings
     this.boundCodes = new Set(Object.values(bindings).flat())
     target.addEventListener('keydown', this.onKeyDown)
     target.addEventListener('keyup', this.onKeyUp)
     target.addEventListener('blur', this.onBlur)
+  }
+
+  /** Switches to new key bindings right away; keys held down are released. */
+  setBindings(bindings: KeyBindings): void {
+    this.bindings = bindings
+    this.boundCodes = new Set(Object.values(bindings).flat())
+    this.pressed.clear()
   }
 
   read(): KartInput {

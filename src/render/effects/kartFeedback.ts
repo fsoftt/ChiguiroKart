@@ -1,3 +1,4 @@
+import { feedbackScales, type FeedbackScales } from '../../config/accessibility'
 import type { CameraFeedbackConfig } from '../../config/effects'
 import type { BoostState, DriftState } from '../../sim/kart/driftState'
 import {
@@ -35,7 +36,14 @@ export class KartFeedback {
     overchargeTime: 0,
   }
 
+  private scales: FeedbackScales = feedbackScales(false)
+
   constructor(private readonly config: CameraFeedbackConfig) {}
+
+  /** Accessibility: scales the chain-break shake and the nitro FOV kick, live. */
+  setScales(scales: FeedbackScales): void {
+    this.scales = scales
+  }
 
   /**
    * Advances the feedback and returns the value for this frame.
@@ -49,10 +57,14 @@ export class KartFeedback {
   ): CameraFeedback {
     const startedLevel = detectNitroStart(this.previousBoost, currentBoost)
     if (startedLevel > 0) {
-      this.feedback.fovKick += this.config.fovKick[startedLevel - 1] ?? 0
+      this.feedback.fovKick += (this.config.fovKick[startedLevel - 1] ?? 0) * this.scales.fovKick
     }
     if (detectChainBreak(this.previousDrift, currentDrift)) {
-      startShake(this.shake, this.config.breakShakeIntensity, this.config.breakShakeSeconds)
+      startShake(
+        this.shake,
+        this.config.breakShakeIntensity * this.scales.shake,
+        this.config.breakShakeSeconds,
+      )
     }
 
     this.feedback.fovKick = decayKick(this.feedback.fovKick, this.config.fovKickDecay, dt)

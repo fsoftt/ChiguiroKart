@@ -1,0 +1,132 @@
+import './quickRaceMenu.css'
+import './optionsMenu.css'
+
+function el(tag: string, className: string, parent?: HTMLElement): HTMLElement {
+  const node = document.createElement(tag)
+  node.className = className
+  parent?.append(node)
+  return node
+}
+
+interface Entry {
+  label: string
+  run: () => void
+}
+
+/**
+ * Pause overlay (Continuar, Reiniciar carrera, Opciones, Salir al menú) and the small pause
+ * button for touch screens. Up/down move, Enter activates, Esc or P resume. While open it
+ * swallows key presses so the game behind does not react.
+ */
+export class PauseMenu {
+  onResume: (() => void) | null = null
+  onRestart: (() => void) | null = null
+  onOptions: (() => void) | null = null
+  onQuit: (() => void) | null = null
+  /** The touch pause button was pressed. */
+  onPauseRequest: (() => void) | null = null
+
+  private readonly root = el('div', 'pm-menu')
+  private readonly pauseButton = el('button', 'pm-button') as HTMLButtonElement
+  private readonly buttons: HTMLButtonElement[] = []
+  private readonly entries: Entry[]
+  private open_ = false
+  private suspended = false
+  private focusIndex = 0
+
+  constructor(parent: HTMLElement = document.body) {
+    this.root.setAttribute('role', 'dialog')
+    this.root.setAttribute('aria-label', 'Pausa')
+    const card = el('div', 'qr-card pm-card', this.root)
+    el('h1', 'qr-title', card).textContent = 'Pausa'
+    const list = el('div', 'pm-buttons', card)
+    this.entries = [
+      { label: 'Continuar', run: () => this.onResume?.() },
+      { label: 'Reiniciar carrera', run: () => this.onRestart?.() },
+      { label: 'Opciones', run: () => this.onOptions?.() },
+      { label: 'Salir al menú', run: () => this.onQuit?.() },
+    ]
+    this.entries.forEach((entry, index) => {
+      const button = el('button', 'qr-start', list) as HTMLButtonElement
+      button.type = 'button'
+      button.textContent = entry.label
+      button.addEventListener('click', entry.run)
+      button.addEventListener('pointerenter', () => this.focus(index))
+      this.buttons.push(button)
+    })
+    el('div', 'qr-hint', card).textContent = '↑ ↓: elegir · Enter: aceptar · Esc o P: continuar'
+
+    this.pauseButton.type = 'button'
+    this.pauseButton.textContent = '⏸'
+    this.pauseButton.setAttribute('aria-label', 'Pausa')
+    this.pauseButton.addEventListener('click', () => this.onPauseRequest?.())
+
+    window.addEventListener('keydown', (event) => this.onKey(event), true)
+    parent.append(this.root, this.pauseButton)
+    this.focus(0)
+  }
+
+  get isOpen(): boolean {
+    return this.open_
+  }
+
+  /** True while the Options screen is on top and the pause menu must not take keys. */
+  setSuspended(suspended: boolean): void {
+    this.suspended = suspended
+    this.root.classList.toggle('is-suspended', suspended)
+    this.root.style.visibility = suspended && this.open_ ? 'hidden' : ''
+  }
+
+  show(): void {
+    this.open_ = true
+    this.focus(0)
+    this.root.classList.add('is-visible')
+    this.buttons[0]?.focus({ preventScroll: true })
+  }
+
+  hide(): void {
+    this.open_ = false
+    this.suspended = false
+    this.root.style.visibility = ''
+    this.root.classList.remove('is-visible')
+  }
+
+  /** Shows the touch pause button (it only displays on touch devices). */
+  setButtonVisible(visible: boolean): void {
+    this.pauseButton.classList.toggle('is-shown', visible)
+  }
+
+  private focus(index: number): void {
+    this.focusIndex = (index + this.entries.length) % this.entries.length
+    this.buttons.forEach((button, i) =>
+      button.classList.toggle('is-focused', i === this.focusIndex),
+    )
+  }
+
+  private onKey(event: KeyboardEvent): void {
+    if (!this.open_ || this.suspended) return
+    event.stopPropagation()
+    switch (event.code) {
+      case 'ArrowUp':
+      case 'KeyW':
+        this.focus(this.focusIndex - 1)
+        break
+      case 'ArrowDown':
+      case 'KeyS':
+        this.focus(this.focusIndex + 1)
+        break
+      case 'Enter':
+      case 'NumpadEnter':
+      case 'Space':
+        if (!event.repeat) this.entries[this.focusIndex]?.run()
+        break
+      case 'Escape':
+      case 'KeyP':
+        if (!event.repeat) this.onResume?.()
+        break
+      default:
+        return
+    }
+    event.preventDefault()
+  }
+}

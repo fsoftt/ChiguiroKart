@@ -369,6 +369,38 @@
   background: #fff;
 }
 
+/* Color-blind mode: the tier number backs up the color */
+.hud-nitro-tier {
+  display: none;
+}
+
+.hud.is-colorblind .hud-nitro-tier {
+  position: absolute;
+  top: -16px;
+  left: -16px;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  font-size: 22px;
+  color: #fff;
+  background: var(--hud-outline);
+  border: 3px solid #fff;
+  border-radius: 50%;
+}
+
+.hud.is-colorblind .hud-pip.is-filled {
+  display: grid;
+  place-items: center;
+  font-size: clamp(11px, 2.4vw, 16px);
+  line-height: 1;
+  color: #1b1033;
+}
+
+.hud.is-colorblind .hud-pip.is-filled::after {
+  content: attr(data-tier);
+}
+
 /* "¡Perfecto!" pop-up */
 .hud-perfect {
   position: absolute;

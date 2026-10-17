@@ -77,6 +77,7 @@ export class Hud {
   private readonly nitro = el('div', 'hud-nitro', this.root)
   private readonly nitroLabel: HTMLElement
   private readonly nitroTime: HTMLElement
+  private readonly nitroTier: HTMLElement
   private readonly perfectPopup: HTMLElement
 
   // Items
@@ -172,9 +173,14 @@ export class Hud {
     this.fill = el('div', 'hud-drift-fill', track)
     this.marker = el('div', 'hud-drift-marker', track)
     const pipRow = el('div', 'hud-pips', this.driftBar)
-    for (let i = 0; i < PIP_COUNT; i++) this.pips.push(el('div', 'hud-pip', pipRow))
+    for (let i = 0; i < PIP_COUNT; i++) {
+      const pip = el('div', 'hud-pip', pipRow)
+      pip.dataset.tier = String(i + 1)
+      this.pips.push(pip)
+    }
 
     // Nitro badge
+    this.nitroTier = el('div', 'hud-nitro-tier', this.nitro)
     this.nitroLabel = el('div', 'hud-nitro-label', this.nitro)
     this.nitroTime = el('div', 'hud-nitro-time', el('div', 'hud-nitro-track', this.nitro))
     this.perfectPopup = el('div', 'hud-perfect', this.root)
@@ -215,6 +221,11 @@ export class Hud {
   /** Shows or hides the whole HUD (race badges, minimap and results), e.g. behind the menu. */
   setVisible(visible: boolean): void {
     this.root.classList.toggle('is-hidden', !visible)
+  }
+
+  /** Color-blind mode: nitro tiers also show their number (1, 2, 3) so color is not the only cue. */
+  setColorblind(enabled: boolean): void {
+    this.root.classList.toggle('is-colorblind', enabled)
   }
 
   /** Time trial hides the position badge and the item widgets, which only make sense with bots. */
@@ -458,6 +469,7 @@ export class Hud {
     if (labelChanged) {
       this.label = model.nitroLabel
       this.nitroLabel.textContent = model.nitroLabel
+      this.nitroTier.textContent = model.nitroTier > 0 ? String(model.nitroTier) : ''
       this.nitro.classList.toggle('is-active', model.nitroLabel !== '')
       if (model.nitroLabel !== '') replay(this.nitro, 'is-starting')
     }

@@ -81,6 +81,8 @@ export interface HudModel {
   /** Text of the active nitro, empty when none. */
   nitroLabel: string
   nitroColor: string
+  /** Active nitro level 1..3, 0 when none; shown as a number in color-blind mode. */
+  nitroTier: number
   /** Remaining nitro time over the reserve cap, 0..1. */
   nitroTimeFraction: number
   perfect: boolean
@@ -318,6 +320,7 @@ export function buildHudModel(
     chainBroken: kart.drift.chainBroken,
     pips: [pipAt(kart, drift, 0), pipAt(kart, drift, 1), pipAt(kart, drift, 2)],
     nitroLabel: active ? `NITRO ${level}` : '',
+    nitroTier: active ? level : 0,
     nitroColor: active ? (drift.levels[level - 1]?.color ?? '') : '',
     nitroTimeFraction: active ? clamp01(kart.boost.timeLeft / drift.maxReserve) : 0,
     perfect: active && kart.boost.perfect,
