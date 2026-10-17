@@ -1,5 +1,6 @@
 import type { TrackData, TrackPointData } from '../../sim/trackData'
 import { buildCenterline } from '../../sim/trackSpline'
+import type { TrackEnvironment } from './environment'
 import type { TrackTheme } from './theme'
 
 const SAMPLES_PER_SEGMENT = 14
@@ -86,6 +87,64 @@ export const cartagenaData: TrackData = {
 }
 
 /** Sunset over the colonial walls: orange and pink sky, warm stone, cannons and balconies. */
+/** Colonial walls by the sea: cobbles, bougainvillea, coconut palms and cannons. */
+export const cartagenaEnvironment: TrackEnvironment = {
+  seed: 3404,
+  terrain: {
+    palette: {
+      grassLight: '#b9c06a',
+      grassDark: '#7f9a4a',
+      grassDry: '#e0cf98',
+      dirt: '#c8a874',
+      rock: '#b8a48a',
+    },
+    shoulder: 4,
+    hillHeight: 4,
+    valleySlope: 0.12,
+  },
+  fence: 'stone',
+  road: 'cobble',
+  vegetation: {
+    grass: 2600,
+    flowers: 1100,
+    bushes: 240,
+    ferns: 140,
+    palms: 280,
+    trees: 120,
+    cypress: 0,
+    distant: 500,
+    flowerColors: ['#ff3d9a', '#ff7ac2', '#ffffff', '#ffb13d', '#c13dff'],
+    models: { ferns: 'agave', palms: 'coconutPalm', distant: 'distantPalm' },
+  },
+  decor: {
+    sponsors: [
+      'Cocada Turbo',
+      'Murallas Racing',
+      'Arepa de Huevo Max',
+      'Champeta Express',
+      'Corsario Cola',
+      'Bocagrande Motors',
+      'Palenquera Veloz',
+      'Castillo Tours',
+    ],
+    bannerDensity: 7,
+    pennantStrings: 6,
+    props: [
+      { kind: 'grandstand', at: 0.03, side: 1, edge: 14 },
+      { kind: 'cannon', at: 0.08, side: -1, edge: 6 },
+      { kind: 'colonialHouse', at: 0.14, side: 1, edge: 12 },
+      { kind: 'cannon', at: 0.22, side: -1, edge: 6 },
+      { kind: 'colonialHouse', at: 0.3, side: 1, edge: 12, turn: 0.2 },
+      { kind: 'chiva', at: 0.4, side: -1, edge: 12 },
+      { kind: 'cannon', at: 0.5, side: 1, edge: 6 },
+      { kind: 'colonialHouse', at: 0.6, side: -1, edge: 12 },
+      { kind: 'boat', at: 0.7, side: 1, edge: 10, turn: 1.2 },
+      { kind: 'cannon', at: 0.78, side: -1, edge: 6 },
+      { kind: 'colonialHouse', at: 0.88, side: 1, edge: 12 },
+    ],
+  },
+}
+
 export const cartagenaTheme: TrackTheme = {
   sky: '#5f9ad8',
   horizon: '#ffd6b8',
@@ -105,9 +164,6 @@ export const cartagenaTheme: TrackTheme = {
   road: '#6d6560',
   wall: '#dcbd8c',
   curb: ['#e0556b', '#f6e3c8'],
-  decorations: [
-    { kind: 'colonialHouse', count: 70 },
-    { kind: 'cannon', count: 18 },
-    { kind: 'palm', count: 60 },
-  ],
+  decorations: [{ kind: 'colonialHouse', count: 30 }],
+  environment: cartagenaEnvironment,
 }

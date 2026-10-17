@@ -1,4 +1,5 @@
 import type { TrackData } from '../../sim/trackData'
+import type { TrackEnvironment } from './environment'
 import type { TrackTheme } from './theme'
 
 /**
@@ -144,6 +145,64 @@ export const nevadoData: TrackData = {
   ],
 }
 
+/** Snowfields and páramo: frailejones, snowy pines, a mountain refuge. */
+export const nevadoEnvironment: TrackEnvironment = {
+  seed: 3101,
+  terrain: {
+    palette: {
+      grassLight: '#f4f8fc',
+      grassDark: '#d3e0ed',
+      grassDry: '#a9b98a',
+      dirt: '#8a8f99',
+      rock: '#6c7280',
+    },
+    shoulder: 4,
+    hillHeight: 14,
+    valleySlope: 0.5,
+  },
+  fence: 'wood',
+  vegetation: {
+    grass: 2600,
+    flowers: 300,
+    bushes: 420,
+    ferns: 160,
+    palms: 0,
+    trees: 120,
+    cypress: 260,
+    distant: 500,
+    flowerColors: ['#ffe14d', '#ffffff', '#b36bff'],
+    models: {
+      grass: 'snowGrass',
+      bushes: 'frailejon',
+      ferns: 'agave',
+      trees: 'snowPine',
+      cypress: 'snowPine',
+      distant: 'distantRock',
+    },
+  },
+  decor: {
+    sponsors: [
+      'Refugio Turbo',
+      'Chocolate Nevado',
+      'Ruana Racing',
+      'Aguapanela Max',
+      'Frailejón Motors',
+      'Termales Express',
+      'Glaciar Cola',
+      'Cóndor Tours',
+    ],
+    bannerDensity: 6,
+    pennantStrings: 4,
+    props: [
+      { kind: 'grandstand', at: 0.03, side: 1, edge: 14 },
+      { kind: 'mountainHut', at: 0.18, side: -1, edge: 20, turn: 0.3 },
+      { kind: 'mountainHut', at: 0.47, side: 1, edge: 22, turn: -0.2 },
+      { kind: 'chiva', at: 0.6, side: -1, edge: 14 },
+      { kind: 'mountainHut', at: 0.82, side: -1, edge: 24 },
+    ],
+  },
+}
+
 export const nevadoTheme: TrackTheme = {
   sky: '#6fa8e0',
   horizon: '#dcebf8',
@@ -164,8 +223,8 @@ export const nevadoTheme: TrackTheme = {
   wall: '#8fd3f0',
   curb: ['#2c6fd6', '#f4f8ff'],
   decorations: [
-    { kind: 'snowPine', count: 130 },
     { kind: 'rock', count: 55 },
     { kind: 'fumarole', count: 14 },
   ],
+  environment: nevadoEnvironment,
 }

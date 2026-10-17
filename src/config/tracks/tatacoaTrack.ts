@@ -1,5 +1,6 @@
 import type { TrackData, TrackPointData } from '../../sim/trackData'
 import { buildCenterline } from '../../sim/trackSpline'
+import type { TrackEnvironment } from './environment'
 import type { TrackTheme } from './theme'
 
 /**
@@ -115,6 +116,67 @@ export const tatacoaData: TrackData = {
   hazards: [],
 }
 
+/** Red and grey desert badlands at dusk: cardones, rock spires and the observatory. */
+export const tatacoaEnvironment: TrackEnvironment = {
+  seed: 4111,
+  terrain: {
+    palette: {
+      grassLight: '#c8643a',
+      grassDark: '#9a4a2a',
+      grassDry: '#b8aca0',
+      dirt: '#8f8a86',
+      rock: '#7a3a2a',
+    },
+    shoulder: 4,
+    hillHeight: 8,
+    valleySlope: 0.5,
+  },
+  fence: 'wood',
+  road: 'dirt',
+  vegetation: {
+    grass: 1400,
+    flowers: 160,
+    bushes: 260,
+    ferns: 220,
+    palms: 260,
+    trees: 150,
+    cypress: 260,
+    distant: 500,
+    flowerColors: ['#ff5fa2', '#ffd23f', '#ffffff'],
+    models: {
+      grass: 'dryGrass',
+      bushes: 'dryBush',
+      ferns: 'agave',
+      palms: 'cardon',
+      trees: 'dryTree',
+      cypress: 'rockSpire',
+      distant: 'distantRock',
+    },
+  },
+  decor: {
+    sponsors: [
+      'Estrella Racing',
+      'Cardón Turbo',
+      'Cabrito Max',
+      'Desierto Express',
+      'Meteoro Cola',
+      'Cárcava Motors',
+      'Cuji Veloz',
+      'Vía Láctea',
+    ],
+    bannerDensity: 5,
+    pennantStrings: 4,
+    props: [
+      { kind: 'grandstand', at: 0.03, side: 1, edge: 14 },
+      { kind: 'observatory', at: 0.2, side: -1, edge: 18 },
+      { kind: 'corral', at: 0.36, side: 1, edge: 14 },
+      { kind: 'chiva', at: 0.5, side: -1, edge: 12 },
+      { kind: 'observatory', at: 0.68, side: 1, edge: 20 },
+      { kind: 'corral', at: 0.84, side: -1, edge: 14 },
+    ],
+  },
+}
+
 export const tatacoaTheme: TrackTheme = {
   sky: '#1a1040',
   horizon: '#8a4070',
@@ -134,8 +196,6 @@ export const tatacoaTheme: TrackTheme = {
   road: '#7a6c68',
   wall: '#6f6a78',
   curb: ['#c8553a', '#d9d2ca'],
-  decorations: [
-    { kind: 'cactus', count: 110 },
-    { kind: 'rock', count: 130 },
-  ],
+  decorations: [{ kind: 'rock', count: 80 }],
+  environment: tatacoaEnvironment,
 }

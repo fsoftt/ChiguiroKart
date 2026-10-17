@@ -1,5 +1,6 @@
 import type { TrackData, TrackPointData } from '../../sim/trackData'
 import { buildCenterline } from '../../sim/trackSpline'
+import type { TrackEnvironment } from './environment'
 import type { TrackTheme } from './theme'
 
 const SAMPLES_PER_SEGMENT = 14
@@ -89,6 +90,62 @@ export const sanAndresData: TrackData = {
 }
 
 /** Seven-color sea around a bright island: turquoise water, white sand and palms. */
+/** Caribbean island: beaches falling into the sea, coconut palms and wooden houses. */
+export const sanAndresEnvironment: TrackEnvironment = {
+  seed: 3606,
+  terrain: {
+    palette: {
+      grassLight: '#8fd05c',
+      grassDark: '#4f9a3a',
+      grassDry: '#efe1b0',
+      dirt: '#f2e4b8',
+      rock: '#a49c8a',
+    },
+    shoulder: 4,
+    hillHeight: 3,
+    valleySlope: -0.06,
+    floor: -3,
+  },
+  fence: 'wood',
+  vegetation: {
+    grass: 2400,
+    flowers: 800,
+    bushes: 220,
+    ferns: 120,
+    palms: 420,
+    trees: 80,
+    cypress: 0,
+    distant: 300,
+    flowerColors: ['#ff3d9a', '#ffd23f', '#ffffff', '#ff6f61'],
+    models: { ferns: 'agave', palms: 'coconutPalm', distant: 'distantPalm' },
+  },
+  decor: {
+    sponsors: [
+      'Coco Loco Racing',
+      'Rondón Turbo',
+      'Mar de 7 Colores',
+      'Johnny Cay Express',
+      'Cangrejo Negro Max',
+      'Reggae Motors',
+      'Ola Cola',
+      'Brisa Veloz',
+    ],
+    bannerDensity: 6,
+    pennantStrings: 6,
+    props: [
+      { kind: 'grandstand', at: 0.03, side: 1, edge: 14 },
+      { kind: 'beachHut', at: 0.1, side: -1, edge: 12 },
+      { kind: 'boat', at: 0.16, side: 1, edge: 14, turn: 0.8 },
+      { kind: 'beachHut', at: 0.28, side: 1, edge: 12, turn: 0.2 },
+      { kind: 'beachHut', at: 0.44, side: -1, edge: 12 },
+      { kind: 'boat', at: 0.52, side: -1, edge: 16, turn: -1 },
+      { kind: 'beachHut', at: 0.66, side: 1, edge: 12 },
+      { kind: 'boat', at: 0.78, side: 1, edge: 15, turn: 2 },
+      { kind: 'beachHut', at: 0.9, side: -1, edge: 12, turn: -0.2 },
+    ],
+  },
+}
+
 export const sanAndresTheme: TrackTheme = {
   sky: '#3fb8ee',
   horizon: '#c4ecff',
@@ -108,9 +165,7 @@ export const sanAndresTheme: TrackTheme = {
   road: '#5d6269',
   wall: '#f2efe4',
   curb: ['#ff6f61', '#ffffff'],
-  decorations: [
-    { kind: 'palm', count: 150 },
-    { kind: 'rock', count: 30 },
-  ],
+  decorations: [{ kind: 'rock', count: 30 }],
   water: { level: -0.6, color: '#25d0c8' },
+  environment: sanAndresEnvironment,
 }

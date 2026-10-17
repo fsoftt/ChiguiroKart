@@ -1,5 +1,6 @@
 import type { TrackData, TrackPointData } from '../../sim/trackData'
 import { buildCenterline } from '../../sim/trackSpline'
+import type { TrackEnvironment } from './environment'
 import type { TrackTheme } from './theme'
 
 /** Key landmarks of the Llanos Orientales circuit: wide plains with one huge eastern sweeper. */
@@ -90,6 +91,67 @@ export const llanosData: TrackData = {
   ],
 }
 
+/** Endless plains at sunset: dry grass, moriche groves, samanes and corrals. */
+export const llanosEnvironment: TrackEnvironment = {
+  seed: 3909,
+  terrain: {
+    palette: {
+      grassLight: '#c8b64a',
+      grassDark: '#8a9a38',
+      grassDry: '#e6c463',
+      dirt: '#a87a4a',
+      rock: '#8a7a5a',
+    },
+    shoulder: 4,
+    hillHeight: 2.5,
+    valleySlope: 0.04,
+  },
+  fence: 'wood',
+  road: 'dirt',
+  vegetation: {
+    grass: 4600,
+    flowers: 500,
+    bushes: 220,
+    ferns: 0,
+    palms: 320,
+    trees: 160,
+    cypress: 0,
+    distant: 700,
+    flowerColors: ['#ffd23f', '#ff8a3d', '#ffffff'],
+    models: {
+      grass: 'dryGrass',
+      bushes: 'dryBush',
+      palms: 'moriche',
+      trees: 'saman',
+      distant: 'distantPalm',
+    },
+  },
+  decor: {
+    sponsors: [
+      'Joropo Racing',
+      'Mamona Turbo',
+      'Arpa Express',
+      'Hato Grande',
+      'Sabana Cola',
+      'Coleo Motors',
+      'Garza Veloz',
+      'Cachama Max',
+    ],
+    bannerDensity: 6,
+    pennantStrings: 5,
+    props: [
+      { kind: 'grandstand', at: 0.03, side: 1, edge: 14 },
+      { kind: 'corral', at: 0.12, side: -1, edge: 14 },
+      { kind: 'finca', at: 0.22, side: 1, edge: 24 },
+      { kind: 'chiva', at: 0.3, side: -1, edge: 12 },
+      { kind: 'corral', at: 0.45, side: 1, edge: 14 },
+      { kind: 'corral', at: 0.62, side: -1, edge: 14 },
+      { kind: 'finca', at: 0.74, side: -1, edge: 26, turn: 0.3 },
+      { kind: 'chiva', at: 0.86, side: 1, edge: 12 },
+    ],
+  },
+}
+
 export const llanosTheme: TrackTheme = {
   sky: '#ff8a3d',
   horizon: '#ffc27a',
@@ -109,9 +171,6 @@ export const llanosTheme: TrackTheme = {
   road: '#6d6358',
   wall: '#8a5a3c',
   curb: ['#e8742c', '#fff3d6'],
-  decorations: [
-    { kind: 'moriche', count: 90 },
-    { kind: 'cow', count: 50 },
-    { kind: 'tree', count: 80 },
-  ],
+  decorations: [{ kind: 'cow', count: 50 }],
+  environment: llanosEnvironment,
 }

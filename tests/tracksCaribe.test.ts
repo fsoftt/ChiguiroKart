@@ -17,6 +17,7 @@ import { buildTrackDefinition, validateTrackData, type TrackData } from '../src/
 import { branchLength } from '../src/sim/trackSpline'
 import { RaceWorld } from '../src/sim/world'
 import { DT, rubberBandOff } from './helpers/botSim'
+import { themeLandmarks } from './helpers/themeLandmarks'
 
 interface Circuit {
   data: TrackData
@@ -156,7 +157,7 @@ describe.each(Object.entries(circuits))('Copa Caribe: %s', (key, { data, theme, 
     expect(theme.fogFar).toBeGreaterThan(theme.fogNear)
     expect(theme.ambientIntensity).toBeGreaterThan(0)
     expect(theme.sunIntensity).toBeGreaterThan(0)
-    expect(theme.decorations.length).toBeGreaterThanOrEqual(2)
+    expect(new Set(themeLandmarks(theme)).size).toBeGreaterThanOrEqual(4)
     for (const set of theme.decorations) expect(set.count).toBeGreaterThan(0)
   })
 

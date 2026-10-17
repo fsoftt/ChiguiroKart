@@ -1,5 +1,6 @@
 import type { TrackData, TrackPointData } from '../../sim/trackData'
 import { buildCenterline } from '../../sim/trackSpline'
+import type { TrackEnvironment } from './environment'
 import type { TrackTheme } from './theme'
 
 /**
@@ -103,6 +104,62 @@ export const amazonasData: TrackData = {
   hazards: [],
 }
 
+/** Flooded rainforest: ceibas, lianas, malocas and canoes on the river. */
+export const amazonasEnvironment: TrackEnvironment = {
+  seed: 4010,
+  terrain: {
+    palette: {
+      grassLight: '#4f9a2f',
+      grassDark: '#24561f',
+      grassDry: '#7aa03a',
+      dirt: '#5a4030',
+      rock: '#5a5a4a',
+    },
+    shoulder: 3,
+    hillHeight: 3,
+    valleySlope: -0.05,
+    floor: -1.5,
+    gapDepth: 6,
+  },
+  fence: 'wood',
+  road: 'dirt',
+  vegetation: {
+    grass: 3400,
+    flowers: 800,
+    bushes: 420,
+    ferns: 720,
+    palms: 55,
+    trees: 520,
+    cypress: 0,
+    distant: 900,
+    flowerColors: ['#ff3b30', '#ff9f1c', '#ff5fa2', '#ffd23f'],
+    models: { palms: 'ceiba', trees: 'jungle' },
+  },
+  decor: {
+    sponsors: [
+      'Ceiba Racing',
+      'Pirarucú Turbo',
+      'Camu Camu Max',
+      'Delfín Express',
+      'Arazá Cola',
+      'Victoria Regia',
+      'Bufeo Motors',
+      'Maloca Veloz',
+    ],
+    bannerDensity: 5,
+    pennantStrings: 3,
+    props: [
+      { kind: 'maloca', at: 0.06, side: -1, edge: 16 },
+      { kind: 'boat', at: 0.14, side: 1, edge: 12, turn: 1.4 },
+      { kind: 'maloca', at: 0.32, side: 1, edge: 16 },
+      { kind: 'boat', at: 0.46, side: -1, edge: 12, turn: -1 },
+      { kind: 'boat', at: 0.62, side: 1, edge: 12, turn: 0.7 },
+      { kind: 'maloca', at: 0.76, side: -1, edge: 16 },
+      { kind: 'boat', at: 0.9, side: -1, edge: 12, turn: 2 },
+    ],
+  },
+}
+
 export const amazonasTheme: TrackTheme = {
   sky: '#8fd3c4',
   horizon: '#bfe3cf',
@@ -122,11 +179,8 @@ export const amazonasTheme: TrackTheme = {
   road: '#6b5a45',
   wall: '#4a3a28',
   curb: ['#b5651d', '#2f6b2f'],
-  decorations: [
-    { kind: 'jungleTree', count: 220 },
-    { kind: 'ceiba', count: 28 },
-    { kind: 'rock', count: 40 },
-  ],
+  decorations: [{ kind: 'rock', count: 20 }],
   // River plane just under the road, which stays above 1.6 m everywhere
   water: { level: 0.3, color: '#5a8a6a' },
+  environment: amazonasEnvironment,
 }

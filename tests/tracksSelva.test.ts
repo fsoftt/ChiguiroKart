@@ -21,6 +21,7 @@ import {
   type TrackData,
 } from '../src/sim/trackData'
 import { RaceWorld } from '../src/sim/world'
+import { themeLandmarks } from './helpers/themeLandmarks'
 
 const DT = 1 / 60
 const LAPS = 2
@@ -196,7 +197,7 @@ for (const { id, data, theme, maxBranchRatio } of cases) {
           expect(Math.hypot(spot.x - pad.position.x, spot.z - pad.position.z)).toBeGreaterThan(6)
         }
       }
-      expect(theme.decorations.length).toBeGreaterThanOrEqual(2)
+      expect(new Set(themeLandmarks(theme)).size).toBeGreaterThanOrEqual(4)
       for (const color of [theme.sky, theme.horizon, theme.fog, theme.ground, theme.road]) {
         expect(color).toMatch(/^#[0-9a-f]{6}$/i)
       }

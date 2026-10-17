@@ -1,4 +1,5 @@
 import type { TrackData } from '../../sim/trackData'
+import type { TrackEnvironment } from './environment'
 import type { TrackTheme } from './theme'
 
 /**
@@ -145,6 +146,56 @@ export const zipaquiraData: TrackData = {
   ],
 }
 
+/** Salt mine galleries: crystal walls, salt crystals and the carved crosses. */
+export const zipaquiraEnvironment: TrackEnvironment = {
+  seed: 3202,
+  terrain: {
+    palette: {
+      grassLight: '#9a88a6',
+      grassDark: '#5c4a6c',
+      grassDry: '#c9b6d2',
+      dirt: '#46364f',
+      rock: '#d8c8de',
+    },
+    shoulder: 2,
+    hillHeight: 16,
+    valleySlope: 1.4,
+  },
+  fence: 'stone',
+  vegetation: {
+    grass: 0,
+    flowers: 0,
+    bushes: 0,
+    ferns: 0,
+    palms: 0,
+    trees: 0,
+    cypress: 520,
+    distant: 260,
+    flowerColors: ['#ffffff'],
+    models: { cypress: 'saltCrystal', distant: 'distantRock' },
+  },
+  decor: {
+    sponsors: [
+      'Sal de Gloria',
+      'Minero Turbo',
+      'Cristal Racing',
+      'Lámpara Max',
+      'Socavón Express',
+      'Halita Cola',
+      'Vagoneta Veloz',
+      'Eco Profundo',
+    ],
+    bannerDensity: 5,
+    pennantStrings: 3,
+    props: [
+      { kind: 'saltCross', at: 0.08, side: -1, edge: 8 },
+      { kind: 'saltCross', at: 0.36, side: 1, edge: 8 },
+      { kind: 'saltCross', at: 0.64, side: -1, edge: 8 },
+      { kind: 'saltCross', at: 0.88, side: 1, edge: 8 },
+    ],
+  },
+}
+
 export const zipaquiraTheme: TrackTheme = {
   sky: '#0a0612',
   horizon: '#1c1030',
@@ -169,4 +220,5 @@ export const zipaquiraTheme: TrackTheme = {
     { kind: 'rock', count: 40 },
   ],
   underground: true,
+  environment: zipaquiraEnvironment,
 }

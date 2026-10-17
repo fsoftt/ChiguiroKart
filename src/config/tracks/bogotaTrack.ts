@@ -1,4 +1,5 @@
 import type { TrackData } from '../../sim/trackData'
+import type { TrackEnvironment } from './environment'
 import type { TrackTheme } from './theme'
 
 /**
@@ -132,6 +133,61 @@ export const bogotaData: TrackData = {
   ],
 }
 
+/** Cobbled streets of La Candelaria and the eucalyptus slopes of Monserrate. */
+export const bogotaEnvironment: TrackEnvironment = {
+  seed: 3303,
+  terrain: {
+    palette: {
+      grassLight: '#8fb85a',
+      grassDark: '#557f38',
+      grassDry: '#b5b06a',
+      dirt: '#8a6a4a',
+      rock: '#7d7a74',
+    },
+    shoulder: 4,
+    hillHeight: 12,
+    valleySlope: 0.45,
+  },
+  fence: 'stone',
+  road: 'cobble',
+  vegetation: {
+    grass: 3400,
+    flowers: 1000,
+    bushes: 260,
+    ferns: 220,
+    palms: 200,
+    trees: 220,
+    cypress: 170,
+    distant: 600,
+    flowerColors: ['#ff4d6d', '#ffd23f', '#ffffff', '#ff8a3d', '#c77dff'],
+    models: { palms: 'eucalyptus', ferns: 'agave' },
+  },
+  decor: {
+    sponsors: [
+      'Ajiaco Turbo',
+      'Tinto Racing',
+      'Almojábana Max',
+      'Teleférico Express',
+      'Changua Veloz',
+      'Ruana Motors',
+      'Chocolate Santafé',
+      'Lluvia Cola',
+    ],
+    bannerDensity: 7,
+    pennantStrings: 6,
+    props: [
+      { kind: 'grandstand', at: 0.03, side: 1, edge: 14 },
+      { kind: 'colonialHouse', at: 0.1, side: -1, edge: 12 },
+      { kind: 'chiva', at: 0.16, side: 1, edge: 12 },
+      { kind: 'colonialHouse', at: 0.24, side: 1, edge: 12, turn: 0.2 },
+      { kind: 'colonialHouse', at: 0.42, side: -1, edge: 13 },
+      { kind: 'chiva', at: 0.58, side: -1, edge: 12 },
+      { kind: 'colonialHouse', at: 0.72, side: 1, edge: 12, turn: -0.2 },
+      { kind: 'colonialHouse', at: 0.9, side: -1, edge: 12 },
+    ],
+  },
+}
+
 export const bogotaTheme: TrackTheme = {
   sky: '#8aa2bb',
   horizon: '#d3d8dc',
@@ -151,9 +207,6 @@ export const bogotaTheme: TrackTheme = {
   road: '#7a6f66',
   wall: '#b9795c',
   curb: ['#c8402b', '#f4e6bd'],
-  decorations: [
-    { kind: 'colonialHouse', count: 44 },
-    { kind: 'pine', count: 100 },
-    { kind: 'rock', count: 24 },
-  ],
+  decorations: [{ kind: 'rock', count: 24 }],
+  environment: bogotaEnvironment,
 }

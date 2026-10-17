@@ -1,5 +1,6 @@
 import type { TrackData, TrackPointData } from '../../sim/trackData'
 import { buildCenterline } from '../../sim/trackSpline'
+import type { TrackEnvironment } from './environment'
 import type { TrackTheme } from './theme'
 
 /** Key landmarks of the Caño Cristales circuit: a river bay in the south, a ford across it. */
@@ -90,6 +91,59 @@ export const canoCristalesData: TrackData = {
   ],
 }
 
+/** River of five colors: red macarenias, red rock, moriche palms. */
+export const canoCristalesEnvironment: TrackEnvironment = {
+  seed: 3808,
+  terrain: {
+    palette: {
+      grassLight: '#7aa83a',
+      grassDark: '#4a7a2a',
+      grassDry: '#c8b04a',
+      dirt: '#9c5a3a',
+      rock: '#a8503f',
+    },
+    shoulder: 4,
+    hillHeight: 7,
+    valleySlope: 0.3,
+  },
+  fence: 'wood',
+  road: 'dirt',
+  vegetation: {
+    grass: 3000,
+    flowers: 700,
+    bushes: 260,
+    ferns: 620,
+    palms: 140,
+    trees: 220,
+    cypress: 120,
+    distant: 500,
+    flowerColors: ['#ffd23f', '#ff3b30', '#ffffff', '#ff8a3d'],
+    models: { ferns: 'macarenia', palms: 'moriche', trees: 'jungle', cypress: 'rockSpire' },
+  },
+  decor: {
+    sponsors: [
+      'Macarenia Racing',
+      'Arcoíris Turbo',
+      'Cristal Express',
+      'Guayaba Max',
+      'Serranía Motors',
+      'Raudal Cola',
+      'Mamona Veloz',
+      'Cinco Colores',
+    ],
+    bannerDensity: 5,
+    pennantStrings: 4,
+    props: [
+      { kind: 'grandstand', at: 0.03, side: 1, edge: 14 },
+      { kind: 'boat', at: 0.2, side: -1, edge: 10, turn: 1 },
+      { kind: 'maloca', at: 0.34, side: 1, edge: 16 },
+      { kind: 'boat', at: 0.55, side: 1, edge: 10, turn: -0.6 },
+      { kind: 'mountainHut', at: 0.72, side: -1, edge: 18 },
+      { kind: 'maloca', at: 0.88, side: -1, edge: 16 },
+    ],
+  },
+}
+
 export const canoCristalesTheme: TrackTheme = {
   sky: '#4fb3d9',
   horizon: '#f6d58e',
@@ -110,8 +164,8 @@ export const canoCristalesTheme: TrackTheme = {
   wall: '#c0392b',
   curb: ['#d62f2f', '#f4d03f'],
   decorations: [
-    { kind: 'redPlant', count: 120 },
+    { kind: 'redPlant', count: 40 },
     { kind: 'rock', count: 70 },
-    { kind: 'jungleTree', count: 90 },
   ],
+  environment: canoCristalesEnvironment,
 }

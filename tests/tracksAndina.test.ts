@@ -16,6 +16,7 @@ import { Track, type HazardKind } from '../src/sim/track'
 import { buildTrackDefinition, validateTrackData, type TrackData } from '../src/sim/trackData'
 import { branchLength } from '../src/sim/trackSpline'
 import { RaceWorld } from '../src/sim/world'
+import { themeLandmarks } from './helpers/themeLandmarks'
 
 const DT = 1 / 60
 const LAPS = 2
@@ -135,7 +136,7 @@ interface Andina {
   theme: TrackTheme
   /** Indices of the branches a bot can drive (the ice tunnel is closed by a wall). */
   open: number[]
-  /** Decorations the theme must contain. */
+  /** Landmarks the theme must show (decorations, plant models or props). */
   decorations: string[]
   /** Surface of each branch, in order. */
   surfaces: SurfaceType[]
@@ -151,7 +152,7 @@ const TRACKS: Andina[] = [
     data: nevadoData,
     theme: nevadoTheme,
     open: [0],
-    decorations: ['snowPine', 'rock', 'fumarole'],
+    decorations: ['snowPine', 'frailejon', 'rock', 'fumarole'],
     surfaces: ['ice', 'asphalt'],
     hazardKinds: ['iceWall'],
   },
@@ -160,7 +161,7 @@ const TRACKS: Andina[] = [
     data: zipaquiraData,
     theme: zipaquiraTheme,
     open: [0, 1],
-    decorations: ['saltColumn'],
+    decorations: ['saltColumn', 'saltCrystal', 'saltCross'],
     surfaces: ['dirt', 'asphalt'],
     hazardKinds: ['rock', 'rock', 'rock', 'rock', 'rock'],
   },
@@ -169,7 +170,7 @@ const TRACKS: Andina[] = [
     data: bogotaData,
     theme: bogotaTheme,
     open: [0],
-    decorations: ['colonialHouse', 'pine'],
+    decorations: ['colonialHouse', 'eucalyptus', 'chiva'],
     surfaces: ['wood'],
     hazardKinds: [],
     jump: { x: 45, z: 100 },
@@ -373,10 +374,7 @@ describe.each(TRACKS)(
 
     it('has a complete theme with its own palette', () => {
       expect(themeFields(theme)).toEqual([])
-      expect(theme.decorations.length).toBeGreaterThan(0)
-      for (const kind of decorations) {
-        expect(theme.decorations.map((set) => set.kind)).toContain(kind)
-      }
+      for (const kind of decorations) expect(themeLandmarks(theme)).toContain(kind)
       expect(theme.fogFar).toBeGreaterThan(theme.fogNear)
       expect(theme.ground).not.toBe(DEFAULT_THEME.ground)
       expect(theme.sky).not.toBe(DEFAULT_THEME.sky)

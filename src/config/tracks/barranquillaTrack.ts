@@ -2,6 +2,7 @@ import type { Vec2 } from '../../sim/math'
 import type { TrackData, TrackPointData } from '../../sim/trackData'
 import { buildCenterline } from '../../sim/trackSpline'
 import { spotAt } from './pickupLayout'
+import type { TrackEnvironment } from './environment'
 import type { TrackTheme } from './theme'
 
 const SAMPLES_PER_SEGMENT = 14
@@ -117,6 +118,63 @@ export const barranquillaData: TrackData = {
 }
 
 /** Carnival parade: confetti-pink sky, saturated streamers and festive curbs. */
+/** Carnival city: stages, grandstands, chivas and confetti everywhere. */
+export const barranquillaEnvironment: TrackEnvironment = {
+  seed: 3707,
+  terrain: {
+    palette: {
+      grassLight: '#b9c45a',
+      grassDark: '#7fa040',
+      grassDry: '#e3bf58',
+      dirt: '#c89a5a',
+      rock: '#a08a7a',
+    },
+    shoulder: 4,
+    hillHeight: 3,
+    valleySlope: 0.1,
+  },
+  fence: 'wood',
+  vegetation: {
+    grass: 2200,
+    flowers: 1400,
+    bushes: 220,
+    ferns: 0,
+    palms: 200,
+    trees: 150,
+    cypress: 0,
+    distant: 400,
+    flowerColors: ['#ff3d9a', '#ffd23f', '#2ec4b6', '#ff8c1a', '#c13dff', '#ffffff'],
+    models: { palms: 'coconutPalm', trees: 'saman', distant: 'distantPalm' },
+  },
+  decor: {
+    sponsors: [
+      'Marimonda Racing',
+      'Butifarra Turbo',
+      'Cumbia Express',
+      'Torito Motors',
+      'Congo Cola',
+      'Garabato Max',
+      'Arroz de Lisa Veloz',
+      'Batalla de Flores',
+    ],
+    bannerDensity: 9,
+    pennantStrings: 10,
+    props: [
+      { kind: 'grandstand', at: 0.03, side: 1, edge: 14 },
+      { kind: 'grandstand', at: 0.03, side: -1, edge: 14 },
+      { kind: 'carnivalStage', at: 0.15, side: 1, edge: 14 },
+      { kind: 'chiva', at: 0.22, side: -1, edge: 12 },
+      { kind: 'colonialHouse', at: 0.3, side: 1, edge: 12 },
+      { kind: 'carnivalStage', at: 0.4, side: -1, edge: 14 },
+      { kind: 'chiva', at: 0.5, side: 1, edge: 12, turn: 0.4 },
+      { kind: 'colonialHouse', at: 0.6, side: -1, edge: 12 },
+      { kind: 'carnivalStage', at: 0.7, side: 1, edge: 14 },
+      { kind: 'chiva', at: 0.8, side: -1, edge: 12 },
+      { kind: 'carnivalStage', at: 0.9, side: -1, edge: 14 },
+    ],
+  },
+}
+
 export const barranquillaTheme: TrackTheme = {
   sky: '#6f9bff',
   horizon: '#ffd9ee',
@@ -138,7 +196,7 @@ export const barranquillaTheme: TrackTheme = {
   curb: ['#ffd23f', '#2ec4b6'],
   decorations: [
     { kind: 'confetti', count: 160 },
-    { kind: 'colonialHouse', count: 50 },
-    { kind: 'palm', count: 40 },
+    { kind: 'colonialHouse', count: 20 },
   ],
+  environment: barranquillaEnvironment,
 }

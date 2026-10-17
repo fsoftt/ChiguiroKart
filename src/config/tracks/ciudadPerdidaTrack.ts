@@ -1,5 +1,6 @@
 import type { TrackData, TrackPointData } from '../../sim/trackData'
 import { buildCenterline } from '../../sim/trackSpline'
+import type { TrackEnvironment } from './environment'
 import type { TrackTheme } from './theme'
 
 const SAMPLES_PER_SEGMENT = 14
@@ -105,6 +106,60 @@ export const ciudadPerdidaData: TrackData = {
 }
 
 /** Misty Sierra Nevada jungle: deep greens, grey stone terraces and dense fog. */
+/** Sierra Nevada cloud jungle: stone terraces, conical huts and dense forest. */
+export const ciudadPerdidaEnvironment: TrackEnvironment = {
+  seed: 3505,
+  terrain: {
+    palette: {
+      grassLight: '#5aa83a',
+      grassDark: '#2c6a2a',
+      grassDry: '#8aa84a',
+      dirt: '#7a5a3a',
+      rock: '#6f6b5e',
+    },
+    shoulder: 3,
+    hillHeight: 14,
+    valleySlope: 0.6,
+  },
+  fence: 'wood',
+  road: 'dirt',
+  vegetation: {
+    grass: 3600,
+    flowers: 1000,
+    bushes: 380,
+    ferns: 640,
+    palms: 50,
+    trees: 460,
+    cypress: 0,
+    distant: 800,
+    flowerColors: ['#ff3b30', '#ff9f1c', '#ffd23f', '#ff5fa2'],
+    models: { palms: 'ceiba', trees: 'jungle' },
+  },
+  decor: {
+    sponsors: [
+      'Teyuna Turbo',
+      'Mochila Racing',
+      'Cacao Max',
+      'Sierra Express',
+      'Guatapurí Cola',
+      'Tumbaga Motors',
+      'Jaguar Tours',
+      'Bocachico Veloz',
+    ],
+    bannerDensity: 5,
+    pennantStrings: 3,
+    props: [
+      { kind: 'stoneTerrace', at: 0.06, side: -1, edge: 14 },
+      { kind: 'maloca', at: 0.14, side: 1, edge: 16 },
+      { kind: 'stoneTerrace', at: 0.27, side: 1, edge: 14 },
+      { kind: 'maloca', at: 0.4, side: -1, edge: 16 },
+      { kind: 'stoneTerrace', at: 0.55, side: -1, edge: 14 },
+      { kind: 'stoneTerrace', at: 0.7, side: 1, edge: 15 },
+      { kind: 'maloca', at: 0.84, side: 1, edge: 16 },
+    ],
+  },
+}
+
 export const ciudadPerdidaTheme: TrackTheme = {
   sky: '#7fbfa4',
   horizon: '#c6e5d3',
@@ -125,8 +180,8 @@ export const ciudadPerdidaTheme: TrackTheme = {
   wall: '#6f6b5e',
   curb: ['#4f7a45', '#d6c9a1'],
   decorations: [
-    { kind: 'jungleTree', count: 170 },
-    { kind: 'stoneTerrace', count: 14 },
-    { kind: 'rock', count: 50 },
+    { kind: 'stoneTerrace', count: 10 },
+    { kind: 'rock', count: 40 },
   ],
+  environment: ciudadPerdidaEnvironment,
 }
