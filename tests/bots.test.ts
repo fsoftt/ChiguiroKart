@@ -198,7 +198,8 @@ describe('RacingBot on Cocora', () => {
   })
 
   it('reaches boosted speeds but never beats the physics by much', () => {
-    const run = compare('dificil', 1, noShortcut)
+    // Full speed scale on purpose: this checks the physics ceiling, not the tuned difficulty
+    const run = compare('dificil', 1, { ...noShortcut, speedFactor: 1 })
     // Nitros push the kart past its normal top speed
     expect(run.topSpeed).toBeGreaterThan(defaultKartPhysics.maxSpeed)
     expect(Math.min(...run.lapTimes)).toBeGreaterThan(IDEAL_LAP * 0.9)
