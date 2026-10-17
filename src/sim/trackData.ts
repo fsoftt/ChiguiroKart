@@ -6,6 +6,7 @@ import {
   Track,
   type BoostPad,
   type HazardDefinition,
+  type HazardKind,
   type TideRule,
   type TrackBranch,
   type TrackDefinition,
@@ -26,6 +27,18 @@ export const SURFACES: readonly SurfaceType[] = [
   'sand',
   'water',
 ]
+
+const HAZARD_KINDS: readonly HazardKind[] = ['herd', 'float', 'iceWall', 'rock']
+const MAX_LAPS = 20
+const MIN_PAD_SIZE = 1
+const MAX_PAD_SIZE = 40
+const MAX_HAZARDS = 32
+const MAX_HAZARD_PATH_POINTS = 64
+const MAX_HAZARD_SPEED = 60
+const MAX_HAZARD_COUNT = 16
+const MIN_HAZARD_RADIUS = 0.3
+const MAX_HAZARD_RADIUS = 20
+const MAX_HAZARD_PAUSE = 30
 
 export const MIN_CONTROL_POINTS = 4
 const MAX_CONTROL_POINTS = 200
@@ -152,7 +165,67 @@ function parseBranch(value: unknown): TrackBranchData | null {
     if (x === null || z === null) return null
     points.push({ x, z })
   }
-  return { name: value.name, points, halfWidth, surface }
+  const branch: TrackBranchData = { name: value.name, points, halfWidth, surface }
+  if (value.tide !== undefined) {
+    const tide = parseTide(value.tide)
+    if (!tide) return null
+    branch.tide = tide
+  }
+  return branch
+}
+
+function parseTide(value: unknown): TideRule | null {
+  if (!isRecord(value)) return null
+  const lowLaps = parseList(value.lowLaps, (v) => int(v, 1, MAX_LAPS), MAX_LAPS)
+  const lowSurface = surfaceOf(value.lowSurface)
+  const highSurface = surfaceOf(value.highSurface)
+  if (!Array.isArray(value.lowLaps) || !lowLaps || !lowSurface || !highSurface) return null
+  return { lowLaps, lowSurface, highSurface }
+}
+
+function parseBoostPad(value: unknown): BoostPadData | null {
+  if (!isRecord(value)) return null
+  const at = num(value.at, 0, 1)
+  const offset = num(value.offset, -MAX_HALF_WIDTH, MAX_HALF_WIDTH)
+  if (at === null || offset === null) return null
+  const pad: BoostPadData = { at, offset }
+  if (value.length !== undefined) {
+    const length = num(value.length, MIN_PAD_SIZE, MAX_PAD_SIZE)
+    if (length === null) return null
+    pad.length = length
+  }
+  if (value.width !== undefined) {
+    const width = num(value.width, MIN_PAD_SIZE, MAX_PAD_SIZE)
+    if (width === null) return null
+    pad.width = width
+  }
+  return pad
+}
+
+function parseVec2(value: unknown): Vec2 | null {
+  if (!isRecord(value)) return null
+  const x = num(value.x)
+  const z = num(value.z)
+  return x === null || z === null ? null : { x, z }
+}
+
+function parseHazard(value: unknown): HazardDefinition | null {
+  if (!isRecord(value)) return null
+  const kind = HAZARD_KINDS.find((k) => k === value.kind)
+  const motion = value.motion === 'loop' || value.motion === 'pingPong' ? value.motion : null
+  const path = parseList(value.path, parseVec2, MAX_HAZARD_PATH_POINTS)
+  const speed = num(value.speed, 0, MAX_HAZARD_SPEED)
+  const count = int(value.count, 1, MAX_HAZARD_COUNT)
+  const radius = num(value.radius, MIN_HAZARD_RADIUS, MAX_HAZARD_RADIUS)
+  if (!kind || !motion || !Array.isArray(value.path) || !path || path.length < 1) return null
+  if (speed === null || count === null || radius === null) return null
+  const hazard: HazardDefinition = { kind, path, motion, speed, count, radius }
+  if (value.pause !== undefined) {
+    const pause = num(value.pause, 0, MAX_HAZARD_PAUSE)
+    if (pause === null) return null
+    hazard.pause = pause
+  }
+  return hazard
 }
 
 /** Maps every element with `parse`; null if any element is invalid. */
@@ -206,7 +279,7 @@ export function parseTrackData(json: unknown): TrackData | null {
   const uchuvaLines = parseList(json.uchuvaLines, parseLine, MAX_PICKUP_GROUPS)
   if (!branches || !checkpoints || !itemBoxRows || !uchuvaLines) return null
 
-  return {
+  const data: TrackData = {
     version: TRACK_DATA_VERSION,
     name: json.name,
     halfWidth,
@@ -217,6 +290,17 @@ export function parseTrackData(json: unknown): TrackData | null {
     itemBoxRows,
     uchuvaLines,
   }
+  if (json.boostPads !== undefined) {
+    const boostPads = parseList(json.boostPads, parseBoostPad, MAX_PICKUP_GROUPS)
+    if (!Array.isArray(json.boostPads) || !boostPads) return null
+    data.boostPads = boostPads
+  }
+  if (json.hazards !== undefined) {
+    const hazards = parseList(json.hazards, parseHazard, MAX_HAZARDS)
+    if (!Array.isArray(json.hazards) || !hazards) return null
+    data.hazards = hazards
+  }
+  return data
 }
 
 /** Parses JSON text; null on syntax errors or invalid data. */

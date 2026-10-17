@@ -168,3 +168,85 @@ describe('validateTrackData', () => {
     expect(validateTrackData(detached).join(' ')).toContain('Suelto')
   })
 })
+
+describe('parseTrackData stage 9 fields', () => {
+  const tide = { lowLaps: [2], lowSurface: 'sand', highSurface: 'water' } as const
+
+  function rich(): TrackData {
+    return {
+      ...squareTrack(),
+      branches: [
+        {
+          name: 'Banco',
+          points: [
+            { x: 10, z: 0 },
+            { x: 50, z: 10 },
+          ],
+          halfWidth: 5,
+          surface: 'sand',
+          tide: { ...tide, lowLaps: [...tide.lowLaps] },
+        },
+      ],
+      boostPads: [
+        { at: 0.2, offset: -1 },
+        { at: 0.6, offset: 2, length: 8, width: 5 },
+      ],
+      hazards: [
+        {
+          kind: 'herd',
+          path: [
+            { x: 0, z: 0 },
+            { x: 0, z: 20 },
+          ],
+          motion: 'pingPong',
+          speed: 6,
+          count: 3,
+          radius: 1.5,
+          pause: 2,
+        },
+        { kind: 'rock', path: [{ x: 5, z: 5 }], motion: 'loop', speed: 0, count: 1, radius: 2 },
+      ],
+    }
+  }
+
+  it('keeps tide, boost pads and hazards through a JSON roundtrip', () => {
+    const data = rich()
+    expect(parseTrackDataText(JSON.stringify(data))).toEqual(data)
+    const track = new Track(buildTrackDefinition(data))
+    expect(track.boostPads).toHaveLength(2)
+    expect(track.hazards).toHaveLength(2)
+    expect(track.branches[0]?.tide?.lowLaps).toEqual([2])
+  })
+
+  it('leaves the fields out when the track has none', () => {
+    const parsed = parseTrackData(squareTrack())
+    expect(parsed).not.toBeNull()
+    expect(parsed && 'boostPads' in parsed).toBe(false)
+    expect(parsed && 'hazards' in parsed).toBe(false)
+  })
+
+  it('rejects invalid tides, pads and hazards', () => {
+    const good = rich()
+    const hazard = good.hazards?.[0]
+    const branch = good.branches[0]
+    if (!hazard || !branch) throw new Error('fixture')
+    const bad: unknown[] = [
+      { ...good, branches: [{ ...branch, tide: { ...tide, lowLaps: [0] } }] },
+      { ...good, branches: [{ ...branch, tide: { ...tide, lowLaps: 'x' } }] },
+      { ...good, branches: [{ ...branch, tide: { ...tide, highSurface: 'lava' } }] },
+      { ...good, branches: [{ ...branch, tide: 3 }] },
+      { ...good, boostPads: [{ at: 2, offset: 0 }] },
+      { ...good, boostPads: [{ at: 0.5, offset: 0, length: -1 }] },
+      { ...good, boostPads: 'x' },
+      { ...good, hazards: [{ ...hazard, kind: 'dragon' }] },
+      { ...good, hazards: [{ ...hazard, motion: 'teleport' }] },
+      { ...good, hazards: [{ ...hazard, path: [] }] },
+      { ...good, hazards: [{ ...hazard, path: [{ x: 1 }] }] },
+      { ...good, hazards: [{ ...hazard, count: 0 }] },
+      { ...good, hazards: [{ ...hazard, speed: -1 }] },
+      { ...good, hazards: [{ ...hazard, radius: Number.NaN }] },
+      { ...good, hazards: [{ ...hazard, pause: -2 }] },
+    ]
+    for (const input of bad) expect(parseTrackData(input)).toBeNull()
+  })
+})

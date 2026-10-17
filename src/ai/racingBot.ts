@@ -11,6 +11,7 @@ import { forwardSpeed } from '../sim/kart/kartPhysics'
 import { clamp, damp, forwardOf, headingOf, lerp, rightOf, wrapAngle, type Vec2 } from '../sim/math'
 import type { Racer } from '../sim/racer'
 import type { Track } from '../sim/track'
+import { branchBlocked } from './obstacles'
 import { DriftControl } from './driftControl'
 import { ItemControl } from './itemControl'
 import { createRng, seedFor, type Rng } from './random'
@@ -22,6 +23,13 @@ export interface RacingBotOptions {
   driftRules?: DriftConfig
   /** Base seed; combined with the racer's slot so every bot behaves differently. */
   seed?: number
+}
+
+/** Something to steer around: a kart (radius 0) or a track obstacle. */
+interface Blocker {
+  x: number
+  z: number
+  radius: number
 }
 
 type BranchState = 'pending' | 'decided'
@@ -64,6 +72,7 @@ export class RacingBot implements BotInputProvider {
   private avoidOffset = 0
   private avoidSide: -1 | 0 | 1 = 0
   private avoidTimer = 0
+  private avoidClearance = 0
   private steer = 0
   private stuckTimer = 0
   private reverseTimer = 0
@@ -110,7 +119,7 @@ export class RacingBot implements BotInputProvider {
     const route = this.route
     if (!route || !this.cursor) return { ...NEUTRAL_INPUT }
 
-    this.planShortcuts(route)
+    this.planShortcuts(route, ctx)
     this.cursor = route.locate(
       this.cursor,
       position,
@@ -228,6 +237,7 @@ export class RacingBot implements BotInputProvider {
     this.avoidOffset = 0
     this.avoidSide = 0
     this.avoidTimer = 0
+    this.avoidClearance = 0
     this.steer = 0
     this.stuckTimer = 0
     this.reverseTimer = 0
@@ -241,7 +251,7 @@ export class RacingBot implements BotInputProvider {
   }
 
   /** Rolls once per approach whether to take each shortcut, and clears the plan after it. */
-  private planShortcuts(route: Route): void {
+  private planShortcuts(route: Route, ctx: BotContext): void {
     const cursor = this.cursor
     if (!cursor || cursor.branch >= 0) return
     const index = cursor.index
@@ -255,9 +265,25 @@ export class RacingBot implements BotInputProvider {
         if (this.plannedBranch === branch) this.plannedBranch = -1
       } else if (plan.state === 'pending' && ahead <= this.behavior.shortcutDecisionDistance) {
         plan.state = 'decided'
-        if (this.rng() < this.skill.shortcutChance) this.plannedBranch = branch
+        // Always roll, so blocked branches do not shift the random sequence
+        const wants = this.rng() < this.skill.shortcutChance
+        if (wants && this.branchOpen(ctx, branch)) this.plannedBranch = branch
       }
     })
+  }
+
+  /**
+   * A tidal branch is only worth it at low tide; one closed by an ice wall only with a level 3
+   * nitro burning, which breaks the wall.
+   */
+  private branchOpen(ctx: BotContext, branch: number): boolean {
+    const track = ctx.world.track
+    const definition = track.branches[branch]
+    if (!definition) return false
+    if (definition.tide && !track.tideLow) return false
+    const boost = ctx.self.kart.boost
+    if (boost.level >= 3 && boost.timeLeft > 0) return true
+    return !branchBlocked(definition, ctx.world.obstacles())
   }
 
   /** Smooth random wander and the shift to pass karts ahead. */
@@ -278,36 +304,48 @@ export class RacingBot implements BotInputProvider {
     } else if (!blocker && this.avoidTimer <= 0) {
       this.avoidSide = 0
     }
-    const wanted = this.avoidSide * this.behavior.avoidOffset
+    // Big obstacles need a wider berth than a kart
+    if (blocker)
+      this.avoidClearance = blocker.radius > 0 ? blocker.radius + this.behavior.obstacleMargin : 0
+    const wanted = this.avoidSide * (this.behavior.avoidOffset + this.avoidClearance)
     this.avoidOffset = damp(this.avoidOffset, wanted, this.behavior.avoidSmoothing, dt)
   }
 
-  /** Nearest kart ahead inside the avoidance cone, if any. */
-  private findBlocker(ctx: BotContext): Racer | null {
+  /** Nearest kart or track obstacle ahead inside the avoidance cone, if any. */
+  private findBlocker(ctx: BotContext): Blocker | null {
     const kart = ctx.self.kart
     const forward = forwardOf(kart.heading)
     const right = rightOf(kart.heading)
-    let nearest: Racer | null = null
-    let nearestAhead = this.behavior.avoidDistance
-    for (const other of ctx.racers) {
-      if (other === ctx.self) continue
-      const dx = other.kart.position.x - kart.position.x
-      const dz = other.kart.position.z - kart.position.z
+    let nearest: Blocker | null = null
+    let nearestAhead = Infinity
+    const consider = (x: number, z: number, radius: number, range: number): void => {
+      const dx = x - kart.position.x
+      const dz = z - kart.position.z
       const ahead = dx * forward.x + dz * forward.z
       const lateral = dx * right.x + dz * right.z
-      if (ahead <= 0 || ahead >= nearestAhead) continue
-      if (Math.atan2(Math.abs(lateral), ahead) > this.behavior.avoidConeAngle) continue
-      nearest = other
+      if (ahead <= 0 || ahead - radius >= range || ahead >= nearestAhead) return
+      if (Math.atan2(Math.max(Math.abs(lateral) - radius, 0), ahead) > this.behavior.avoidConeAngle)
+        return
+      nearest = { x, z, radius }
       nearestAhead = ahead
+    }
+    for (const other of ctx.racers) {
+      if (other === ctx.self) continue
+      consider(other.kart.position.x, other.kart.position.z, 0, this.behavior.avoidDistance)
+    }
+    for (const obstacle of ctx.world.obstacles()) {
+      if (!obstacle.active) continue
+      const { x, z } = obstacle.position
+      consider(x, z, obstacle.radius, this.behavior.obstacleAvoidDistance)
     }
     return nearest
   }
 
   /** Side to pass on (+1 right, -1 left): away from the blocker, or toward the freer side. */
-  private pickSide(self: Racer, blocker: Racer): -1 | 1 {
+  private pickSide(self: Racer, blocker: Blocker): -1 | 1 {
     const right = rightOf(self.kart.heading)
-    const dx = blocker.kart.position.x - self.kart.position.x
-    const dz = blocker.kart.position.z - self.kart.position.z
+    const dx = blocker.x - self.kart.position.x
+    const dz = blocker.z - self.kart.position.z
     const lateral = dx * right.x + dz * right.z
     if (Math.abs(lateral) > 0.3) return lateral > 0 ? -1 : 1
     // Dead ahead: pass on the side that brings us back toward the line

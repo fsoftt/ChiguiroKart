@@ -181,6 +181,10 @@ export interface BotBehaviorConfig {
   avoidDistance: number
   /** Half-angle of the avoidance cone. */
   avoidConeAngle: number
+  /** Track obstacles closer than this ahead (m), measured to their edge, are avoided. */
+  obstacleAvoidDistance: number
+  /** Extra clearance (m) kept from an obstacle edge when passing it. */
+  obstacleMargin: number
   /** Sideways shift used to pass a kart (m). */
   avoidOffset: number
   /** How fast the passing shift follows its target (1/s). */
@@ -246,6 +250,8 @@ export const botBehavior: BotBehaviorConfig = {
   driftWallMargin: 0.4,
   avoidDistance: 12,
   avoidConeAngle: (35 * Math.PI) / 180,
+  obstacleAvoidDistance: 26,
+  obstacleMargin: 1.5,
   avoidOffset: 3.2,
   avoidSmoothing: 3,
   avoidHold: 0.8,

@@ -1,7 +1,10 @@
 import { createRng, seedFor, type Rng } from '../../ai/random'
 import { defaultDrift, type DriftConfig } from '../../config/drift'
+import { defaultHazards, type HazardsConfig } from '../../config/hazards'
 import { defaultItems, type ItemsConfig } from '../../config/items'
+import { defaultKartPhysics, type KartPhysicsConfig } from '../../config/kartPhysics'
 import type { KartInput } from '../../input/kartInput'
+import { HazardSystem } from '../hazards/hazardSystem'
 import { computeStandings } from '../race/standings'
 import type { Racer } from '../racer'
 import type { Track } from '../track'
@@ -28,6 +31,8 @@ export class ItemSystem {
   readonly boxes: Pickup[]
   readonly uchuvas: Pickup[]
   readonly entities: ItemEntity[] = []
+  /** Track obstacles and the tide; stepped by `update`, also in the time trial. */
+  readonly hazards: HazardSystem
   private readonly store = new EntityStore(this.entities)
   private readonly events: ItemEvent[] = []
   private rng: Rng
@@ -40,7 +45,10 @@ export class ItemSystem {
     private readonly drift: DriftConfig = defaultDrift,
     /** False for the time trial: no boxes and no uchuvas on the track. */
     withPickups = true,
+    physics: KartPhysicsConfig = defaultKartPhysics,
+    hazardConfig: HazardsConfig = defaultHazards,
   ) {
+    this.hazards = new HazardSystem(track, hazardConfig, physics)
     this.boxes = withPickups ? createPickups(track, track.itemBoxes, config.boxes.lift) : []
     this.uchuvas = withPickups ? createPickups(track, track.uchuvas, config.uchuvas.lift) : []
     this.rng = createRng(seedFor(seed, 0))
@@ -69,9 +77,10 @@ export class ItemSystem {
 
     stepEntities(ctx, dt)
     applyMaskContacts(ctx)
+    this.hazards.update(ctx, dt)
   }
 
-  /** Events since the last call (oldest first), then forgets them. */
+  /** Events since the last call (item and hazard events) (oldest first), then forgets them. */
   drainEvents(): ItemEvent[] {
     return this.events.splice(0, this.events.length)
   }
@@ -83,6 +92,7 @@ export class ItemSystem {
       pickup.respawnTime = 0
     }
     this.store.clear()
+    this.hazards.reset()
     this.events.length = 0
     this.rng = createRng(seedFor(this.seed, 0))
   }
