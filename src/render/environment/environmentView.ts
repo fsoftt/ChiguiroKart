@@ -76,6 +76,7 @@ export class EnvironmentView extends THREE.Group {
   readonly keepClear: KeepClear[]
   private readonly roads = new Map<string, RoadMaterial>()
   private readonly environment: TrackEnvironment
+  private readonly waterLevel: number | undefined
   private density = -1
 
   constructor(
@@ -88,6 +89,7 @@ export class EnvironmentView extends THREE.Group {
     super()
     this.name = 'environment'
     this.environment = environment
+    this.waterLevel = theme.water?.level
     const seed = environment.seed
 
     // Land first: props level platforms into it, and everything else stands on it
@@ -97,6 +99,7 @@ export class EnvironmentView extends THREE.Group {
       this.field,
       environment.decor.props,
       environment.terrain.shoulder,
+      theme.water?.level,
     )
     levelPads(this.field, props.pads)
     this.keepClear = props.spots.map((spot, i) => ({
@@ -165,6 +168,7 @@ export class EnvironmentView extends THREE.Group {
       seed,
       density,
       this.keepClear,
+      this.waterLevel,
     )
     this.vegetation = createVegetation(layout, vegetation)
     this.add(this.vegetation)

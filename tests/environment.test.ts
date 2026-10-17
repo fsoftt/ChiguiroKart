@@ -96,6 +96,18 @@ describe('vegetation layout', () => {
     }
   })
 
+  it('keeps plants and props out of the water', () => {
+    const heights = layout.trees.map((t) => t.y).sort((a, b) => a - b)
+    const level = heights[Math.floor(heights.length * 0.3)] as number
+    const dry = layoutVegetation(track, field, cocoraEnvironment.vegetation, seed, 1, [], level)
+    expect(dry.trees.length).toBeGreaterThan(0)
+    for (const layer of VEGETATION_LAYERS)
+      for (const plant of dry[layer]) expect(plant.y).toBeGreaterThanOrEqual(level + 0.15)
+    const placements = cocoraEnvironment.decor.props.filter((p) => p.kind !== 'boat')
+    const { spots } = layoutProps(track, field, placements, terrain.shoulder, level)
+    for (const spot of spots) expect(spot.y).toBeGreaterThanOrEqual(level)
+  })
+
   it('scales with the density of the quality table', () => {
     const count = (density: number): number => {
       const l = layoutVegetation(track, field, cocoraEnvironment.vegetation, seed, density)

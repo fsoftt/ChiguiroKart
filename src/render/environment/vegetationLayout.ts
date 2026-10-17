@@ -124,6 +124,9 @@ class SpatialHash {
   }
 }
 
+/** Least height of plants' ground above the water plane (m). */
+export const WATER_MARGIN = 0.15
+
 /** Steepest rise per meter around (x, z). */
 export function slopeAt(field: TerrainField, x: number, z: number): number {
   const d = 1.5
@@ -171,6 +174,7 @@ export function layoutVegetation(
   seed: number,
   density: number,
   keepClear: readonly KeepClear[] = [],
+  waterLevel?: number,
 ): VegetationLayout {
   const anchors = roadAnchors(track)
   const maxX = field.minX + (field.nx - 1) * field.cell
@@ -191,8 +195,11 @@ export function layoutVegetation(
       }
       if (rule.spacing > 0 && hash.crowded(x, z, rule.spacing)) return false
       if (slopeAt(field, x, z) > rule.maxSlope) return false
+      const y = field.heightAt(x, z)
+      // Nothing grows under water
+      if (waterLevel !== undefined && y < waterLevel + WATER_MARGIN) return false
       const scale = rule.scale[0] + random() * (rule.scale[1] - rule.scale[0])
-      plants.push({ x, y: field.heightAt(x, z), z, yaw: random() * Math.PI * 2, scale, shade })
+      plants.push({ x, y, z, yaw: random() * Math.PI * 2, scale, shade })
       hash.add(x, z)
       return true
     }

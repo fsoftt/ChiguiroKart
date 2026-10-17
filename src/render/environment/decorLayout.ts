@@ -1,7 +1,7 @@
 import type { PropKind, PropPlacement } from '../../config/tracks/environment'
 import type { Vec2 } from '../../sim/math'
 import type { Track } from '../../sim/track'
-import { slopeAt } from './vegetationLayout'
+import { slopeAt, WATER_MARGIN } from './vegetationLayout'
 import {
   edgeDistance,
   PAD_FADE,
@@ -163,6 +163,7 @@ export function layoutProps(
   field: TerrainField,
   placements: readonly PropPlacement[],
   shoulder: number,
+  waterLevel?: number,
 ): { spots: PropSpot[]; pads: TerrainPad[] } {
   const spots: PropSpot[] = []
   const pads: TerrainPad[] = []
@@ -181,7 +182,12 @@ export function layoutProps(
       z = center.z + side.z * placement.side * (track.halfWidth + edge)
       const clear = edgeDistance(track, x, z) >= minEdge
       const crowded = spots.some((s) => Math.hypot(s.x - x, s.z - z) < radius + PROP_RADIUS[s.kind])
-      if (clear && !crowded && slopeAt(field, x, z) < 0.7) break
+      // Dry land only (a boat may sit at the shore)
+      const dry =
+        waterLevel === undefined ||
+        placement.kind === 'boat' ||
+        field.heightAt(x, z) >= waterLevel + WATER_MARGIN + 0.15
+      if (clear && !crowded && dry && slopeAt(field, x, z) < 0.7) break
       edge += 2.5
     }
     const y = field.heightAt(x, z)
