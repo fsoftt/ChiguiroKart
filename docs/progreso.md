@@ -177,6 +177,8 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - ✅ Bailes de victoria (podio) y berrinche de derrota en la pantalla de resultados, con la cámara de frente al kart; la tarjeta de resultados pasó a la izquierda para que se vea el baile.
 - ✅ Galería de personajes (`characters.html`, publicada en `/ChiguiroKart/characters.html`).
 - ✅ Pruebas: atributos, cada _perk_, masas de choque, mezcla de animaciones, suspensión, contrato del rig, selección de personaje (413 pruebas en total).
+- ✅ Retratos en la selección de personaje: cada círculo con la inicial se reemplaza por un retrato de la cabeza y los hombros, renderizado del modelo 3D real (`render/characterPortraits.ts`, marco de cámara en `render/portraitFraming.ts` con prueba). Se generan una sola vez al abrir el menú, 128 px con fondo transparente, en un `WebGLRenderer` temporal que se libera al terminar; si no hay WebGL se quedan las letras. El teclado y la rejilla no cambian.
+- ℹ️ El kart ya era de carrocería curva (nariz, parachoques, pods laterales, alerón, escapes, asiento, volante, llantas con rin), así que no se rehízo la carrocería en esta pasada.
 - 🚧 Falta el criterio de cierre: que apruebes el arte provisional y comprobar jugando que los personajes se sienten distintos al manejar.
 
 **Notas:**

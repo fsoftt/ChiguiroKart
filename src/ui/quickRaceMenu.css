@@ -244,6 +244,12 @@
   border-radius: 50%;
 }
 
+.qr-dot.has-portrait {
+  width: 38px;
+  height: 38px;
+  margin: -5px 0;
+}
+
 .qr-character-name {
   line-height: 1.05;
 }

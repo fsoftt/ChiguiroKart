@@ -1,6 +1,7 @@
 import './quickRaceMenu.css'
 import { BOT_DIFFICULTIES, type BotDifficulty } from '../config/bots'
 import { characterIds, type CharacterId } from '../config/characters'
+import { generatePortraits, getPortrait } from '../render/characterPortraits'
 import type { CupId, TrackId } from '../config/tracks/catalog'
 import { t } from '../i18n'
 import { LiveLabels } from '../i18n/liveLabels'
@@ -80,6 +81,7 @@ export class QuickRaceMenu {
   private readonly picker: HTMLElement
   private readonly card: HTMLElement
   private readonly characterButtons = new Map<CharacterId, HTMLButtonElement>()
+  private readonly characterDots = new Map<CharacterId, HTMLElement>()
   private readonly detail: HTMLElement
   private readonly raceCharacter: HTMLElement
   private settings: RaceSettings
@@ -174,6 +176,18 @@ export class QuickRaceMenu {
     this.root.classList.add('is-visible')
     this.refresh()
     this.onCharacterChange?.(this.settings.character)
+    void generatePortraits().then(() => this.applyPortraits())
+  }
+
+  /** Swaps the letter circles for the rendered portraits, once they exist. */
+  private applyPortraits(): void {
+    for (const [id, dot] of this.characterDots) {
+      const portrait = getPortrait(id)
+      if (!portrait) continue
+      dot.textContent = ''
+      dot.style.background = `${CHARACTER_COLORS[id]} url(${portrait}) center / cover no-repeat`
+      dot.classList.add('has-portrait')
+    }
   }
 
   hide(): void {
@@ -269,6 +283,7 @@ export class QuickRaceMenu {
       const dot = el('span', 'qr-dot', button)
       dot.style.background = CHARACTER_COLORS[id]
       dot.textContent = characterInitial(id)
+      this.characterDots.set(id, dot)
       this.labels.text(el('span', 'qr-character-name', button), () => characterName(id))
       button.addEventListener('click', () => this.setCharacter(id))
       this.characterButtons.set(id, button)
