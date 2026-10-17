@@ -3,6 +3,7 @@ import './quickRaceMenu.css'
 import type { Vec2 } from '../sim/math'
 import type { Track } from '../sim/track'
 import type { FinalTimes, HudModel, ItemHudModel } from './hudModel'
+import type { CupResultsView, CupRowView } from './cupResultsModel'
 import { Minimap } from './minimap'
 
 const PIP_COUNT = 3
@@ -13,6 +14,10 @@ const MOSQUITO_BLOTCHES = 14
 const PERCENT_DECIMALS = 1
 const RACE_TITLE = '¡CARRERA TERMINADA!'
 const TIME_TRIAL_TITLE = '¡CONTRARRELOJ TERMINADA!'
+/** Podium steps left to right: 2nd, 1st, 3rd (indices into the top 3). */
+const PODIUM_ORDER = [1, 0, 2]
+const REMATCH_LABEL = 'Revancha'
+const REMATCH_HINT = 'Enter: revancha · R: reiniciar'
 
 function el(tag: string, className: string, parent?: HTMLElement): HTMLElement {
   const node = document.createElement(tag)
@@ -41,6 +46,7 @@ export class Hud {
 
   // Race UI
   private readonly lapBadge = el('div', 'hud-lap-badge', this.root)
+  private readonly cupBadge = el('div', 'hud-cup-badge', this.root)
   private readonly positionBadge = el('div', 'hud-position', this.root)
   private readonly positionValue: HTMLElement
   private readonly positionTotal: HTMLElement
@@ -58,6 +64,9 @@ export class Hud {
   private readonly resultsRecord: HTMLElement
   private readonly resultsPosition: HTMLElement
   private readonly resultsTable: HTMLTableElement
+  private readonly cupBlock: HTMLElement
+  private readonly restartPrompt: HTMLElement
+  private readonly rematchButton: HTMLButtonElement
 
   // Kart controls & physics UI
   private readonly speedValue: HTMLElement
@@ -99,6 +108,7 @@ export class Hud {
   private perfect = false
 
   private lapText = ''
+  private cupText = ''
   private positionText = ''
   private positionTotalText = ''
   private finalPositionText = ''
@@ -111,7 +121,7 @@ export class Hud {
   private wrongWay = false
   private finished = false
 
-  /** Called by the results modal buttons. */
+  /** Called by the results modal buttons (the main one is «Siguiente carrera» in a cup). */
   onRematch: (() => void) | null = null
   onMenu: (() => void) | null = null
 
@@ -138,13 +148,14 @@ export class Hud {
     this.resultsTable = document.createElement('table')
     this.resultsTable.className = 'hud-results-table'
     this.resultsCard.append(this.resultsTable)
-    const restartPrompt = el('div', 'hud-results-restart', this.resultsCard)
-    restartPrompt.textContent = 'Enter: revancha · R: reiniciar'
+    this.cupBlock = el('div', 'hud-cup', this.resultsCard)
+    this.restartPrompt = el('div', 'hud-results-restart', this.resultsCard)
+    this.restartPrompt.textContent = REMATCH_HINT
     const actions = el('div', 'hud-results-actions', this.resultsCard)
-    const rematch = el('button', 'hud-results-button', actions) as HTMLButtonElement
-    rematch.type = 'button'
-    rematch.textContent = 'Revancha'
-    rematch.addEventListener('click', () => this.onRematch?.())
+    this.rematchButton = el('button', 'hud-results-button', actions) as HTMLButtonElement
+    this.rematchButton.type = 'button'
+    this.rematchButton.textContent = REMATCH_LABEL
+    this.rematchButton.addEventListener('click', () => this.onRematch?.())
     const menu = el('button', 'hud-results-button is-secondary', actions) as HTMLButtonElement
     menu.type = 'button'
     menu.textContent = 'Menú'
@@ -212,6 +223,62 @@ export class Hud {
     this.resultsTitle.textContent = enabled ? TIME_TRIAL_TITLE : RACE_TITLE
   }
 
+  /**
+   * Turns the results modal into the cup screen: the cup table (and the final podium after the
+   * last race) instead of the lap times, with the cup's main button.
+   */
+  showCupResults(view: CupResultsView): void {
+    this.resultsCard.classList.add('is-cup')
+    this.resultsCard.classList.toggle('is-cup-final', view.final)
+    this.rematchButton.textContent = view.primaryLabel
+    this.restartPrompt.textContent = view.hint
+    this.cupBlock.replaceChildren()
+    el('div', 'hud-cup-title', this.cupBlock).textContent = view.title
+    el('div', 'hud-cup-headline', this.cupBlock).textContent = view.headline
+    if (view.final) this.renderPodium(view.podium)
+    this.renderCupTable(view.rows)
+  }
+
+  /** Back to the plain race results (no cup). */
+  clearCupResults(): void {
+    this.resultsCard.classList.remove('is-cup', 'is-cup-final')
+    this.rematchButton.textContent = REMATCH_LABEL
+    this.restartPrompt.textContent = REMATCH_HINT
+    this.cupBlock.replaceChildren()
+  }
+
+  private renderPodium(rows: readonly CupRowView[]): void {
+    const podium = el('div', 'hud-podium', this.cupBlock)
+    // Second place on the left, first in the middle, third on the right
+    for (const index of PODIUM_ORDER) {
+      const row = rows[index]
+      if (!row) continue
+      const step = el('div', `hud-podium-step is-place-${row.rank}`, podium)
+      if (row.isPlayer) step.classList.add('is-player')
+      el('div', 'hud-podium-name', step).textContent = row.name
+      el('div', 'hud-podium-block', step).textContent = `${row.rank}.º`
+      el('div', 'hud-podium-points', step).textContent = `${row.total} pts`
+    }
+  }
+
+  private renderCupTable(rows: readonly CupRowView[]): void {
+    const table = document.createElement('table')
+    table.className = 'hud-cup-table'
+    this.cupBlock.append(table)
+    const head = table.createTHead().insertRow()
+    for (const label of ['#', 'Piloto', 'Carrera', 'Puntos', 'Total']) {
+      el('th', '', head).textContent = label
+    }
+    const body = table.createTBody()
+    for (const row of rows) {
+      const tr = body.insertRow()
+      if (row.isPlayer) tr.className = 'is-player'
+      const cells = [String(row.rank), row.isPlayer ? `${row.name} (tú)` : row.name]
+      cells.push(row.racePlace, row.gained, String(row.total))
+      for (const text of cells) tr.insertCell().textContent = text
+    }
+  }
+
   setTrack(track: Track): void {
     this.minimap.setTrack(track)
   }
@@ -266,6 +333,12 @@ export class Hud {
     if (model.lapText !== this.lapText) {
       this.lapText = model.lapText
       this.lapBadge.textContent = model.lapText
+    }
+
+    if (model.cupText !== this.cupText) {
+      this.cupText = model.cupText
+      this.cupBadge.textContent = model.cupText
+      this.cupBadge.classList.toggle('is-visible', model.cupText !== '')
     }
 
     if (model.positionText !== this.positionText) {

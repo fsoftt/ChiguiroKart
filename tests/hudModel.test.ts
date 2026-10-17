@@ -169,6 +169,23 @@ describe('item hud model', () => {
   })
 })
 
+describe('cup badge', () => {
+  it('is empty outside a cup and carries the cup text inside one', () => {
+    expect(model(kart()).cupText).toBe('')
+    const full = buildHudModel(
+      kart(),
+      defaultKartPhysics,
+      defaultDrift,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      'Carrera 2/4 · Copa Andina',
+    )
+    expect(full.cupText).toBe('Carrera 2/4 · Copa Andina')
+  })
+})
+
 describe('event popups', () => {
   const position = { x: 0, y: 0, z: 0 }
 

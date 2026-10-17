@@ -17,7 +17,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | 6 — Personajes y animaciones            | 🚧     |
 | 7 — Online: sala con código             | ⬜     |
 | 8 — Online robusto                      | ⬜     |
-| 9 — Contenido completo                  | ⬜     |
+| 9 — Contenido completo                  | 🚧     |
 | 10 — Pulido                             | ⬜     |
 | 11 — Lanzamiento                        | ⬜     |
 
@@ -172,7 +172,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - ✅ Los 8 personajes con kart propio (colores y estilo: clásico, deportivo, con hojas o bote) y 11 animaciones: reposo con tic propio, giro izquierda y derecha, derrape, nitro, aire, golpeado, victoria (cumbia, champeta o joropo), derrota, lanzar adelante y lanzar atrás.
 - ✅ Mezcla de animaciones según giro, derrape, nitro, aire, golpes y resultado (`render/characterAnimLogic.ts`, lógica pura con pruebas) y gesto de lanzar al usar un poder (`CharacterView.playAction`).
 - ✅ Animación procedural del kart: suspensión con resorte, _squash & stretch_ al aterrizar, acelerar y frenar, inclinación en curvas y derrapes, rebote al chocar con paredes, ruedas que giran y se orientan (`render/kartSuspension.ts`).
-- ✅ Pantalla de selección de personaje: primer paso del menú, con los 8 pilotos, habilidad y barras de atributos (`ui/quickRaceMenu.ts`, `ui/characterSelectModel.ts`). Detrás se ve el kart elegido en reposo con una cámara de exhibición. También `?personaje=<id>`. Los bots llevan los otros 7 personajes.
+- ✅ Pantalla de selección de personaje: tercer paso del menú (modo, pista, personaje, dificultad), con los 8 pilotos, habilidad y barras de atributos (`ui/quickRaceMenu.ts`, `ui/characterSelectModel.ts`). Detrás se ve el kart elegido en reposo con una cámara de exhibición. También `?personaje=<id>`. Los bots llevan los otros 7 personajes.
 - ✅ Sombreado _toon_ de 3 tonos, contorno por casco invertido (`render/characters/toon.ts`) y _bloom_ suave en llamas, explosiones y rayos (`EffectComposer` + `UnrealBloomPass` con umbral alto; `?bloom=0` lo apaga).
 - ✅ Bailes de victoria (podio) y berrinche de derrota en la pantalla de resultados, con la cámara de frente al kart; la tarjeta de resultados pasó a la izquierda para que se vea el baile.
 - ✅ Galería de personajes (`characters.html`, publicada en `/ChiguiroKart/characters.html`).
@@ -186,3 +186,16 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - Con 8 karts en carrera se miden 46 _draw calls_ por cuadro (presupuesto: 150).
 - El bundle principal pasó a ~804 kB (214 kB gzip) por el _bloom_ y el cargador glTF; se subió el aviso de Vite a 900 kB.
 - Comprobado en Chromium: menú con vista previa, parrilla con 8 personajes distintos, carrera y pantalla de resultados sin errores de consola. Chromium sin GPU corre a ~2 FPS, así que la fluidez de las mezclas solo se revisó en capturas.
+
+## Etapa 9 — Contenido completo 🚧
+
+Flujo de juego (elegir pista y modo Copa). Las pistas, los elementos especiales y los atajos van en otras tareas.
+
+- ✅ `Game` carga cualquier pista del catálogo al empezar una carrera: reconstruye `RaceWorld`, `ItemSystem` y la vista de objetos, reemplaza la escenografía (con `disposeObject` para liberar geometrías, materiales y texturas), aplica el tema (`applySceneTheme`) y actualiza el minimapa. `?pista=test` y `?pista=custom` siguen funcionando; se agregan `?pista=<TrackId>` y `?copa=<CupId>`. Pista por defecto: Cocora.
+- ✅ Un solo lugar para lo que depende de la pista en `game/game.ts`: `setupTrack`, `teardownTrack` y `updateTrack` (marcados con `TODO(stage 9)` para los peligros, la marea y los obstáculos).
+- ✅ Menú en cuatro pasos: modo (Carrera rápida, Copa, Contrarreloj), pista (12 pistas agrupadas por copa) o copa (3 copas con sus 4 pistas), personaje y dificultad. Teclado (flechas, WASD, Enter, Esc) y ratón. Lógica pura en `ui/trackSelectModel.ts`.
+- ✅ Modo Copa: 4 carreras con el mismo personaje, dificultad y los mismos 7 bots; puntos 15, 12, 10, 8, 6, 4, 2, 1 (`config/cups.ts`); desempate por el mejor resultado de la última carrera y luego por el puesto en la parrilla (`game/cup.ts`). Al terminar cada carrera, tabla de la copa de 8 filas y botón «Siguiente carrera» (Enter); al terminar la cuarta, podio final con «Menú» y «Repetir copa» (`ui/cupResultsModel.ts`). Quienes no han terminado se ordenan por la clasificación en ese momento.
+- ✅ HUD: «Carrera 2/4 · Copa Andina» durante las carreras de copa.
+- ✅ Pruebas: ajustes, puntos, desempates, avance de la copa, vistas de resultados y selección de pista.
+- ✅ Comprobado en Chromium: menú → pista → carrera sin errores de consola, cambio de pista desde el menú después de una carrera y la copa completa (4 carreras y repetir copa) forzando la llegada con `window.game` (solo en desarrollo).
+- ⬜ Falta: las pistas (diseños, atajos, elementos especiales), copas online y el cierre de la etapa.

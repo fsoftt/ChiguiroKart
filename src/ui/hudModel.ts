@@ -105,6 +105,8 @@ export interface HudModel {
   ghostAhead: boolean
   /** Time trial: the finished run is a new best. */
   newRecord: boolean
+  /** Cup mode: e.g. "Carrera 2/4 · Copa Andina"; empty outside a cup. */
+  cupText: string
   items: ItemHudModel
 }
 
@@ -266,6 +268,7 @@ export function buildHudModel(
   position?: RacePosition,
   items?: RacerItems,
   timeTrial?: TimeTrialHud,
+  cupText = '',
 ): HudModel {
   const speed = Math.max(0, forwardSpeed(kart))
   const level = kart.boost.level
@@ -333,6 +336,7 @@ export function buildHudModel(
       timeTrial?.ghostDelta != null ? `FANTASMA ${formatDelta(timeTrial.ghostDelta)}` : '',
     ghostAhead: timeTrial?.ghostDelta != null && timeTrial.ghostDelta < 0,
     newRecord: finished && (timeTrial?.newRecord ?? false),
+    cupText,
     items: buildItemHudModel(items),
   }
 }
