@@ -1,6 +1,7 @@
 import type { DriftConfig } from '../config/drift'
 import type { KartPhysicsConfig } from '../config/kartPhysics'
 import type { KartInput } from '../input/kartInput'
+import type { HazardObstacle } from './hazards/hazardTypes'
 import type { KartState } from './kart/kartState'
 import type { RaceManager, RaceManagerOptions } from './race/raceManager'
 import { createRacer, resetRacer, stepRacer, type Racer } from './racer'
@@ -16,6 +17,11 @@ export class RaceWorld {
    * to everyone in the race; empty by default.
    */
   rivals: () => readonly Racer[] = () => []
+  /**
+   * Track obstacles the bots avoid. The game sets it to `itemSystem.hazards.obstacles`; empty
+   * by default.
+   */
+  obstacles: () => readonly HazardObstacle[] = () => []
 
   constructor(
     trackDefinition: TrackDefinition,

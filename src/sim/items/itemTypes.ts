@@ -3,6 +3,7 @@
  * The simulation (`ItemSystem`) writes these; the HUD, the render and the bots only read them.
  */
 import type { Vec3 } from '../math'
+import type { HazardKind } from '../track'
 
 /** Every power in docs/diseno.md §5. */
 export type PowerId =
@@ -127,6 +128,12 @@ export type ItemEvent =
   | { type: 'explosion'; position: Vec3; radius: number }
   | { type: 'lightning'; slots: readonly number[] }
   | { type: 'uchuvasStolen'; from: number; to: number; amount: number }
+  /** A kart bumped into a track obstacle (float, rock, ice wall). */
+  | { type: 'hazardBump'; slot: number; kind: HazardKind; position: Vec3 }
+  /** A level 3 nitro broke an ice wall (`hazard` = index in `Track.hazards`). */
+  | { type: 'iceWallBroken'; slot: number; hazard: number; position: Vec3 }
+  /** A broken ice wall closed again. */
+  | { type: 'iceWallRestored'; hazard: number; position: Vec3 }
 
 export function createItemSlot(): ItemSlot {
   return { power: null, uses: 0, charged: false, rouletteTime: 0, rouletteShowing: null }

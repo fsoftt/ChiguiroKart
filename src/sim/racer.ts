@@ -8,6 +8,8 @@ import { stepKart } from './kart/kartPhysics'
 import { createKartState, type KartState } from './kart/kartState'
 import { resolveTrackCollision } from './kart/trackCollision'
 import { defaultItems, type ItemsConfig } from '../config/items'
+import { defaultHazards, type HazardsConfig } from '../config/hazards'
+import { applyBoostPads } from './hazards/boostPads'
 import { endDrift } from './kart/drift'
 import { createRacerItems, type RacerItems } from './items/itemTypes'
 import { statusModifiers } from './items/statusModifiers'
@@ -91,6 +93,7 @@ export function stepRacer(
   dt: number,
   items: ItemsConfig = defaultItems,
   others: readonly Racer[] = [],
+  hazards: HazardsConfig = defaultHazards,
 ): void {
   const { kart, race } = racer
   const groundHeight = (x: number, z: number): number => track.groundHeight(x, z)
@@ -124,6 +127,9 @@ export function stepRacer(
       (1 + slip * depredador.accelerationBonus),
     lateralGrip: stats.lateralGrip * surfaceProps.gripMultiplier * modifiers.gripFactor,
   }
+
+  // Turbo strips: only once the race has started, so parked karts are not boosted
+  if (race.state.phase === 'racing') applyBoostPads(kart, track, drift, hazards)
 
   stepKart(
     kart,
