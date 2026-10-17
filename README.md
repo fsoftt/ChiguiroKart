@@ -17,7 +17,8 @@ Juego de karts en 3D estilo _Crash Team Racing_ con animales colombianos. Corre 
 | 4 — Bots                                | En curso   |
 | 5 — Poderes y uchuvas                   | En curso   |
 | 6 — Personajes y animaciones            | En curso   |
-| 7 a 11                                  | Pendientes |
+| 9 — Contenido completo                  | En curso   |
+| 7, 8, 10 y 11                           | Pendientes |
 
 ## Controles
 

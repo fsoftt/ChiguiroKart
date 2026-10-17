@@ -350,3 +350,130 @@
     border-radius: 24px 24px 0 0;
   }
 }
+
+/* Mode step */
+.qr-card[hidden],
+.qr-tracks[hidden],
+.qr-cups[hidden] {
+  display: none;
+}
+
+.qr-modes {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0;
+}
+
+.qr-mode {
+  flex: none;
+  padding: 14px 6px;
+  font-size: clamp(20px, 5vw, 26px);
+}
+
+/* Track and cup step */
+.qr-card-wide {
+  width: min(760px, 100%);
+  max-height: 100%;
+  overflow-y: auto;
+}
+
+.qr-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 12px 0 18px;
+}
+
+.qr-cup-label {
+  margin-bottom: 6px;
+  font-size: 16px;
+  text-align: left;
+  color: #a8e6cf;
+}
+
+.qr-track-buttons {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+}
+
+.qr-track-button,
+.qr-cup-card {
+  font: inherit;
+  color: #fff;
+  cursor: pointer;
+  background: #4a3a8e;
+  border: 4px solid #1b1033;
+  border-radius: 16px;
+  box-shadow: 0 4px 0 #1b1033;
+  transition:
+    transform 0.12s ease,
+    background 0.12s ease;
+}
+
+.qr-track-button {
+  padding: 8px 6px;
+  font-size: clamp(13px, 2.6vw, 17px);
+  line-height: 1.1;
+}
+
+.qr-cups {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin: 12px 0 18px;
+}
+
+.qr-cup-card {
+  padding: 12px 8px;
+  font-size: clamp(14px, 2.8vw, 18px);
+}
+
+.qr-cup-name {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 1.2em;
+}
+
+.qr-cup-tracks {
+  margin: 0;
+  padding-left: 1.4em;
+  text-align: left;
+  font-size: 0.9em;
+  font-weight: 700;
+}
+
+.qr-track-button:hover,
+.qr-cup-card:hover {
+  transform: translateY(-3px) scale(1.03);
+}
+
+.qr-track-button:active,
+.qr-cup-card:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #1b1033;
+}
+
+.qr-track-button:focus-visible,
+.qr-cup-card:focus-visible {
+  outline: 4px solid #fff;
+  outline-offset: 2px;
+}
+
+.qr-track-button.is-selected,
+.qr-cup-card.is-selected {
+  background: #ffd23f;
+  color: #1b1033;
+  transform: translateY(-2px);
+}
+
+@media (max-width: 699px) {
+  .qr-track-buttons {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .qr-cups {
+    grid-template-columns: 1fr;
+  }
+}

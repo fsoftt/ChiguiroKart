@@ -4,13 +4,21 @@ import { defaultDrift } from '../config/drift'
 import { defaultEffects } from '../config/effects'
 import { defaultKartPhysics } from '../config/kartPhysics'
 import { cocoraTrack } from '../config/tracks/cocoraTrack'
+import { cupInfo, tracks, type TrackId } from '../config/tracks/catalog'
+import { DEFAULT_THEME, type TrackTheme } from '../config/tracks/theme'
 import { testTrack } from '../config/tracks/testTrack'
 import { CUSTOM_TRACK_KEY, buildTrackDefinition, parseTrackDataText } from '../sim/trackData'
 import { GamepadSource } from '../input/gamepad'
 import { combineInputs, NEUTRAL_INPUT, type InputSource, type KartInput } from '../input/kartInput'
 import { KeyboardSource } from '../input/keyboard'
 import { ChaseCamera } from '../render/chaseCamera'
-import { createScene, renderScene, resizeToCanvas, type SceneContext } from '../render/createScene'
+import {
+  applySceneTheme,
+  createScene,
+  renderScene,
+  resizeToCanvas,
+  type SceneContext,
+} from '../render/createScene'
 import { speedLineTarget } from '../render/effects/effectsLogic'
 import { KartEffects } from '../render/effects/kartEffects'
 import { KartFeedback } from '../render/effects/kartFeedback'
@@ -47,13 +55,23 @@ import { saveTrackRecord } from '../sim/race/records'
 import { createDebugPanel, isDebugEnabled, type DebugReadout } from '../ui/debugPanel'
 import { FpsOverlay } from '../ui/fpsOverlay'
 import { Hud } from '../ui/hud'
-import { racePosition } from '../sim/race/standings'
+import { computeStandings, racePosition } from '../sim/race/standings'
 import { buildHudModel, eventPopupText } from '../ui/hudModel'
+import { buildCupResultsView, cupBadgeText } from '../ui/cupResultsModel'
 import { BotManager } from '../sim/botManager'
 import { RacingBot } from '../ai/racingBot'
 import { botDifficulties } from '../config/bots'
 import { characterIds, type CharacterId } from '../config/characters'
 import { QuickRaceMenu } from '../ui/quickRaceMenu'
+import {
+  advanceCup,
+  createCup,
+  isCupFinished,
+  isRaceRecorded,
+  recordRace,
+  type CupState,
+} from './cup'
+import { disposeObject } from './disposeObject'
 import { parseRaceSettings, rubberBandFor, type RaceSettings } from './raceSettings'
 
 const SIMULATION_HZ = 60
@@ -80,14 +98,38 @@ function loadCustomTrack(): TrackDefinition | null {
   }
 }
 
-function selectTrack(): TrackDefinition {
-  if (typeof window !== 'undefined') {
-    const params = new URLSearchParams(window.location.search)
-    const choice = params.get('pista')
-    if (choice === 'test') return testTrack
-    if (choice === 'custom') return loadCustomTrack() ?? cocoraTrack
+/** Anything the game can race on: a catalog track or the test and custom tracks of the URL. */
+interface TrackSource {
+  name: string
+  theme: TrackTheme
+  /** Builds the simulation track when it is loaded. */
+  build(): TrackDefinition
+}
+
+function urlSearch(): string {
+  return typeof window === 'undefined' ? '' : window.location.search
+}
+
+/**
+ * `?pista=test` and `?pista=custom` (the editor's track) race on a track outside the catalog;
+ * they stay in force until the player picks another track in the menu. Catalog ids come
+ * through `parseRaceSettings` instead.
+ */
+function urlTrackOverride(): TrackSource | null {
+  const choice = new URLSearchParams(urlSearch()).get('pista')
+  if (choice === 'test') {
+    return { name: testTrack.name, theme: DEFAULT_THEME, build: () => testTrack }
   }
-  return cocoraTrack
+  if (choice === 'custom') {
+    const custom = loadCustomTrack() ?? cocoraTrack
+    return { name: custom.name, theme: DEFAULT_THEME, build: () => custom }
+  }
+  return null
+}
+
+/** The track of cup race number `index` (0-based). */
+function cupTrackId(cup: CupState): TrackId {
+  return cupInfo(cup.cupId).tracks[cup.raceIndex] ?? 'cocora'
 }
 
 /** Wires input, simulation and rendering together and runs the frame loop. */
@@ -96,8 +138,14 @@ export class Game {
   private readonly driftConfig = { ...defaultDrift }
   private readonly effectsConfig = defaultEffects
   private readonly cameraConfig = { ...defaultChaseCamera }
-  private readonly trackDefinition = selectTrack()
-  private readonly world = new RaceWorld(this.trackDefinition, this.physics, this.driftConfig)
+  private readonly initialSettings = parseRaceSettings(urlSearch())
+  /** From `?pista=test|custom`; cleared when the player picks a track in the menu. */
+  private trackOverride = urlTrackOverride()
+  /** The track currently loaded in the world and the scene. */
+  private trackSource: TrackSource = this.trackOverride ?? tracks[this.initialSettings.track]
+  private world = new RaceWorld(this.trackSource.build(), this.physics, this.driftConfig)
+  /** Scenery of the loaded track: replaced (and disposed) whenever another track loads. */
+  private trackView: THREE.Group | null = null
   private readonly fixedStep = new FixedStep(1 / SIMULATION_HZ)
   private readonly timer = new THREE.Timer()
 
@@ -108,7 +156,7 @@ export class Game {
   private readonly kartFeedback = new KartFeedback(defaultEffects.camera)
   private readonly chaseCamera: ChaseCamera
   private items = new ItemSystem(this.world.track)
-  private readonly itemView = new ItemView()
+  private itemView = new ItemView()
   private readonly hitPose: HitPose = { yaw: 0, pitch: 0 }
   /** Player first, then the bots in grid order; rebuilt when a race starts. */
   private racers: Racer[] = [this.world.player]
@@ -140,16 +188,20 @@ export class Game {
   /** True once the player's finish pose and the front camera are on. */
   private finishShown = false
   private currentCharacter: CharacterId
+  /** The cup in progress, or null in a quick race or time trial. */
+  private cup: CupState | null = null
+  /** HUD badge of the cup race, e.g. "Carrera 2/4 · Copa Andina"; empty outside a cup. */
+  private cupBadge = ''
 
   constructor(canvas: HTMLCanvasElement) {
-    this.settings = parseRaceSettings(typeof window === 'undefined' ? '' : window.location.search)
+    this.settings = this.initialSettings
     this.world.player.character = this.settings.character
     this.currentCharacter = this.settings.character
     this.kartView = new CharacterView(this.settings.character)
     this.ghostView = new CharacterView(this.settings.character)
     this.scene = createScene(canvas)
+    this.setupTrack()
     this.scene.scene.add(
-      createTrackView(this.world.track),
       this.kartView.object,
       this.itemView.object,
       this.kartEffects.object,
@@ -161,16 +213,16 @@ export class Game {
     this.ghostView.object.visible = false
     this.scene.scene.add(this.ghostView.object)
     this.previousKart = cloneKartState(this.world.kart)
-    this.menu = new QuickRaceMenu(this.settings, this.world.track.name, (chosen) =>
-      this.startRace(chosen),
-    )
+    this.menu = new QuickRaceMenu(this.settings, (chosen) => this.startRace(chosen))
+    this.menu.setTrackOverride(this.trackOverride?.name ?? null)
+    this.menu.onTrackChange = () => {
+      this.trackOverride = null
+    }
     this.menu.onCharacterChange = (id) => this.setPlayerCharacter(id)
     this.menu.show(this.settings)
     this.hud.setVisible(false)
-    this.hud.onRematch = () => this.startRace(this.settings)
+    this.hud.onRematch = () => this.primaryAction()
     this.hud.onMenu = () => this.showMenu()
-
-    this.hud.setTrack(this.world.track)
 
     const debug = isDebugEnabled()
     this.fpsOverlay = debug ? new FpsOverlay() : null
@@ -181,23 +233,65 @@ export class Game {
         camera: this.cameraConfig,
         readout: this.readout,
         onReset: () => {
-          if (this.racing) this.resetKart()
+          if (this.racing && !this.raceLocked()) this.resetKart()
         },
       })
     }
     window.addEventListener('keydown', (event) => {
-      if (event.code === RESET_KEY && this.racing) this.resetKart()
-      if (event.code === 'Enter' && this.hud.isFinished) this.startRace(this.settings)
+      if (event.code === RESET_KEY && this.racing && !this.raceLocked()) this.resetKart()
+      if (event.code === 'Enter' && this.hud.isFinished) this.primaryAction()
     })
   }
 
-  /** Builds the bots for the chosen settings and puts everyone on the grid; the countdown begins. */
+  /**
+   * Starts what the menu chose: a quick race, a time trial or the first race of a cup. Loads
+   * the track, builds the bots and puts everyone on the grid; the countdown begins.
+   */
   startRace(settings: RaceSettings): void {
     this.settings = settings
     this.setPlayerCharacter(settings.character)
     this.menu.hide()
+    if (settings.mode === 'copa') {
+      // Same player and the same 7 bot characters for the four races
+      const characters = [settings.character, ...botCharactersFor(settings.character)]
+      this.cup = createCup(settings.cup, characters.slice(0, BOT_COUNT + 1))
+      this.trackOverride = null
+    } else {
+      this.cup = null
+    }
+    this.launchRace()
+  }
+
+  /** Main button of the results: next race of the cup, a new cup, or a rematch. */
+  private primaryAction(): void {
+    const cup = this.cup
+    if (!cup || isCupFinished(cup)) {
+      this.startRace(this.settings)
+    } else if (isRaceRecorded(cup)) {
+      this.cup = advanceCup(cup)
+      this.launchRace()
+    }
+  }
+
+  /** True while the player looks at the cup standings: the race must not be restarted. */
+  private raceLocked(): boolean {
+    return this.cup !== null && isRaceRecorded(this.cup)
+  }
+
+  /** The track to race on now: the cup's current one, the URL override or the chosen one. */
+  private currentTrackSource(): TrackSource {
+    if (this.cup) return tracks[cupTrackId(this.cup)]
+    return this.trackOverride ?? tracks[this.settings.track]
+  }
+
+  /** Loads the track of the current race, then builds the bots and starts the countdown. */
+  private launchRace(): void {
+    const settings = this.settings
     this.hud.setVisible(true)
+    this.hud.clearCupResults()
     this.clearBots()
+    this.loadTrack(this.currentTrackSource())
+    this.cupBadge = this.cup ? cupBadgeText(this.cup, cupInfo(this.cup.cupId).name) : ''
     const timeTrial = settings.mode === 'contrarreloj'
     this.hud.setTimeTrial(timeTrial)
     // The time trial track has no boxes or uchuvas
@@ -253,12 +347,73 @@ export class Game {
     this.ghost = null
     this.ghostView.object.visible = false
     this.hasSavedRecord = false
+    this.cup = null
+    this.cupBadge = ''
+    this.hud.clearCupResults()
     this.world.resetKart()
     this.previousKart = cloneKartState(this.world.kart)
     this.chaseCamera.reset()
     this.clearFinishShow()
     this.hud.setVisible(false)
     this.menu.show(this.settings)
+  }
+
+  /**
+   * Switches the world to another track: tears the old one down, builds the new RaceWorld
+   * (the player keeps the chosen character) and sets the new one up. Does nothing if that
+   * track is already loaded; callers reset the kart and the race afterwards.
+   */
+  private loadTrack(source: TrackSource): void {
+    if (source === this.trackSource) return
+    this.teardownTrack()
+    this.trackSource = source
+    this.world = new RaceWorld(source.build(), this.physics, this.driftConfig)
+    this.world.player.character = this.currentCharacter
+    this.items = new ItemSystem(this.world.track)
+    // The item view builds its pickup meshes from the first system it sees
+    this.itemView = new ItemView()
+    this.scene.scene.add(this.itemView.object)
+    this.itemView.setKarts([this.kartView.object])
+    this.racers = [this.world.player]
+    this.previousKart = cloneKartState(this.world.kart)
+    this.chaseCamera.reset()
+    this.ghost = null
+    this.setupTrack()
+  }
+
+  // --- Per-track setup and teardown: the single place to wire what depends on the track ---
+
+  /**
+   * Builds everything that belongs to the loaded track (`this.world`, `this.trackSource`).
+   * Runs once at start and after every track switch.
+   * TODO(stage 9): create the HazardView from the track's hazards and add it to the scene, pass
+   * `world.obstacles` to whatever needs them, and keep the hazard/tide views for `updateTrack`.
+   */
+  private setupTrack(): void {
+    const view = createTrackView(this.world.track, this.trackSource.theme)
+    this.trackView = view
+    this.scene.scene.add(view)
+    applySceneTheme(this.scene, this.trackSource.theme)
+    this.hud.setTrack(this.world.track)
+  }
+
+  /**
+   * Removes and disposes everything `setupTrack` created. Runs before another track loads.
+   * TODO(stage 9): dispose the HazardView here too.
+   */
+  private teardownTrack(): void {
+    if (this.trackView) disposeObject(this.trackView)
+    this.itemView.setKarts([])
+    this.trackView = null
+    disposeObject(this.itemView.object)
+  }
+
+  /**
+   * Per-frame update of the track's own visuals (`dt` in seconds).
+   * TODO(stage 9): tide level on the track view, moving floats and the stampede in the HazardView.
+   */
+  private updateTrack(dt: number): void {
+    void dt
   }
 
   private clearBots(): void {
@@ -301,6 +456,7 @@ export class Game {
       : 1
     this.lastAlpha = alpha
 
+    this.updateTrack(dt)
     this.renderBots(alpha, dt)
     this.renderGhost(dt)
     this.render(interpolateKart(this.previousKart, this.world.kart, alpha), input, dt)
@@ -431,6 +587,7 @@ export class Game {
         position,
         this.world.player.items,
         timeTrial ? { ghostDelta: this.ghostDelta, newRecord: this.newRecord } : undefined,
+        this.cupBadge,
       ),
       { x: kart.position.x, z: kart.position.z },
       kart.heading,
@@ -477,11 +634,24 @@ export class Game {
         this.finishShown = true
         const rank = racePosition(this.world.player, this.racers)
         this.kartView.setResult(rank <= PODIUM_PLACES ? 'victory' : 'defeat')
+        this.recordCupRace()
       }
       placeFinishCamera(camera, kart.position, kart.heading, dt)
       return
     }
     this.chaseCamera.update(kart.position, kart.heading, speedRatio, input.lookBack, dt, feedback)
+  }
+
+  /**
+   * Cup mode: when the player finishes, the finishing order of the whole grid goes into the
+   * cup (racers still driving are ranked by the current standings) and the cup table shows.
+   */
+  private recordCupRace(): void {
+    const cup = this.cup
+    if (!cup || isRaceRecorded(cup)) return
+    const order = computeStandings(this.racers).map((racer) => racer.slot)
+    this.cup = recordRace(cup, order)
+    this.hud.showCupResults(buildCupResultsView(this.cup, cupInfo(cup.cupId).name))
   }
 
   private clearFinishShow(): void {
