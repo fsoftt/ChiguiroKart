@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 const OUTLINE_COLOR = '#1a1420'
-const OUTLINE_THICKNESS = 0.025
+const OUTLINE_THICKNESS = 0.016
 
 let gradient: THREE.DataTexture | null = null
 
@@ -16,9 +16,23 @@ export function toonGradient(): THREE.DataTexture {
   return gradient
 }
 
-/** Toon material painted by the model's vertex colors. */
+/**
+ * Toon material painted by the model's vertex colors, with a hard rim light: a warm band along
+ * the silhouette that lifts the characters off the background.
+ */
 export function vertexColorToon(): THREE.MeshToonMaterial {
-  return new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: toonGradient() })
+  const material = new THREE.MeshToonMaterial({ vertexColors: true, gradientMap: toonGradient() })
+  material.onBeforeCompile = (shader) => {
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <opaque_fragment>',
+      `float rimFacing = 1.0 - clamp(dot(normalize(normal), normalize(vViewPosition)), 0.0, 1.0);
+      float rimBand = smoothstep(0.62, 0.7, rimFacing);
+      outgoingLight += vec3(1.0, 0.93, 0.8) * rimBand * 0.28;
+      #include <opaque_fragment>`,
+    )
+  }
+  material.customProgramCacheKey = () => 'vertex-color-toon-rim'
+  return material
 }
 
 /** Inverted hull: back faces pushed out along the normals, drawn in a flat dark color. */

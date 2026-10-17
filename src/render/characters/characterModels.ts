@@ -1,5 +1,13 @@
 import type { CharacterId } from '../../config/characters'
-import { addKart, SEAT, STEERING_WHEEL, type KartPalette, type KartStyle } from './kartModel'
+import {
+  addKart,
+  gripPoint,
+  SEAT,
+  STEERING_WHEEL,
+  type KartPalette,
+  type KartStyle,
+} from './kartModel'
+import { osoDriver } from './heroPilots'
 import { box, cone, sphere, torus, type ModelKit } from './modelKit'
 
 export type DanceStyle = 'cumbia' | 'champeta' | 'joropo'
@@ -11,6 +19,8 @@ export interface CharacterModelSpec {
   dance: DanceStyle
   /** How far the head swings in the clips (1 = normal); calm or nervous characters. */
   energy: number
+  /** How far the eyelids travel from their resting angle to fully closed (rad); default 1.3. */
+  lidTravel?: number
   /** Adds the driver's parts and sets the driver bones. */
   driver(kit: ModelKit): void
 }
@@ -58,9 +68,7 @@ function arms(
   hand: string,
 ): void {
   const [sx, sy, sz] = shoulder
-  const gripX = STEERING_WHEEL.radius * 0.9
-  const wheelY = STEERING_WHEEL.y + 0.02
-  const wheelZ = STEERING_WHEEL.z - 0.02
+  const [gripX, wheelY, wheelZ] = gripPoint(1)
   kit.bone('armL', sx, sy, sz).bone('armR', -sx, sy, sz)
   kit.segment('armL', [sx, sy, sz], [gripX, wheelY, wheelZ], radius, color)
   kit.segment('armR', [-sx, sy, sz], [-gripX, wheelY, wheelZ], radius, color)
@@ -79,8 +87,8 @@ function driverBones(kit: ModelKit, headY: number, headZ: number, tail?: [number
 }
 
 const chiguiro: CharacterModelSpec = {
-  kart: { body: '#f2c230', accent: '#2f9e44' },
-  kartStyle: 'classic',
+  kart: { body: '#f2c230', accent: '#2f9e44', dark: '#2e3a2a', number: 7 },
+  kartStyle: 'leafy',
   dance: 'cumbia',
   energy: 0.6,
   driver(kit) {
@@ -126,42 +134,12 @@ const chiguiro: CharacterModelSpec = {
 }
 
 const oso: CharacterModelSpec = {
-  kart: { body: '#d8342c', accent: '#f2f2f2' },
-  kartStyle: 'classic',
+  kart: { body: '#d8342c', accent: '#7a4a2b', dark: '#2b211c', number: 3 },
+  kartStyle: 'heavy',
   dance: 'joropo',
   energy: 0.8,
-  driver(kit) {
-    const fur = '#2b2624'
-    const cream = '#ecd3a0'
-    driverBones(kit, 1.5, -0.18)
-    kit.add('body', sphere(1, 12), fur, { position: [0, 1.02, -0.35], scale: [0.5, 0.48, 0.5] })
-    kit.add('body', sphere(1, 10), cream, {
-      position: [0, 1.16, 0.06],
-      rotation: [0.3, 0, 0],
-      scale: [0.24, 0.12, 0.08],
-    })
-    kit.add('head', sphere(0.36, 12), fur, { position: [0, 1.56, -0.15] })
-    kit.add('head', sphere(1, 10), '#c9a77a', {
-      position: [0, 1.48, 0.13],
-      scale: [0.18, 0.14, 0.17],
-    })
-    kit.add('head', sphere(1, 8), BLACK, { position: [0, 1.53, 0.29], scale: [0.07, 0.05, 0.05] })
-    // The "spectacles": cream rings around the eyes
-    kit.addMirrored('head', 'head', torus(0.1, 0.035, 12), cream, {
-      position: [0.13, 1.64, 0.12],
-      rotation: [0, 0.35, 0],
-    })
-    eyes(kit, { x: 0.13, y: 1.64, z: 0.1, radius: 0.065 })
-    kit.addMirrored('earL', 'earR', sphere(1, 8), fur, {
-      position: [0.26, 1.86, -0.2],
-      scale: [0.11, 0.11, 0.07],
-    })
-    kit.addMirrored('earL', 'earR', sphere(1, 8), '#5a4a40', {
-      position: [0.26, 1.86, -0.15],
-      scale: [0.06, 0.06, 0.03],
-    })
-    arms(kit, [0.36, 1.18, -0.18], 0.13, fur, '#3d3430')
-  },
+  lidTravel: 1.45,
+  driver: osoDriver,
 }
 
 const titi: CharacterModelSpec = {
