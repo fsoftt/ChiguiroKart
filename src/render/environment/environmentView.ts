@@ -13,12 +13,24 @@ import { buildFence, postGeometry } from './fence'
 import {
   asphaltTexture,
   ASPHALT_TILE,
+  cobbleTexture,
+  COBBLE_TILE,
   CURB_TILE,
   curbTexture,
   decorAtlas,
+  dirtTexture,
+  DIRT_TILE,
+  grassRoadTexture,
+  GRASS_TILE,
+  iceTexture,
+  ICE_TILE,
   MUD_TILE,
   mudTexture,
   railTexture,
+  sandTexture,
+  SAND_TILE,
+  waterTexture,
+  WATER_TILE,
   WOOD_TILE,
   woodTexture,
 } from './proceduralTextures'
@@ -39,7 +51,12 @@ const BRANCH_SPACING = 3
 interface RoadMaterial {
   material: THREE.MeshStandardMaterial
   tile: number
+  /** Texture whose V offset is scrolled by `update` (running water). */
+  flow?: THREE.Texture
 }
+
+/** Texture-V units per second the ford water runs. */
+const WATER_FLOW_SPEED = 0.04
 
 export interface EnvironmentOptions {
   /** True for branches whose road is drawn by the caller (tidal ribbons); fence and land stay. */
@@ -156,6 +173,9 @@ export class EnvironmentView extends THREE.Group {
   /** Advances the wind. */
   update(seconds: number): void {
     windClock.value = seconds
+    for (const { flow } of this.roads.values()) {
+      if (flow) flow.offset.y = -seconds * WATER_FLOW_SPEED
+    }
   }
 
   private disposeVegetation(group: THREE.Group): void {
@@ -174,15 +194,82 @@ export class EnvironmentView extends THREE.Group {
     const seed = this.environment.seed
     let entry: RoadMaterial
     switch (surface) {
-      case 'asphalt':
+      case 'asphalt': {
+        const style = this.environment.road ?? 'asphalt'
+        const map =
+          style === 'cobble'
+            ? cobbleTexture(theme.road, seed)
+            : style === 'dirt'
+              ? dirtTexture(theme.road, seed)
+              : asphaltTexture(theme.road, seed)
         entry = {
           material: new THREE.MeshStandardMaterial({
-            map: asphaltTexture(theme.road, seed),
-            roughness: 0.88,
+            map,
+            roughness: style === 'cobble' ? 0.8 : style === 'dirt' ? 0.97 : 0.88,
           }),
-          tile: ASPHALT_TILE,
+          tile: style === 'cobble' ? COBBLE_TILE : style === 'dirt' ? DIRT_TILE : ASPHALT_TILE,
         }
         break
+      }
+      case 'dirt':
+        entry = {
+          material: new THREE.MeshStandardMaterial({
+            map: dirtTexture(surfaceColor(surface, theme), seed),
+            roughness: 0.97,
+          }),
+          tile: DIRT_TILE,
+        }
+        break
+      case 'grass':
+        entry = {
+          material: new THREE.MeshStandardMaterial({
+            map: grassRoadTexture(surfaceColor(surface, theme), seed),
+            roughness: 1,
+          }),
+          tile: GRASS_TILE,
+        }
+        break
+      case 'sand':
+        entry = {
+          material: new THREE.MeshStandardMaterial({
+            map: sandTexture(surfaceColor(surface, theme), seed),
+            roughness: 1,
+          }),
+          tile: SAND_TILE,
+        }
+        break
+      case 'ice': {
+        const ice = iceTexture(surfaceColor(surface, theme), seed)
+        entry = {
+          material: new THREE.MeshStandardMaterial({
+            map: ice.map,
+            roughnessMap: ice.roughness,
+            roughness: 1,
+            metalness: 0.15,
+            emissive: new THREE.Color(surfaceColor(surface, theme)),
+            emissiveMap: ice.map,
+            emissiveIntensity: 0.12,
+          }),
+          tile: ICE_TILE,
+        }
+        break
+      }
+      case 'water': {
+        const map = waterTexture(surfaceColor(surface, theme), seed)
+        entry = {
+          material: new THREE.MeshStandardMaterial({
+            map,
+            roughness: 0.18,
+            metalness: 0.1,
+            emissive: new THREE.Color(surfaceColor(surface, theme)),
+            emissiveMap: map,
+            emissiveIntensity: 0.1,
+          }),
+          tile: WATER_TILE,
+          flow: map,
+        }
+        break
+      }
       case 'wood':
         entry = {
           material: new THREE.MeshStandardMaterial({ map: woodTexture(seed), roughness: 0.82 }),
