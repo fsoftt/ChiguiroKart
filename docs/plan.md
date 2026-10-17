@@ -192,6 +192,7 @@ Cada etapa lista su objetivo, las tareas y los criterios para darla por terminad
 **Objetivo:** que se sienta como un juego terminado.
 
 - Música por pista y efectos de sonido por personaje, motor, nitros y poderes.
+- Saltos de verdad: rampas que lanzan el kart al aire (con huecos o desniveles bruscos en el suelo) para el teleférico de Bogotá, la rampa del cañón de Cartagena, el tronco del Amazonas y el cañón de la Tatacoa, que hoy son crestas con turbo. Incluye alturas propias en los atajos (escalones reales en la escalinata de Ciudad Perdida) y franjas turbo dentro de los atajos.
 - Efectos finales: polvo, agua, nieve y arena por superficie; marcas de llantas; sacudida de cámara; textos emergentes.
 - Menús animados y transiciones.
 - Controles táctiles para celular.
