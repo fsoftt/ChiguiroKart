@@ -37,6 +37,8 @@ export function tryStartDrift(state: KartState, input: KartInput, config: DriftC
   const fast = speedAlongHeading(state) >= config.minDriftSpeed
   const steering = Math.abs(input.steer) >= config.driftSteerThreshold
   if (!input.jump || !steering || !fast) return
+  // A landing in the middle of a drift continues it instead of resetting charge and chain
+  if (state.drift.direction !== 0) return
   state.drift = createDriftState()
   state.drift.direction = input.steer > 0 ? 1 : -1
 }

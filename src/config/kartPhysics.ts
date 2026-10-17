@@ -22,6 +22,8 @@ export interface KartPhysicsConfig {
   lateralGrip: number
   /** Downward acceleration (m/s²). Higher than real for snappy jumps. */
   gravity: number
+  /** Ground dropping away by up to this much (m) in one step keeps a grounded kart on it. */
+  groundSnapDistance: number
   /** Collision radius against walls (m). */
   radius: number
   /** Collision radius against other karts (m). Karts are circles in the XZ plane. */
@@ -52,6 +54,7 @@ export const defaultKartPhysics: KartPhysicsConfig = {
   highSpeedTurnFactor: 0.6,
   lateralGrip: 8,
   gravity: 30,
+  groundSnapDistance: 0.4,
   radius: 0.9,
   kartRadius: 1.1,
   kartHeight: 1.2,

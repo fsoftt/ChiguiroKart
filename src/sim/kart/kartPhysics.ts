@@ -33,7 +33,7 @@ export function stepKart(
   integrate(state, dt)
 
   const wasAirborne = !state.onGround
-  landOnGround(state, groundHeight)
+  landOnGround(state, groundHeight, config.groundSnapDistance)
   if (state.onGround && wasAirborne) {
     applyLandingBoost(state, driftConfig)
     state.airTime = 0
@@ -134,9 +134,16 @@ function integrate(state: KartState, dt: number): void {
   state.position.z += state.velocity.z * dt
 }
 
-function landOnGround(state: KartState, groundHeight: GroundHeight): void {
+/**
+ * Resolves ground contact. A kart that was grounded and is not rising (no hop in progress)
+ * sticks to the surface when the ground drops away by at most `snapDistance`, so downhill
+ * slopes do not flicker between ground and air. Bigger drops still make it airborne.
+ */
+function landOnGround(state: KartState, groundHeight: GroundHeight, snapDistance: number): void {
   const ground = groundHeight(state.position.x, state.position.z)
-  state.onGround = state.position.y <= ground
+  const wasOnGround = state.onGround
+  const snaps = wasOnGround && state.velocity.y <= 0 && state.position.y - ground <= snapDistance
+  state.onGround = state.position.y <= ground || snaps
   if (!state.onGround) return
   state.position.y = ground
   state.velocity.y = Math.max(state.velocity.y, 0)

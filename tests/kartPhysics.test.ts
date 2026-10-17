@@ -88,3 +88,48 @@ describe('stepKart', () => {
     expect(forwardSpeed(kart)).toBe(0)
   })
 })
+
+describe('ground snapping', () => {
+  const slope = (x: number, z: number): number => -0.15 * z + 0 * x
+  const cliff = (_x: number, z: number): number => (z < 10 ? 0 : -5)
+  const drive = { ...NEUTRAL_INPUT, throttle: 1 }
+
+  function run(ground: (x: number, z: number) => number, steps: number): KartState {
+    const kart = kartAtSpeed(20)
+    for (let i = 0; i < steps; i += 1) {
+      stepKart(kart, drive, config, driftConfig, ground, DT)
+    }
+    return kart
+  }
+
+  it('stays on the ground every step while driving down a slope', () => {
+    const kart = kartAtSpeed(20)
+    for (let i = 0; i < 300; i += 1) {
+      stepKart(kart, drive, config, driftConfig, slope, DT)
+      expect(kart.onGround).toBe(true)
+      expect(kart.position.y).toBeCloseTo(slope(0, kart.position.z))
+    }
+    expect(kart.airTime).toBe(0)
+  })
+
+  it('goes airborne when the ground drops by several metres', () => {
+    const kart = run(cliff, 40)
+    expect(kart.position.z).toBeGreaterThan(10)
+    expect(kart.onGround).toBe(false)
+  })
+
+  it('still hops and lands on flat ground', () => {
+    const kart = newKart()
+    stepKart(kart, { ...NEUTRAL_INPUT, jump: true }, config, driftConfig, flatGround, DT)
+    expect(kart.onGround).toBe(false)
+    expect(kart.velocity.y).toBeGreaterThan(0)
+    simulate(kart, {}, 1)
+    expect(kart.onGround).toBe(true)
+  })
+
+  it('still hops on a downhill slope', () => {
+    const kart = kartAtSpeed(20)
+    stepKart(kart, { ...drive, jump: true }, config, driftConfig, slope, DT)
+    expect(kart.onGround).toBe(false)
+  })
+})

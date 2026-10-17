@@ -262,3 +262,36 @@ describe('landing boost', () => {
     expect(kart.boost.level).toBe(3)
   })
 })
+
+describe('drift on slopes and landings', () => {
+  const slope = (x: number, z: number): number => -0.15 * z + 0 * x
+  const driftInput = { ...NEUTRAL_INPUT, throttle: 1, jump: true, steer: 1 }
+
+  it('keeps charging on a downhill slope instead of resetting', () => {
+    const kart = createKartState({ x: 0, y: 0, z: 0 }, 0)
+    kart.velocity.z = 20
+    for (let i = 0; i < 40; i += 1) stepKart(kart, driftInput, config, drift, slope, DT)
+    expect(kart.drift.direction).toBe(1)
+    let previous = kart.drift.charge
+    expect(previous).toBeGreaterThan(0)
+    for (let i = 0; i < 40; i += 1) {
+      stepKart(kart, driftInput, config, drift, slope, DT)
+      expect(kart.onGround).toBe(true)
+      expect(kart.drift.charge).toBeGreaterThanOrEqual(previous)
+      previous = kart.drift.charge
+    }
+  })
+
+  it('keeps the drift direction and charge when landing during a drift', () => {
+    const kart = startDrift()
+    chargeTo(kart, 0.3)
+    const charge = kart.drift.charge
+    kart.onGround = false
+    kart.position.y = 0.01
+    kart.velocity.y = -1
+    stepKart(kart, driftInput, config, drift, flatGround, DT)
+    expect(kart.onGround).toBe(true)
+    expect(kart.drift.direction).toBe(1)
+    expect(kart.drift.charge).toBe(charge)
+  })
+})
