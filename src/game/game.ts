@@ -28,14 +28,38 @@ import { Hud } from '../ui/hud'
 import { racePosition } from '../sim/race/standings'
 import { buildHudModel } from '../ui/hudModel'
 import { BotManager } from '../sim/botManager'
-import { SimpleBot } from '../input/botInput'
+import { RacingBot } from '../ai/racingBot'
+import {
+  BOT_DIFFICULTIES,
+  botDifficulties,
+  defaultRubberBand,
+  type BotDifficulty,
+  type RubberBandConfig,
+} from '../config/bots'
 
 const SIMULATION_HZ = 60
 const RESET_KEY = 'KeyR'
 const MS_PER_KMH = 3.6
 const SPEED_LINE_STREAKS = 90
 const BOT_COLORS = ['#3c7be8', '#3cc15a', '#e8c53c', '#a43ce8', '#3ce0e0', '#e8883c', '#e83ca8']
-const BOT_COUNT = 3
+const BOT_COUNT = 7
+const DEFAULT_DIFFICULTY: BotDifficulty = 'normal'
+/** Base seed of the bots' random choices; each bot adds its grid slot. */
+const BOT_SEED = 1
+
+interface RaceSettings {
+  difficulty: BotDifficulty
+  rubberBand: RubberBandConfig
+}
+
+/** Reads `?dificultad=facil|normal|dificil` and `?remontada=0` (turns the rubber band off). */
+function readRaceSettings(): RaceSettings {
+  const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search)
+  const requested = params.get('dificultad')
+  const difficulty = BOT_DIFFICULTIES.find((level) => level === requested) ?? DEFAULT_DIFFICULTY
+  const rubberBand = { ...defaultRubberBand, enabled: params.get('remontada') !== '0' }
+  return { difficulty, rubberBand }
+}
 
 function selectTrack(): TrackDefinition {
   if (typeof window !== 'undefined') {
@@ -83,10 +107,14 @@ export class Game {
     )
     this.chaseCamera = new ChaseCamera(this.scene.camera, this.cameraConfig)
     this.previousKart = cloneKartState(this.world.kart)
-    // Initialize BotManager and add a simple AI bot
-    this.botManager = new BotManager(this.world, this.physics, this.driftConfig)
+    const settings = readRaceSettings()
+    this.botManager = new BotManager(this.world, this.physics, this.driftConfig, {
+      rubberBand: settings.rubberBand,
+    })
     for (let i = 0; i < BOT_COUNT; i++) {
-      this.botManager.addBot(new SimpleBot())
+      this.botManager.addBot(
+        new RacingBot({ skill: botDifficulties[settings.difficulty], seed: BOT_SEED }),
+      )
       const view = new KartView(BOT_COLORS[i % BOT_COLORS.length])
       this.botViews.push(view)
       this.scene.scene.add(view.object)

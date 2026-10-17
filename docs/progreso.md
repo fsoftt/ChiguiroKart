@@ -95,23 +95,35 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 
 - Los atajos en Cocora (salto de cresta y trocha de barro) están rodeados de checkpoints obligatorios antes y después, lo que garantiza que tomar el atajo sea una maniobra válida sin que se pueda cortar camino arbitrariamente por el pasto.
 - El minimapa renderiza el circuito en un canvas fuera de pantalla y solo actualiza el marcador del jugador en cada fotograma.
+- Corrección en la etapa 4: el atajo de barro no existía de verdad (quedaba detrás de los muros y se saltaba un checkpoint obligatorio). Ahora las pistas admiten ramas (`TrackBranch`: polilínea abierta con su ancho, superficie y muros), y `Track.project` usa la unión de corredores. La "Trocha de barro" de Cocora mide 113 m frente a 155 m de la horquilla, el checkpoint del vértice de la horquilla pasó a opcional y el barro castiga menos (velocidad ×0,8) para que el atajo valga la pena.
 
 ## Etapa 4 — Bots 🚧
 
-- 🚧 Infraestructura inicial: `BotInputProvider`, `SimpleBot` (apunta al siguiente checkpoint) y `BotManager`, que mueve los bots con la misma física que el jugador (`input/botInput.ts`, `sim/botManager.ts`).
+- ✅ Infraestructura: `BotInputProvider` recibe un contexto (`world`, `self`, `racers`) para ver a los demás karts, y `BotManager` mueve los bots con la misma física que el jugador (`input/botInput.ts`, `sim/botManager.ts`). `SimpleBot` se eliminó.
 - ✅ Estado de carrera por kart: cada kart es un `Racer` con su propio `RaceManager` (vueltas, checkpoints, reaparición, ahogo de motor). Jugador y bots pasan por el mismo `stepRacer`, y cada bot apunta con sus propios checkpoints (`sim/racer.ts`).
 - ✅ Vista 3D de los bots y choques entre karts: cada bot se dibuja con su propio `KartView` (color de carrocería distinto) y se interpola entre pasos fijos igual que el jugador (`game/game.ts`, `render/kartView.ts`). `resolveKartCollisions` trata los karts como círculos en XZ (`kartRadius`), los separa por igual y aplica un impulso de masas iguales con `kartRestitution` si se acercan; ignora pares con más de `kartHeight` de separación vertical. Se llama una vez por paso, tras mover al jugador y a todos los bots (`sim/kart/kartCollision.ts`, `BotManager.resolveCollisions`).
 - ✅ Parrilla de salida: `gridPose(track, slot)` (dos karts por fila, escalonados a ambos lados de la línea central y cada fila más atrás sobre la dirección de salida; valores en `config/grid.ts`). El jugador usa la casilla 0, los bots 1, 2, ... en orden de `addBot`, y `resetRacer` devuelve cada kart a su casilla (`sim/racer.ts`).
-- ✅ La partida lleva 3 bots por ahora (la Carrera rápida contra 7 llegará después).
-- ⬜ Línea de bots en la pista, derrape y nitros por dificultad, uso de atajos y ayuda de remontada.
+- ✅ La partida lleva 7 bots, todos `RacingBot`. La dificultad se elige con `?dificultad=facil|normal|dificil` (por defecto `normal`) y `?remontada=0` apaga la ayuda de remontada (`readRaceSettings()` en `game/game.ts`).
+- ✅ `RacingBot` (`ai/racingBot.ts`), determinista (RNG `mulberry32` con semilla por casilla, sin `Math.random`):
+  - Sigue la línea de la pista con un índice de progreso local (`ai/route.ts`: ventana hacia adelante, así nunca salta al otro lado de la horquilla) y apunta a un punto por delante que crece con la velocidad (_pure pursuit_), con una desviación lateral pequeña y suavizada.
+  - Calcula el giro que viene y baja la velocidad objetivo según `cornerSpeedFactor`; nunca frena hasta casi parar en curvas normales.
+  - Derrape y nitros (`ai/driftControl.ts`): salta al entrar a una curva marcada, mantiene el derrape, pulsa nitro en la zona roja con el error de tiempo de su dificultad (fácil falla a veces y rompe la cadena, difícil casi siempre perfecto) y suelta al terminar la curva o si el derrape lo llevaría a una pared.
+  - Atajos: al acercarse a una rama tira una vez la probabilidad de su dificultad; si la toma, sigue los puntos de la rama y retoma la pista en su fin.
+  - Evita paredes (se centra cerca del borde) y karts (un kart a menos de 12 m delante, en un cono, desplaza la línea al lado libre).
+  - Salida: sin acelerador en la cuenta regresiva, salvo el turbo de salida en los últimos 0,3 s según su dificultad. Recuperación: si queda casi parado más de 1,5 s, retrocede un segundo con el giro invertido.
+- ✅ Dificultades y ayuda de remontada configurables en `config/bots.ts` (`botDifficulties`, `botBehavior`, `defaultRubberBand`). `Racer.speedScale` escala velocidad máxima y aceleración (el jugador usa 1); `BotManager` lo fija como factor de la dificultad por el factor de remontada, calculado con la brecha en metros respecto al jugador y suavizado (`ai/rubberBand.ts`).
 - ✅ Posiciones en tiempo real y HUD de posición: `raceProgress` (vueltas completadas · N + último checkpoint + fracción del tramo al siguiente, medida sobre la dirección de cada compuerta para que el desvío lateral no altere el orden; sin límite inferior) y `computeStandings` (los que terminaron primero por tiempo total, el resto por progreso, desempate por casilla) en `sim/race/standings.ts`; `BotManager.getBotRacers()`; insignia grande "1.º /4" bajo la vuelta y línea "Posición: 2.º de 4" en el modal de resultados (`ui/hudModel.ts`, `ui/hud.ts`).
-- ⬜ Modo Carrera rápida contra 7 bots.
-- 🚧 Pruebas de los bots: estado de carrera por kart, `BotManager` y `SimpleBot` (9 pruebas en `tests/racer.test.ts`, más 6 de parrilla en `tests/grid.test.ts` y 7 de choques en `tests/kartCollision.test.ts`; 14 de posiciones y HUD de posición en `tests/standings.test.ts`; 170 en total).
+- 🚧 Modo Carrera rápida contra 7 bots: la carrera ya se juega contra 7 bots; falta el menú para elegir dificultad (por ahora, parámetros de la URL).
+- ✅ Pruebas de los bots (`tests/bots.test.ts`, 24): vueltas completas en Cocora sin respawns ni salir del corredor, orden fácil > normal > difícil, derrapes y nitros perfectos, atajo con probabilidad 0 y 1, remontada, evasión de karts, salida, recuperación, determinismo y carrera completa con 8 karts y choques. Más estado de carrera por kart y `speedScale` en `tests/racer.test.ts` (207 pruebas en total).
+- 🚧 Falta validar a mano que la dificultad normal sea pareja para un jugador promedio, y que los bots usen poderes (etapa 5).
 
 **Notas:**
 
 - La primera versión de los bots rompió el build y el arranque del juego (`require()` en el navegador y campos de `KartInput` equivocados). Se corrigió junto con los shaders de partículas, que habían perdido los `;` desde la etapa 2 y no compilaban, por lo que el humo y las llamas no se veían.
-- `SimpleBot` no acelera durante la cuenta regresiva: antes mantenía el acelerador y, con su propio estado de carrera, se habría ahogado en cada salida. El turbo de salida de los bots llegará con la dificultad.
+- Los bots no aceleran durante la cuenta regresiva (mantener el acelerador ahoga el motor): solo pulsan en los últimos 0,3 s, y solo si su dificultad lo saca en la tirada.
 - `R` reinicia también a los bots.
 - La velocidad del kart es un vector (`velocity`) separado de `heading`, así que el impulso del choque modifica solo el vector, igual que el rebote contra el muro; el agarre lateral se encarga después de realinear la velocidad con el rumbo.
 - La parrilla va detrás de la línea de salida, por lo que en pistas con una curva justo antes de la meta las filas traseras podrían quedar fuera del asfalto; se comprobó que las 8 casillas caben en Cocora.
+- Tiempos de vuelta medidos en Cocora (un bot solo, sin remontada, 3 vueltas, promedio de 4 semillas; vuelta ideal = 786,6 m / 28 m/s = 28,1 s): fácil 35,1 s, normal 31,4 s, difícil 28,5 s. Con el atajo siempre tomado / nunca: fácil 34,2 / 35,3, normal 30,8 / 31,9, difícil 28,3 / 29,2. Sin derrape ni atajo: 35,6 / 32,3 / 30,1.
+- Las curvas de Cocora son suaves (radio ~100 m casi todo el recorrido), así que los derrapes duran poco y rara vez se encadenan los 3 nitros. En curvas muy abiertas el derrape se mete hacia adentro (el giro mínimo en derrape es mayor que el que pide la curva), por eso el bot solo derrapa en curvas marcadas y suelta si va a tocar la pared.
+- Al derrapar cuesta abajo el kart rebota entre suelo y aire y `tryStartDrift` reinicia el derrape (y la barra de carga) en cada aterrizaje. Es un comportamiento de la física, no de los bots, y queda por revisar.

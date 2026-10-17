@@ -62,6 +62,7 @@ Cada push a `main` corre las verificaciones y publica el sitio en GitHub Pages.
 - `src/sim/` — simulación pura a 60 Hz (física, pista, colisiones). No depende de Three.js ni del DOM, así que se prueba sin navegador y la podrán usar el host online y los bots.
 - `src/render/` — escena Three.js: pista, kart, cámara. Interpola entre pasos de simulación.
 - `src/input/` — teclado y mando producen el mismo `KartInput`.
+- `src/ai/` — bots: siguen la línea de la pista, derrapan, toman atajos y se ayudan con la remontada. `?dificultad=facil|normal|dificil` y `?remontada=0` en la URL.
 - `src/config/` — todos los valores ajustables (física, cámara, controles, pistas).
 - `src/game/` — une entrada, simulación y render en el bucle de juego.
 - `src/ui/` — interfaz y herramientas de depuración.

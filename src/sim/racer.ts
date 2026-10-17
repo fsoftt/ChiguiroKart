@@ -16,6 +16,11 @@ export interface Racer {
   readonly race: RaceManager
   /** Starting grid slot (0 = pole position). */
   readonly slot: number
+  /**
+   * Multiplies top speed and acceleration (1 = the kart's normal limits). The player keeps 1;
+   * bots use it for their difficulty and the rubber band.
+   */
+  speedScale: number
 }
 
 /**
@@ -39,6 +44,7 @@ export function createRacer(track: Track, raceOptions?: RaceManagerOptions, slot
   const { position, heading } = gridPose(track, slot)
   return {
     slot,
+    speedScale: 1,
     kart: createKartState(position, heading),
     race: new RaceManager(track.checkpoints, raceOptions),
   }
@@ -75,8 +81,8 @@ export function stepRacer(
   const surfaceProps = getSurfaceProperties(track.surfaceAt(kart.position.x, kart.position.z))
   const effectivePhysics: KartPhysicsConfig = {
     ...physics,
-    maxSpeed: physics.maxSpeed * surfaceProps.speedMultiplier,
-    acceleration: physics.acceleration * surfaceProps.accelerationMultiplier,
+    maxSpeed: physics.maxSpeed * surfaceProps.speedMultiplier * racer.speedScale,
+    acceleration: physics.acceleration * surfaceProps.accelerationMultiplier * racer.speedScale,
     lateralGrip: physics.lateralGrip * surfaceProps.gripMultiplier,
   }
 

@@ -54,6 +54,8 @@ export class Track {
   readonly name: string
   readonly centerline: readonly Vec2[]
   readonly halfWidth: number
+  /** Length of the closed main loop (m). */
+  readonly loopLength: number
   readonly branches: readonly TrackBranch[]
   readonly checkpoints: readonly Checkpoint[]
   private readonly customGroundHeight?: ((x: number, z: number) => number) | undefined
@@ -66,6 +68,7 @@ export class Track {
     this.name = definition.name
     this.centerline = definition.centerline
     this.halfWidth = definition.halfWidth
+    this.loopLength = loopLengthOf(definition.centerline)
     this.branches = definition.branches ?? []
     this.customGroundHeight = definition.groundHeight
     this.customSurfaceAt = definition.surfaceAt
@@ -159,6 +162,15 @@ export class Track {
     }
     return checkpoints
   }
+}
+
+function loopLengthOf(points: readonly Vec2[]): number {
+  let length = 0
+  points.forEach((a, i) => {
+    const b = points[(i + 1) % points.length]
+    if (b) length += Math.hypot(b.x - a.x, b.z - a.z)
+  })
+  return length
 }
 
 function emptyProjection(x: number, z: number, halfWidth: number, branch: number): TrackProjection {

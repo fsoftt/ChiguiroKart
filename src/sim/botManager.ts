@@ -2,6 +2,10 @@
 
 import { NEUTRAL_INPUT, type KartInput } from '../input/kartInput'
 import type { BotInputProvider } from '../input/botInput'
+import { rubberBandFactor } from '../ai/rubberBand'
+import { defaultRubberBand, type RubberBandConfig } from '../config/bots'
+import { damp } from './math'
+import { raceProgress } from './race/standings'
 import type { RaceWorld } from './world'
 import type { KartPhysicsConfig } from '../config/kartPhysics'
 import type { DriftConfig } from '../config/drift'
@@ -14,6 +18,13 @@ interface BotEntry {
   provider: BotInputProvider
   racer: Racer
   lastInput: KartInput
+  /** Smoothed rubber band factor currently applied to this bot's speed. */
+  rubber: number
+}
+
+export interface BotManagerOptions {
+  /** Catch-up help for bots far behind the player (and brake for those far ahead). */
+  rubberBand?: RubberBandConfig
 }
 
 /**
@@ -24,28 +35,51 @@ interface BotEntry {
  */
 export class BotManager {
   private bots: BotEntry[] = []
+  private readonly rubberBand: RubberBandConfig
+  /** Meters of track per unit of `raceProgress` (one checkpoint segment on average). */
+  private readonly metersPerProgress: number
 
   constructor(
     private world: RaceWorld,
     private physics: KartPhysicsConfig,
     private drift: DriftConfig,
-  ) {}
+    options: BotManagerOptions = {},
+  ) {
+    this.rubberBand = options.rubberBand ?? defaultRubberBand
+    this.metersPerProgress = world.track.loopLength / Math.max(world.track.checkpoints.length, 1)
+  }
 
   /** Add a new bot instance. */
   addBot(provider: BotInputProvider) {
     // Slot 0 is the player, bots take 1, 2, ... in order
     const racer = createRacer(this.world.track, this.world.raceOptions, this.bots.length + 1)
-    this.bots.push({ provider, racer, lastInput: { ...NEUTRAL_INPUT } })
+    racer.speedScale = provider.speedFactor ?? 1
+    this.bots.push({ provider, racer, lastInput: { ...NEUTRAL_INPUT }, rubber: 1 })
   }
 
   /** Update all bots for the elapsed time `dt`. */
   update(dt: number) {
+    const racers = this.allRacers()
+    const playerProgress = raceProgress(this.world.player)
     for (const entry of this.bots) {
-      const { kart, race } = entry.racer
-      const input = entry.provider.nextInput(dt, this.world, kart, race.state)
+      this.updateSpeedScale(entry, playerProgress, dt)
+      const input = entry.provider.nextInput(dt, { world: this.world, self: entry.racer, racers })
       entry.lastInput = input
       stepRacer(entry.racer, input, this.world.track, this.physics, this.drift, dt)
     }
+  }
+
+  /** Bot speed scale = its difficulty factor times the smoothed rubber band factor. */
+  private updateSpeedScale(entry: BotEntry, playerProgress: number, dt: number): void {
+    const gap = (raceProgress(entry.racer) - playerProgress) * this.metersPerProgress
+    const target = rubberBandFactor(gap, this.rubberBand)
+    entry.rubber = damp(entry.rubber, target, this.rubberBand.smoothing, dt)
+    entry.racer.speedScale = (entry.provider.speedFactor ?? 1) * entry.rubber
+  }
+
+  /** The player followed by every bot. */
+  allRacers(): Racer[] {
+    return [this.world.player, ...this.bots.map((b) => b.racer)]
   }
 
   /** Put every bot back on the grid with a fresh race state. */
@@ -53,6 +87,8 @@ export class BotManager {
     for (const entry of this.bots) {
       resetRacer(entry.racer, this.world.track)
       entry.lastInput = { ...NEUTRAL_INPUT }
+      entry.rubber = 1
+      entry.provider.reset?.()
     }
   }
 
