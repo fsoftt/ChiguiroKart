@@ -4,7 +4,7 @@ Referencia visual: _Crash Team Racing Nitro-Fueled_ (2019). Tomamos el nivel de 
 
 ## Personajes
 
-- **Forma aprobada y congelada:** el Chigüiro (2026-10-17) tiene la forma que aprobó el dueño del proyecto. No se cambia su geometría, proporciones ni piezas; solo se pueden ajustar colores, sombreado e iluminación. Cada personaje que se apruebe se agrega aquí.
+- **Forma aprobada y congelada:** el Chigüiro (2026-10-17) tiene la forma que aprobó el dueño del proyecto. No se cambia su geometría, proporciones ni piezas; solo se pueden ajustar colores, sombreado e iluminación. El Oso de anteojos (2026-10-17) queda aprobado de forma provisional: se puede rehacer si aparece una mejor propuesta. Cada personaje que se apruebe se agrega aquí.
 - **Proporciones de caricatura:** cabeza grande (como la del Chigüiro aprobado), cuerpo pequeño, manos y pies grandes. La silueta debe reconocerse a 30 m.
 - **Cara simple y suave:** la referencia es el Chigüiro aprobado. Cabeza de una sola forma redonda, ojos pequeños a medianos (esclerótica blanca, pupila oscura y un brillo) al ras de la cabeza, sin ojos saltones, y marcas del animal **pintadas** en la superficie (anteojos del oso, manchas del jaguar), no en relieve. Pocas piezas: nada de cejas esculpidas, párpados salientes en reposo ni crestas; los párpados y la boca solo aparecen en las expresiones (golpe, victoria, derrota).
 - **Formas suaves:** nada de cajas visibles. Esferas, cápsulas y tornos con suficientes segmentos, uniones que se solapan y piezas con bisel. Pelo y plumas sugeridos con mechones (no texturas realistas).
