@@ -58,7 +58,7 @@ export interface RacerStatus {
   /** Hit reaction in progress (no control). */
   hit: HitKind | null
   hitTime: number
-  /** Extra yaw (rad) the kart view adds while spinning out; the physics heading does not change. */
+  /** Hit animation angle (rad): extra yaw while spinning out, somersault pitch while flipping. */
   spinAngle: number
   /** Reduced top speed after a hit. */
   dizzyTime: number

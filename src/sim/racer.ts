@@ -5,10 +5,14 @@ import type { KartInput } from '../input/kartInput'
 import { stepKart } from './kart/kartPhysics'
 import { createKartState, type KartState } from './kart/kartState'
 import { resolveTrackCollision } from './kart/trackCollision'
+import { defaultItems, type ItemsConfig } from '../config/items'
+import { endDrift } from './kart/drift'
 import { createRacerItems, type RacerItems } from './items/itemTypes'
+import { statusModifiers } from './items/statusModifiers'
 import { RaceManager, type RaceManagerOptions } from './race/raceManager'
 import { getSurfaceProperties } from './race/surface'
-import { forwardOf, rightOf } from './math'
+import { NEUTRAL_INPUT } from '../input/kartInput'
+import { clamp, forwardOf, rightOf } from './math'
 import type { Pose, Track } from './track'
 
 /** A kart in the race together with its own race progress (laps, checkpoints, respawns). */
@@ -73,24 +77,41 @@ export function stepRacer(
   physics: KartPhysicsConfig,
   drift: DriftConfig,
   dt: number,
+  items: ItemsConfig = defaultItems,
 ): void {
   const { kart, race } = racer
   const groundHeight = (x: number, z: number): number => track.groundHeight(x, z)
 
   race.update(kart, input, drift, groundHeight, dt)
 
-  // Lock pedals during countdown so the kart stays parked on the grid
-  const drivingInput =
-    race.state.phase === 'countdown' ? { ...input, throttle: 0, brake: 0 } : input
+  const modifiers = statusModifiers(racer.items, items)
+  if (modifiers.noControl) loseControl(racer, items, dt)
+
+  // Lock pedals during countdown so the kart stays parked on the grid; a hit kart has no control
+  const drivingInput = modifiers.noControl
+    ? { ...NEUTRAL_INPUT }
+    : race.state.phase === 'countdown'
+      ? { ...input, throttle: 0, brake: 0 }
+      : { ...input, steer: clamp(input.steer + modifiers.steerOffset, -1, 1) }
 
   const surfaceProps = getSurfaceProperties(track.surfaceAt(kart.position.x, kart.position.z))
+  const scale = racer.speedScale * modifiers.speedFactor
   const effectivePhysics: KartPhysicsConfig = {
     ...physics,
-    maxSpeed: physics.maxSpeed * surfaceProps.speedMultiplier * racer.speedScale,
-    acceleration: physics.acceleration * surfaceProps.accelerationMultiplier * racer.speedScale,
-    lateralGrip: physics.lateralGrip * surfaceProps.gripMultiplier,
+    maxSpeed: physics.maxSpeed * surfaceProps.speedMultiplier * scale,
+    acceleration: physics.acceleration * surfaceProps.accelerationMultiplier * scale,
+    lateralGrip: physics.lateralGrip * surfaceProps.gripMultiplier * modifiers.gripFactor,
   }
 
   stepKart(kart, drivingInput, effectivePhysics, drift, groundHeight, dt)
   resolveTrackCollision(kart, track, physics, dt)
+}
+
+/** A hit kart slides to a stop and its drift ends. */
+function loseControl(racer: Racer, items: ItemsConfig, dt: number): void {
+  const { kart } = racer
+  endDrift(kart)
+  const damping = Math.exp(-items.hit.hitDamping * dt)
+  kart.velocity.x *= damping
+  kart.velocity.z *= damping
 }

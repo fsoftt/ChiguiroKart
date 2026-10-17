@@ -17,6 +17,8 @@ export interface UchuvaConfig {
   respawnTime: number
   /** Pickup distance from the kart center. */
   pickupRadius: number
+  /** Height of the pickup above the ground (m). */
+  lift: number
 }
 
 export interface BoxConfig {
@@ -28,6 +30,8 @@ export interface BoxConfig {
   rouletteTime: number
   /** Seconds each power stays on the roulette display while it spins. */
   rouletteTick: number
+  /** Height of the box above the ground (m). */
+  lift: number
 }
 
 export interface HitConfig {
@@ -57,9 +61,24 @@ export interface PowerConfig {
     fuse: number
     radius: number
     chargedRadius: number
+    /** Seconds after launch during which the thrower cannot set it off by contact. */
+    ownerImmunity: number
   }
-  tejo: { uses: number; chargedUses: number; radius: number; triggerRadius: number }
-  mango: { uses: number; chargedUses: number; triggerRadius: number }
+  tejo: {
+    uses: number
+    chargedUses: number
+    radius: number
+    triggerRadius: number
+    /** Seconds after dropping it during which its owner cannot trigger it. */
+    ownerImmunity: number
+  }
+  mango: {
+    uses: number
+    chargedUses: number
+    triggerRadius: number
+    /** Seconds after dropping it during which its owner cannot slip on it. */
+    ownerImmunity: number
+  }
   panela: { level: 2; chargedLevel: 3; duration: number }
   armadillo: {
     /** Seconds the shield lasts around the kart. */
@@ -69,18 +88,46 @@ export interface PowerConfig {
     throwSpeed: number
     /** Seconds a thrown shield rolls before vanishing. */
     lifetime: number
+    /** Seconds after the throw during which the thrower cannot be hit by it. */
+    ownerImmunity: number
+    /** A thrown shield bounces when it gets this close to a wall (m). */
+    wallMargin: number
   }
   avispa: { speed: number; turnRate: number; lifetime: number; stolenUchuvas: number }
-  colibri: { speed: number; targets: number; chargedTargets: number }
-  mosquitos: { duration: number; chargedDuration: number; zigzagAmplitude: number }
+  colibri: {
+    speed: number
+    targets: number
+    chargedTargets: number
+    /** Seconds before it gives up. */
+    lifetime: number
+  }
+  mosquitos: {
+    duration: number
+    chargedDuration: number
+    /** Steer added by the Bien Cargado weave (-1..1 scale). */
+    zigzagAmplitude: number
+    /** Weave frequency (rad per second of remaining blindness). */
+    zigzagFrequency: number
+  }
   sombrero: {
     speed: number
     /** Seconds it flies out before turning back. */
     outTime: number
     laps: number
     chargedLaps: number
+    /** Speed on the way back to the owner (m/s). */
+    returnSpeed: number
+    /** Seconds before it vanishes whatever it is doing. */
+    lifetime: number
   }
-  hormigas: { speed: number; range: number; stolen: number; chargedStolen: number }
+  hormigas: {
+    speed: number
+    range: number
+    stolen: number
+    chargedStolen: number
+    turnRate: number
+    lifetime: number
+  }
   aguacero: {
     duration: number
     /** Share of the lateral grip kept under the rain. */
@@ -89,9 +136,23 @@ export interface PowerConfig {
     chargedSpeedFactor: number
   }
   rayo: { hit: 'spin' | 'flip' }
-  mascara: { duration: number; chargedDuration: number; speedBonus: number }
-  /** Radius of a moving power (or a mask-wearing kart) when it touches a kart. */
+  mascara: {
+    duration: number
+    chargedDuration: number
+    speedBonus: number
+    /** Distance at which a masked kart knocks another one down (m). */
+    touchRadius: number
+  }
+  /** Radius of a moving power when it touches a kart. */
   contactRadius: number
+  /** Vertical gap beyond which a power and a kart do not touch (m). */
+  contactHeight: number
+  /** Height of a power above the ground (m). */
+  entityHeight: number
+  /** How far behind the kart a tejo or mango lands (m). */
+  dropDistance: number
+  /** How far in front of (or behind) the kart a thrown power appears (m). */
+  spawnDistance: number
 }
 
 /** Weight of each power in the roulette for one band of race positions. */
@@ -118,8 +179,15 @@ export const defaultItems: ItemsConfig = {
     perBox: 1,
     respawnTime: 8,
     pickupRadius: 1.6,
+    lift: 0.8,
   },
-  boxes: { respawnTime: 2, pickupRadius: 1.8, rouletteTime: 1.5, rouletteTick: 0.08 },
+  boxes: {
+    respawnTime: 2,
+    pickupRadius: 1.8,
+    rouletteTime: 1.5,
+    rouletteTick: 0.08,
+    lift: 0.8,
+  },
   hit: {
     spinTime: 1.1,
     spinTurns: 2,
@@ -131,20 +199,32 @@ export const defaultItems: ItemsConfig = {
     invulnerableTime: 1.5,
   },
   powers: {
-    coco: { speed: 42, fuse: 3, radius: 4, chargedRadius: 7 },
-    tejo: { uses: 1, chargedUses: 2, radius: 4, triggerRadius: 1.6 },
-    mango: { uses: 1, chargedUses: 3, triggerRadius: 1.5 },
+    coco: { speed: 42, fuse: 3, radius: 4, chargedRadius: 7, ownerImmunity: 0.3 },
+    tejo: { uses: 1, chargedUses: 2, radius: 4, triggerRadius: 1.6, ownerImmunity: 1 },
+    mango: { uses: 1, chargedUses: 3, triggerRadius: 1.5, ownerImmunity: 1 },
     panela: { level: 2, chargedLevel: 3, duration: 1.5 },
-    armadillo: { duration: 12, hits: 1, chargedHits: 2, throwSpeed: 45, lifetime: 4 },
+    armadillo: {
+      duration: 12,
+      hits: 1,
+      chargedHits: 2,
+      throwSpeed: 45,
+      lifetime: 4,
+      ownerImmunity: 0.3,
+      wallMargin: 1,
+    },
     avispa: { speed: 48, turnRate: 4, lifetime: 8, stolenUchuvas: 3 },
-    colibri: { speed: 60, targets: 1, chargedTargets: 2 },
-    mosquitos: { duration: 2, chargedDuration: 3, zigzagAmplitude: 0.5 },
-    sombrero: { speed: 40, outTime: 1.2, laps: 1, chargedLaps: 2 },
-    hormigas: { speed: 50, range: 60, stolen: 2, chargedStolen: 4 },
+    colibri: { speed: 60, targets: 1, chargedTargets: 2, lifetime: 8 },
+    mosquitos: { duration: 2, chargedDuration: 3, zigzagAmplitude: 0.5, zigzagFrequency: 6 },
+    sombrero: { speed: 40, outTime: 1.2, laps: 1, chargedLaps: 2, returnSpeed: 55, lifetime: 10 },
+    hormigas: { speed: 50, range: 60, stolen: 2, chargedStolen: 4, turnRate: 6, lifetime: 6 },
     aguacero: { duration: 3, gripFactor: 0.3, chargedSpeedFactor: 0.75 },
     rayo: { hit: 'spin' },
-    mascara: { duration: 6, chargedDuration: 8, speedBonus: 0.2 },
+    mascara: { duration: 6, chargedDuration: 8, speedBonus: 0.2, touchRadius: 2.6 },
     contactRadius: 1.6,
+    contactHeight: 2.5,
+    entityHeight: 0.6,
+    dropDistance: 2.5,
+    spawnDistance: 2.5,
   },
   distribution: [
     { upTo: 0.25, weights: { mango: 3, tejo: 3, armadillo: 3, coco: 2 } },

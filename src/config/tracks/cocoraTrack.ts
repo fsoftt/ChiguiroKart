@@ -1,6 +1,7 @@
 import type { Vec2 } from '../../sim/math'
 import type { Checkpoint } from '../../sim/race/checkpoint'
 import type { SurfaceType } from '../../sim/race/surface'
+import { lineAlong, rowAcross } from './pickupLayout'
 import { Track, type TrackBranch, type TrackDefinition } from '../../sim/track'
 
 interface ControlPoint {
@@ -220,6 +221,30 @@ function buildCocoraCheckpoints(): Checkpoint[] {
   return checkpoints
 }
 
+/** Rows of power boxes across the road: valley, bridge approach, hairpin and home straight. */
+const BOX_ROW_INDICES = [20, 65, 120, 190]
+const BOX_OFFSETS = [-6, -2, 2, 6]
+
+function buildItemBoxes(): Vec2[] {
+  return BOX_ROW_INDICES.flatMap((index) => rowAcross(centerlinePoints, index, BOX_OFFSETS))
+}
+
+/** Uchuva lines (start index, count, lateral offset); none on the jump ramp (indices 140-170). */
+const UCHUVA_LINES: readonly (readonly [number, number, number])[] = [
+  [5, 5, -4],
+  [40, 5, 4],
+  [80, 5, 0],
+  [125, 4, 5],
+  [175, 5, -3],
+  [196, 4, 3],
+]
+
+function buildUchuvas(): Vec2[] {
+  return UCHUVA_LINES.flatMap(([start, count, offset]) =>
+    lineAlong(centerlinePoints, start, count, offset),
+  )
+}
+
 export const cocoraTrack: TrackDefinition = {
   name: 'Valle de Cocora',
   centerline: centerlinePoints,
@@ -228,4 +253,6 @@ export const cocoraTrack: TrackDefinition = {
   groundHeight: cocoraGroundHeight,
   surfaceAt: cocoraSurfaceAt,
   checkpoints: buildCocoraCheckpoints(),
+  itemBoxes: buildItemBoxes(),
+  uchuvas: buildUchuvas(),
 }

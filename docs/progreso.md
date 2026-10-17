@@ -13,7 +13,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | 2 — Derrape, nitros y saltos            | ✅     |
 | 3 — Primera pista real: Valle de Cocora | ✅     |
 | 4 — Bots                                | 🚧     |
-| 5 — Poderes y uchuvas                   | ⬜     |
+| 5 — Poderes y uchuvas                   | 🚧     |
 | 6 — Personajes y animaciones            | ⬜     |
 | 7 — Online: sala con código             | ⬜     |
 | 8 — Online robusto                      | ⬜     |
@@ -131,3 +131,24 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - Se corrigió el rebote entre suelo y aire al bajar pendientes: con `groundSnapDistance` (0,4 m) un kart en el suelo que no está subiendo se pega al suelo si este baja como mucho esa distancia, y aterrizar durante un derrape lo continúa en vez de reiniciar la barra y la cadena de nitros. Afecta también al jugador. Con el arreglo, los bots (un bot solo, 3 vueltas) pasaron a: fácil ~103 s y 5-7 nitros, normal ~91 s y 12-16 nitros, difícil ~82 s y 20 nitros perfectos (mejor vuelta ~27 s, por debajo de la vuelta ideal sin nitros). Hay que comprobar jugando si difícil queda demasiado fuerte.
 - El HUD (con minimapa y modal de resultados) se oculta mientras está abierto el menú de Carrera rápida y vuelve al empezar la carrera (`Hud.setVisible`); antes se veía borroso detrás con "1.º /1".
 - Ajuste de dificultades (2026-10-17), antes de la prueba de juego: difícil le ganaba a la vuelta ideal y normal parecía rápido para un jugador promedio. Normal: `speedFactor` 0,93 (antes 0,95), `nitroTimingError` 0,1. Difícil: `speedFactor` 0,94 (antes 1), `nitroTimingError` 0,05 y `nitroMistakeChance` 0,05 (antes 0). Fácil sin cambios. Medido (un bot solo, sin remontada, 3 vueltas, semillas 1–4): fácil 103,0 s (vuelta media 34,3 s, mejor 33,0 s), normal 96,8 s (32,3 s, mejor 30,3 s, 16 nitros), difícil 88,1 s (29,4 s, mejor 28,8 s, 19 nitros). Los tiempos no varían de forma suave con `speedFactor` (±0,005 puede mover la carrera varios segundos), así que el ajuste fino debe salir de la prueba de juego. La prueba de techo de física de `tests/bots.test.ts` fija `speedFactor: 1` para no depender del ajuste.
+
+## Etapa 5 — Poderes y uchuvas 🚧
+
+- ✅ Contrato compartido en `sim/items/itemTypes.ts` (13 poderes, ranura con ruleta, estados del kart, entidades, recogibles y eventos) y todos los valores en `config/items.ts`. La simulación escribe; HUD, render y bots solo leen. Cada `Racer` lleva sus `items` y `resetRacer` los reinicia.
+- ✅ Uchuvas: recogida en pista (se quedan si el kart ya tiene 10), +0,8 % de velocidad máxima y aceleración por uchuva, 1 por caja, pérdida de 3 por golpe y modo Bien Cargado con 10 (`sim/items/pickups.ts`, `statusModifiers.ts`).
+- ✅ Cajas de poder con reaparición a los 2 s, ruleta de 1,5 s y reparto por posición con pesos de `diseno.md` §5 y RNG con semilla (`distribution.ts`, `roulette.ts`). Cocora tiene 16 cajas (4 filas) y 28 uchuvas, fuera de la rampa; la pista de prueba, una fila y 5 uchuvas (`config/tracks/pickupLayout.ts`).
+- ✅ Los 13 poderes, con versión normal y Bien Cargado (`powers.ts`, `entities.ts`): coco bomba (adelante, o atrás con `Q`), tejo con mecha, mango maduro, panela turbo, escudo de armadillo (segunda pulsación lo lanza), avispa teledirigida, colibrí del líder, nube de mosquitos, sombrero vueltiao, hormigas culonas, aguacero, Rayo del Catatumbo y Máscara del Carnaval.
+- ✅ Estados del kart golpeado: girando, volando (salta y da una vuelta de campana) y mareado después; sin control durante el golpe, invulnerable 1,5 s después. Una sola regla de golpe (`hits.ts`): máscara > invulnerabilidad > escudo. Mosquitos (zigzag en Bien Cargado) y aguacero (menos agarre; también frena en Bien Cargado) modifican la conducción en `stepRacer`.
+- ✅ Uso de poderes por los bots (`ai/itemControl.ts`): ofensivos con un rival cerca adelante, trampas y escudo con uno cerca detrás, globales si no van primeros, panela en recta, máscara de una; tiempo de reacción y probabilidad defensiva por dificultad, y uso forzado a los 8 s. Cegados por mosquitos manejan peor; golpeados no cuentan como atascados ni derrapan.
+- ✅ Render provisional (`render/items/`): cajas, uchuvas, cada entidad, escudo, nube de lluvia, mosquitos, aura de la máscara, explosiones, rayos y estrellas al golpe; el `KartView` gira o da la vuelta de campana según el golpe.
+- ✅ HUD: ranura de poder con ruleta, usos y etiqueta Bien Cargado, contador de uchuvas, pantalla de mosquitos, avisos de golpe/bloqueo/robo y destello del rayo; bots en el minimapa.
+- ✅ Pruebas: reparto por posición, ruleta, uchuvas, cajas, cada poder en sus dos versiones, escudo, máscara, invulnerabilidad, golpes y recuperación, determinismo, recogibles sobre la pista, decisiones de los bots y carrera completa de 8 karts en Cocora usando poderes al azar sin NaN ni karts atascados (319 pruebas en total).
+- 🚧 Falta el criterio de cierre de `plan.md`: comprobar jugando que los 13 poderes se sienten bien, que los bots los usan con sentido y que ninguno rompe la carrera.
+
+**Notas:**
+
+- El contrato se escribió primero para construir simulación, render/HUD y bots en paralelo, como en la etapa 2.
+- Las uchuvas también suben la velocidad de los bots, así que los tiempos de la etapa 4 ya no aplican tal cual con poderes; el ajuste de dificultad debe rehacerse en la prueba de juego.
+- La máscara toca a un kart a 2,6 m (más que la distancia de choque entre karts, 2,2 m), si no nunca llegaría a tocarlo.
+- Sin rival a su alcance, las hormigas no se gastan. Sin nadie adelante, la avispa sale recta y desaparece.
+- Comprobado en Chromium: la carrera arranca, los bots usan poderes y no hay errores de consola (solo el 404 de `favicon.ico`, que ya estaba).

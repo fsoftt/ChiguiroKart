@@ -26,6 +26,10 @@ export interface TrackDefinition {
   checkpoints?: readonly Checkpoint[]
   /** Optional surface lookup at position (x, z). Defaults to asphalt inside road, grass outside. */
   surfaceAt?: (x: number, z: number) => SurfaceType
+  /** Optional power box spots (x, z); the item system lifts them to the ground. */
+  itemBoxes?: readonly Vec2[]
+  /** Optional uchuva spots (x, z). */
+  uchuvas?: readonly Vec2[]
 }
 
 export interface TrackProjection {
@@ -58,6 +62,10 @@ export class Track {
   readonly loopLength: number
   readonly branches: readonly TrackBranch[]
   readonly checkpoints: readonly Checkpoint[]
+  /** Power box spots (x, z). */
+  readonly itemBoxes: readonly Vec2[]
+  /** Uchuva spots (x, z). */
+  readonly uchuvas: readonly Vec2[]
   private readonly customGroundHeight?: ((x: number, z: number) => number) | undefined
   private readonly customSurfaceAt?: ((x: number, z: number) => SurfaceType) | undefined
 
@@ -70,6 +78,8 @@ export class Track {
     this.halfWidth = definition.halfWidth
     this.loopLength = loopLengthOf(definition.centerline)
     this.branches = definition.branches ?? []
+    this.itemBoxes = definition.itemBoxes ?? []
+    this.uchuvas = definition.uchuvas ?? []
     this.customGroundHeight = definition.groundHeight
     this.customSurfaceAt = definition.surfaceAt
 
