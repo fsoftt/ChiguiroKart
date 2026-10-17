@@ -1,78 +1,174 @@
 import * as THREE from 'three'
 import { headingOf, type Vec2 } from '../sim/math'
-import type { Track } from '../sim/track'
+import type { Track, TrackBranch } from '../sim/track'
 import type { SurfaceType } from '../sim/race/surface'
 import { DEFAULT_THEME, type TrackTheme } from '../config/tracks/theme'
+import { createBoostPads } from './boostPads'
+import { createScenery } from './scenery/sceneryView'
+import { tideSurface } from './tideLogic'
 
-const ROAD_COLOR = '#5b5f66'
 const WOOD_COLOR = '#8d5524'
 const MUD_COLOR = '#5c3a21'
-const GRASS_COLOR = '#4a9934'
-const CURB_COLORS = ['#e8413c', '#ffffff'] as const
-const WALL_COLOR = '#e5b842'
-const TREE_TRUNK_COLOR = '#8b5a2b'
-const TREE_LEAVES_COLOR = '#2f8f3a'
-const PALM_TRUNK_COLOR = '#cfcbbd'
-const PALM_FROND_COLOR = '#207833'
+const DIRT_COLOR = '#a67c52'
+const GRASS_ROAD_COLOR = '#6aa84f'
+const ICE_COLOR = '#a9e3ef'
+const SAND_COLOR = '#e6cf8f'
+const WATER_COLOR = '#3b9ed8'
+/** Opacity of a flooded tidal branch and of the water plane. */
+const WATER_OPACITY = 0.78
 
 const CURB_WIDTH = 1
 const WALL_HEIGHT = 0.8
 const WALL_THICKNESS = 0.5
-const TREE_COUNT = 240
-const TREE_MIN_GAP = 6
-const TREE_SPREAD = 70
+const ROAD_LIFT = 0.01
+/** Branches sit a hair above the main road so overlapping junctions do not flicker. */
+const BRANCH_LIFT = 0.015
 const UP = new THREE.Vector3(0, 1, 0)
+const GROUND_DEFAULT_Y = -0.05
+/** The ground sinks this far below the water level, so the water tints it. */
+const SEABED_DEPTH = 1.5
 
-/** Builds the 3D scenery for a track: ground, road, curbs, walls and foliage. */
-// TODO(stage 9): use the theme for colors and scenery
-export function createTrackView(track: Track, theme: TrackTheme = DEFAULT_THEME): THREE.Group {
-  const group = new THREE.Group()
-  group.name = `track:${track.name}`
-  group.userData.theme = theme
-  group.add(createGround())
-  const main: Path = {
-    points: track.centerline,
-    closed: true,
-    halfWidth: track.halfWidth,
-    surfaceAt: (i) => track.surfaceAt(track.point(i).x, track.point(i).z),
-    // Leave the road open where a branch joins it
-    openAt: (p) => {
-      const projection = track.project(p.x, p.z)
-      return projection.branch >= 0 && projection.distance <= projection.halfWidth
-    },
+/** Road color of a surface; asphalt takes the theme's road color. */
+export function surfaceColor(surface: SurfaceType, theme: TrackTheme): string {
+  switch (surface) {
+    case 'asphalt':
+      return theme.road
+    case 'wood':
+      return WOOD_COLOR
+    case 'mud':
+      return MUD_COLOR
+    case 'dirt':
+      return DIRT_COLOR
+    case 'grass':
+      return GRASS_ROAD_COLOR
+    case 'ice':
+      return ICE_COLOR
+    case 'sand':
+      return SAND_COLOR
+    case 'water':
+      return WATER_COLOR
   }
-  group.add(createRoadRibbon(track, main))
-  group.add(createCurbs(track, main, main.halfWidth - CURB_WIDTH, main.halfWidth))
-  group.add(createCurbs(track, main, -main.halfWidth, -main.halfWidth + CURB_WIDTH))
-  group.add(createWall(track, main, main.halfWidth))
-  group.add(createWall(track, main, -main.halfWidth - WALL_THICKNESS))
-  for (const branch of track.branches) {
-    const path: Path = {
-      points: branch.points,
-      closed: false,
-      halfWidth: branch.halfWidth,
-      surfaceAt: () => branch.surface,
-      // Leave the branch open where it meets the main road
-      openAt: (p) => track.mainProjection(p.x, p.z).distance <= track.halfWidth,
+}
+
+interface TidalBranch {
+  branch: TrackBranch
+  material: THREE.MeshToonMaterial
+}
+
+/**
+ * The 3D track: ground, water, road, curbs, walls, boost pads and scenery, all colored by
+ * the theme. It is a group, so add it to the scene directly.
+ *
+ * Call `update()` once per frame: it recolors tidal branches when `track.tideLow` changed
+ * (a compare per frame, a color write on a change). Everything else is static.
+ */
+export class TrackView extends THREE.Group {
+  private readonly tidal: TidalBranch[] = []
+  private shownLow: boolean | null = null
+
+  constructor(
+    private readonly track: Track,
+    readonly theme: TrackTheme = DEFAULT_THEME,
+  ) {
+    super()
+    this.name = `track:${track.name}`
+    this.add(createGround(theme))
+    if (theme.water) this.add(createWater(theme.water))
+    const main: Path = {
+      points: track.centerline,
+      closed: true,
+      halfWidth: track.halfWidth,
+      // A tidal branch overlapping the junction must not bake the tide into the main road
+      surfaceAt: (i) => {
+        const p = track.point(i)
+        const projection = track.project(p.x, p.z)
+        const tidal = track.branches[projection.branch]?.tide
+        return tidal ? 'asphalt' : track.surfaceAt(p.x, p.z)
+      },
+      // Leave the road open where a branch joins it
+      openAt: (p) => {
+        const projection = track.project(p.x, p.z)
+        return projection.branch >= 0 && projection.distance <= projection.halfWidth
+      },
     }
-    group.add(createRoadRibbon(track, path))
-    group.add(createWall(track, path, path.halfWidth))
-    group.add(createWall(track, path, -path.halfWidth - WALL_THICKNESS))
+    this.add(createRoadRibbon(track, theme, main, ROAD_LIFT))
+    this.add(createCurbs(track, theme, main, main.halfWidth - CURB_WIDTH, main.halfWidth))
+    this.add(createCurbs(track, theme, main, -main.halfWidth, -main.halfWidth + CURB_WIDTH))
+    this.add(createWall(track, theme, main, main.halfWidth))
+    this.add(createWall(track, theme, main, -main.halfWidth - WALL_THICKNESS))
+    for (const branch of track.branches) {
+      const path: Path = {
+        points: branch.points,
+        closed: false,
+        halfWidth: branch.halfWidth,
+        surfaceAt: () => branch.surface,
+        // Leave the branch open where it meets the main road
+        openAt: (p) => track.mainProjection(p.x, p.z).distance <= track.halfWidth,
+      }
+      if (branch.tide) {
+        const ribbon = createTidalRibbon(track, path)
+        this.tidal.push({ branch, material: ribbon.material })
+        this.add(ribbon.mesh)
+      } else {
+        this.add(createRoadRibbon(track, theme, path, BRANCH_LIFT))
+      }
+      this.add(createWall(track, theme, path, path.halfWidth))
+      this.add(createWall(track, theme, path, -path.halfWidth - WALL_THICKNESS))
+    }
+    this.add(createStartLine(track))
+    if (track.boostPads.length > 0) this.add(createBoostPads(track))
+    this.add(createScenery(track, theme))
+    this.update()
   }
-  group.add(createStartLine(track))
-  group.add(createFoliage(track))
-  return group
+
+  /** Shows the tide of the moment: recolors tidal branches if `track.tideLow` changed. */
+  update(): void {
+    const low = this.track.tideLow
+    if (low === this.shownLow) return
+    this.shownLow = low
+    for (const { branch, material } of this.tidal) {
+      if (!branch.tide) continue
+      const surface = tideSurface(branch.tide, low)
+      const flooded = surface === 'water'
+      material.color.set(surfaceColor(surface, this.theme))
+      material.opacity = flooded ? WATER_OPACITY : 1
+      material.transparent = flooded
+      material.depthWrite = !flooded
+    }
+  }
+}
+
+/**
+ * Builds the 3D track for a theme. The result is a group (`TrackView`); call its `update()`
+ * every frame so tidal branches follow `track.tideLow`.
+ */
+export function createTrackView(track: Track, theme: TrackTheme = DEFAULT_THEME): TrackView {
+  return new TrackView(track, theme)
 }
 
 function toon(color: string): THREE.MeshToonMaterial {
   return new THREE.MeshToonMaterial({ color })
 }
 
-function createGround(): THREE.Mesh {
-  const ground = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), toon(GRASS_COLOR))
+function createGround(theme: TrackTheme): THREE.Mesh {
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), toon(theme.ground))
   ground.rotation.x = -Math.PI / 2
-  ground.position.y = -0.05
+  ground.position.y = theme.water ? theme.water.level - SEABED_DEPTH : GROUND_DEFAULT_Y
   return ground
+}
+
+/** The sea, lake or river: a see-through plane over the whole map. */
+function createWater(water: { level: number; color: string }): THREE.Mesh {
+  const material = new THREE.MeshToonMaterial({
+    color: water.color,
+    transparent: true,
+    opacity: WATER_OPACITY,
+    depthWrite: false,
+  })
+  const mesh = new THREE.Mesh(new THREE.PlaneGeometry(800, 800), material)
+  mesh.rotation.x = -Math.PI / 2
+  mesh.position.y = water.level
+  return mesh
 }
 
 /** A road piece (main loop or branch) that can be drawn as a ribbon with walls. */
@@ -179,23 +275,41 @@ function stripGeometry(
   return geometry
 }
 
-function createRoadRibbon(track: Track, path: Path): THREE.Mesh {
-  const asphaltCol = new THREE.Color(ROAD_COLOR)
-  const woodCol = new THREE.Color(WOOD_COLOR)
-  const mudCol = new THREE.Color(MUD_COLOR)
-
-  const geometry = stripGeometry(track, path, -path.halfWidth, path.halfWidth, 0.01, (segment) => {
-    const surface = path.surfaceAt(segment)
-    if (surface === 'wood') return woodCol
-    if (surface === 'mud') return mudCol
-    return asphaltCol
-  })
+function createRoadRibbon(track: Track, theme: TrackTheme, path: Path, lift: number): THREE.Mesh {
+  const colors = new Map<SurfaceType, THREE.Color>()
+  const colorOf = (surface: SurfaceType): THREE.Color => {
+    let color = colors.get(surface)
+    if (!color) {
+      color = new THREE.Color(surfaceColor(surface, theme))
+      colors.set(surface, color)
+    }
+    return color
+  }
+  const geometry = stripGeometry(track, path, -path.halfWidth, path.halfWidth, lift, (segment) =>
+    colorOf(path.surfaceAt(segment)),
+  )
   const material = new THREE.MeshToonMaterial({ vertexColors: true, side: THREE.DoubleSide })
   return new THREE.Mesh(geometry, material)
 }
 
-function createCurbs(track: Track, path: Path, inner: number, outer: number): THREE.Mesh {
-  const palette = CURB_COLORS.map((c) => new THREE.Color(c))
+/** Road of a tidal branch: one material whose color `TrackView.update` changes with the tide. */
+function createTidalRibbon(
+  track: Track,
+  path: Path,
+): { mesh: THREE.Mesh; material: THREE.MeshToonMaterial } {
+  const geometry = stripGeometry(track, path, -path.halfWidth, path.halfWidth, BRANCH_LIFT)
+  const material = new THREE.MeshToonMaterial({ side: THREE.DoubleSide })
+  return { mesh: new THREE.Mesh(geometry, material), material }
+}
+
+function createCurbs(
+  track: Track,
+  theme: TrackTheme,
+  path: Path,
+  inner: number,
+  outer: number,
+): THREE.Mesh {
+  const palette = theme.curb.map((c) => new THREE.Color(c))
   const geometry = stripGeometry(
     track,
     path,
@@ -209,7 +323,7 @@ function createCurbs(track: Track, path: Path, inner: number, outer: number): TH
   return new THREE.Mesh(geometry, material)
 }
 
-function createWall(track: Track, path: Path, offset: number): THREE.Mesh {
+function createWall(track: Track, theme: TrackTheme, path: Path, offset: number): THREE.Mesh {
   const near = offsetPath(path, offset)
   const far = offsetPath(path, offset + WALL_THICKNESS)
   const positions: number[] = []
@@ -299,7 +413,7 @@ function createWall(track: Track, path: Path, offset: number): THREE.Mesh {
   geometry.computeVertexNormals()
   return new THREE.Mesh(
     geometry,
-    new THREE.MeshToonMaterial({ color: WALL_COLOR, side: THREE.DoubleSide }),
+    new THREE.MeshToonMaterial({ color: theme.wall, side: THREE.DoubleSide }),
   )
 }
 
@@ -329,70 +443,4 @@ function createStartLine(track: Track): THREE.Mesh {
   line.rotateOnWorldAxis(UP, headingOf(next.x - start.x, next.z - start.z))
   line.position.set(start.x, track.groundHeight(start.x, start.z) + 0.03, start.z)
   return line
-}
-
-function seededRandom(seed: number): () => number {
-  let state = seed
-  return () => {
-    state = (state * 1664525 + 1013904223) % 4294967296
-    return state / 4294967296
-  }
-}
-
-/** Generates signature wax palms for Cocora, or pine trees for other tracks. */
-function createFoliage(track: Track): THREE.Group {
-  const isCocora = track.name.toLowerCase().includes('cocora')
-  const random = seededRandom(42)
-
-  const trunkGeo = isCocora
-    ? new THREE.CylinderGeometry(0.2, 0.35, 14, 6)
-    : new THREE.CylinderGeometry(0.3, 0.4, 2, 6)
-
-  const leavesGeo = isCocora
-    ? new THREE.ConeGeometry(2.8, 2.0, 7) // tuft crown of palm leaves
-    : new THREE.ConeGeometry(1.8, 4, 7)
-
-  const trunk = new THREE.InstancedMesh(
-    trunkGeo,
-    toon(isCocora ? PALM_TRUNK_COLOR : TREE_TRUNK_COLOR),
-    TREE_COUNT,
-  )
-  const leaves = new THREE.InstancedMesh(
-    leavesGeo,
-    toon(isCocora ? PALM_FROND_COLOR : TREE_LEAVES_COLOR),
-    TREE_COUNT,
-  )
-
-  const matrix = new THREE.Matrix4()
-
-  let placed = 0
-  for (let attempt = 0; placed < TREE_COUNT && attempt < TREE_COUNT * 12; attempt++) {
-    const anchor = track.point(Math.floor(random() * track.centerline.length))
-    const x = anchor.x + (random() - 0.5) * TREE_SPREAD * 2
-    const z = anchor.z + (random() - 0.5) * TREE_SPREAD * 2
-    const nearest = track.project(x, z)
-    if (nearest.distance - nearest.halfWidth < TREE_MIN_GAP) continue
-
-    const groundY = track.groundHeight(x, z)
-    const scale = isCocora ? 0.9 + random() * 0.7 : 0.8 + random() * 0.8
-    const height = isCocora ? 14 * scale : 2 * scale
-
-    // Trunk centered at groundY + height / 2
-    matrix.makeScale(scale, scale, scale).setPosition(x, groundY + height / 2, z)
-    trunk.setMatrixAt(placed, matrix)
-
-    // Crown placed on top of trunk
-    const crownY = isCocora ? groundY + height : groundY + scale * 4
-    matrix.makeScale(scale, scale, scale).setPosition(x, crownY, z)
-    leaves.setMatrixAt(placed, matrix)
-
-    placed++
-  }
-
-  trunk.count = placed
-  leaves.count = placed
-
-  const group = new THREE.Group()
-  group.add(trunk, leaves)
-  return group
 }

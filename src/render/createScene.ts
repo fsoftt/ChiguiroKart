@@ -3,11 +3,9 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
-import type { TrackTheme } from '../config/tracks/theme'
+import { DEFAULT_THEME, type TrackTheme } from '../config/tracks/theme'
+import { createSky, undergroundLook, type Sky } from './sky'
 
-const SKY_COLOR = '#87ceeb'
-const FOG_NEAR = 80
-const FOG_FAR = 260
 /** Only pixels brighter than this (linear) glow: nitro flames, powers and lightning. */
 const BLOOM_THRESHOLD = 1.05
 const BLOOM_STRENGTH = 0.55
@@ -21,6 +19,10 @@ export interface SceneContext {
   camera: THREE.PerspectiveCamera
   /** Null when the bloom is off (`?bloom=0`). */
   composer: EffectComposer | null
+  /** Lights and sky that `applySceneTheme` recolors when the track changes. */
+  hemisphere: THREE.HemisphereLight
+  sun: THREE.DirectionalLight
+  sky: Sky
 }
 
 /** Bloom is on unless the URL says `?bloom=0`. */
@@ -33,22 +35,25 @@ export function createScene(canvas: HTMLCanvasElement): SceneContext {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
 
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(SKY_COLOR)
-  scene.fog = new THREE.Fog(SKY_COLOR, FOG_NEAR, FOG_FAR)
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, DEFAULT_THEME.fogFar + 20)
 
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.1, FOG_FAR + 20)
-
-  scene.add(new THREE.HemisphereLight('#ffffff', '#5a8f3c', 1.2))
-  const sun = new THREE.DirectionalLight('#ffffff', 1.5)
+  const hemisphere = new THREE.HemisphereLight()
+  const sun = new THREE.DirectionalLight()
   sun.position.set(30, 50, 20)
-  scene.add(sun)
+  const sky = createSky()
+  scene.add(sky, hemisphere, sun)
 
-  return {
+  const context: SceneContext = {
     renderer,
     scene,
     camera,
     composer: bloomEnabled() ? createComposer(renderer, scene, camera) : null,
+    hemisphere,
+    sun,
+    sky,
   }
+  applySceneTheme(context, DEFAULT_THEME)
+  return context
 }
 
 function createComposer(
@@ -72,15 +77,28 @@ function createComposer(
 }
 
 /**
- * Sky, fog and lights of a track's theme. Call it whenever a new track is loaded.
- * TODO(stage 9): sky gradient, underground lighting.
+ * Sky, fog and lights of a track's theme. Call it whenever a new track is loaded; it can be
+ * called any number of times. The sky is a gradient from `horizon` (at eye level and below) to
+ * `sky` (overhead) that ignores fog. An `underground` theme turns the sky near-black, pulls the
+ * fog in and dims the sun, so the colored glow of the decorations (and the ambient tint) carry
+ * the scene.
  */
 export function applySceneTheme(context: SceneContext, theme: TrackTheme): void {
-  const { scene, camera } = context
-  scene.background = new THREE.Color(theme.horizon)
-  scene.fog = new THREE.Fog(theme.fog, theme.fogNear, theme.fogFar)
-  camera.far = theme.fogFar + 20
+  const { scene, camera, hemisphere, sun, sky } = context
+  const look = theme.underground ? undergroundLook(theme) : theme
+
+  scene.background = new THREE.Color(look.horizon)
+  scene.fog = new THREE.Fog(look.fog, look.fogNear, look.fogFar)
+  camera.far = look.fogFar + 20
   camera.updateProjectionMatrix()
+
+  hemisphere.color.set(theme.ambientSky)
+  hemisphere.groundColor.set(theme.ambientGround)
+  hemisphere.intensity = look.ambientIntensity
+  sun.color.set(theme.sun)
+  sun.intensity = look.sunIntensity
+
+  sky.setColors(look.sky, look.horizon)
 }
 
 /** Draws the frame, through the bloom composer when it is on. */
