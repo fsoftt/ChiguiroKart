@@ -9,6 +9,7 @@ import { CUSTOM_TRACK_KEY, buildTrackDefinition, parseTrackDataText } from '../s
 import { GamepadSource } from '../input/gamepad'
 import { combineInputs, NEUTRAL_INPUT, type InputSource, type KartInput } from '../input/kartInput'
 import { KeyboardSource } from '../input/keyboard'
+import { TouchControls } from '../input/touchView'
 import { ChaseCamera } from '../render/chaseCamera'
 import { createScene, renderScene, resizeToCanvas, type SceneContext } from '../render/createScene'
 import { speedLineTarget } from '../render/effects/effectsLogic'
@@ -117,7 +118,12 @@ export class Game {
   private botManager: BotManager | null = null
   private readonly menu: QuickRaceMenu
   private settings: RaceSettings
-  private readonly inputSources: InputSource[] = [new KeyboardSource(), new GamepadSource()]
+  private readonly touchControls = new TouchControls()
+  private readonly inputSources: InputSource[] = [
+    new KeyboardSource(),
+    new GamepadSource(),
+    this.touchControls.source,
+  ]
   private readonly fpsOverlay: FpsOverlay | null
   private readonly hud = new Hud()
   private readonly readout: DebugReadout = { speedKmh: 0, onGround: true }
@@ -197,6 +203,7 @@ export class Game {
     this.setPlayerCharacter(settings.character)
     this.menu.hide()
     this.hud.setVisible(true)
+    this.touchControls.setVisible(true)
     this.clearBots()
     const timeTrial = settings.mode === 'contrarreloj'
     this.hud.setTimeTrial(timeTrial)
@@ -258,6 +265,7 @@ export class Game {
     this.chaseCamera.reset()
     this.clearFinishShow()
     this.hud.setVisible(false)
+    this.touchControls.setVisible(false)
     this.menu.show(this.settings)
   }
 
