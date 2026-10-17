@@ -173,6 +173,20 @@ Cada etapa lista su objetivo, las tareas y los criterios para darla por terminad
 
 ---
 
+## Etapa 9B — Modo historia
+
+**Objetivo:** un modo de un jugador con historia, jefes y una copa final desbloqueable. Va antes del online.
+
+- Modo historia para un jugador: se recorren las tres copas en orden, con escenas cortas entre carreras.
+- Cada copa tiene un **jefe** en su última pista: un rival más fuerte, con presentación propia y una habilidad especial. Hay que ganarle para pasar a la siguiente copa.
+- Al terminar las tres copas se desbloquea una **cuarta copa** con cuatro pistas del paisaje colombiano dañado por el capitalismo salvaje: campos de _fracking_, bosques incendiados, ríos contaminados por minería y deforestación.
+- **Villano final:** un tigre malvado con cadena de oro, jefe de la última pista de la cuarta copa.
+- El progreso se guarda en el navegador (`localStorage`).
+
+**Terminada cuando:** se puede jugar la historia de principio a fin, con los cuatro jefes y la copa final desbloqueable.
+
+---
+
 ## Etapa 10 — Pulido
 
 **Objetivo:** que se sienta como un juego terminado.
@@ -214,5 +228,6 @@ Cada etapa lista su objetivo, las tareas y los criterios para darla por terminad
 | 7     | Online con código de sala      |
 | 8     | Online estable                 |
 | 9     | 12 pistas, 3 copas             |
+| 9B    | Modo historia con jefes        |
 | 10    | Juego pulido                   |
 | 11    | Lanzamiento                    |
