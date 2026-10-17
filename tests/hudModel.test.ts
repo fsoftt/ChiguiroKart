@@ -2,7 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { defaultDrift } from '../src/config/drift'
 import { defaultKartPhysics } from '../src/config/kartPhysics'
 import { createKartState, type KartState } from '../src/sim/kart/kartState'
-import { buildHudModel, chargeColor } from '../src/ui/hudModel'
+import { defaultItems, POWER_NAMES } from '../src/config/items'
+import { createRacerItems } from '../src/sim/items/itemTypes'
+import {
+  buildHudModel,
+  buildItemHudModel,
+  chargeColor,
+  eventPopupText,
+  POWER_ICONS,
+} from '../src/ui/hudModel'
 
 function kart(): KartState {
   return createKartState({ x: 0, y: 0, z: 0 }, 0)
@@ -90,5 +98,94 @@ describe('hud model', () => {
     expect(model(state).perfect).toBe(false)
     state.boost.level = 1
     expect(model(state).perfect).toBe(true)
+  })
+})
+
+describe('item hud model', () => {
+  it('shows the empty slot and 0 uchuvas without items', () => {
+    const items = buildItemHudModel()
+    expect(items.hasPower).toBe(false)
+    expect(items.uchuvaText).toBe(`0/${defaultItems.uchuvas.max}`)
+    expect(items.blind).toBe(0)
+  })
+
+  it('shows the held power with its uses and the charged tag', () => {
+    const racer = createRacerItems()
+    racer.slot.power = 'mango'
+    racer.slot.uses = 3
+    racer.slot.charged = true
+    const items = buildItemHudModel(racer)
+    expect(items.name).toBe(POWER_NAMES.mango)
+    expect(items.icon).toBe(POWER_ICONS.mango)
+    expect(items.usesText).toBe('×3')
+    expect(items.charged).toBe(true)
+    racer.slot.uses = 1
+    expect(buildItemHudModel(racer).usesText).toBe('')
+  })
+
+  it('cycles the roulette display and hides uses and charge while it spins', () => {
+    const racer = createRacerItems()
+    racer.slot.rouletteTime = 1
+    racer.slot.rouletteShowing = 'coco'
+    racer.slot.power = 'tejo'
+    racer.slot.charged = true
+    const items = buildItemHudModel(racer)
+    expect(items.rolling).toBe(true)
+    expect(items.name).toBe(POWER_NAMES.coco)
+    expect(items.charged).toBe(false)
+  })
+
+  it('flags Bien Cargado at the uchuva maximum', () => {
+    const racer = createRacerItems()
+    racer.uchuvas = defaultItems.uchuvas.max - 1
+    expect(buildItemHudModel(racer).uchuvaFull).toBe(false)
+    racer.uchuvas = defaultItems.uchuvas.max
+    const full = buildItemHudModel(racer)
+    expect(full.uchuvaFull).toBe(true)
+    expect(full.uchuvaText).toBe(`${defaultItems.uchuvas.max}/${defaultItems.uchuvas.max}`)
+  })
+
+  it('fades the mosquito overlay in with blind time', () => {
+    const racer = createRacerItems()
+    expect(buildItemHudModel(racer).blind).toBe(0)
+    racer.status.blindTime = 0.1
+    expect(buildItemHudModel(racer).blind).toBeCloseTo(0.2)
+    racer.status.blindTime = 3
+    expect(buildItemHudModel(racer).blind).toBe(1)
+  })
+
+  it('is part of the full hud model', () => {
+    const racer = createRacerItems()
+    racer.uchuvas = 4
+    const full = buildHudModel(
+      kart(),
+      defaultKartPhysics,
+      defaultDrift,
+      undefined,
+      undefined,
+      racer,
+    )
+    expect(full.items.uchuvaText).toBe(`4/${defaultItems.uchuvas.max}`)
+  })
+})
+
+describe('event popups', () => {
+  const position = { x: 0, y: 0, z: 0 }
+
+  it('only reports events about the player', () => {
+    expect(eventPopupText({ type: 'hit', slot: 0, kind: 'spin', position }, 0)).toBe('¡Golpeado!')
+    expect(eventPopupText({ type: 'hit', slot: 3, kind: 'spin', position }, 0)).toBeNull()
+    expect(eventPopupText({ type: 'blocked', slot: 0, position }, 0)).toContain('escudo')
+    expect(eventPopupText({ type: 'explosion', position, radius: 4 }, 0)).toBeNull()
+  })
+
+  it('reports stolen uchuvas for the victim and the thief', () => {
+    expect(eventPopupText({ type: 'uchuvasStolen', from: 0, to: 2, amount: 3 }, 0)).toBe(
+      '¡Te robaron 3 uchuvas!',
+    )
+    expect(eventPopupText({ type: 'uchuvasStolen', from: 2, to: 0, amount: 1 }, 0)).toBe(
+      '¡Robaste 1 uchuva!',
+    )
+    expect(eventPopupText({ type: 'uchuvasStolen', from: 2, to: 3, amount: 3 }, 0)).toBeNull()
   })
 })

@@ -1,4 +1,6 @@
 import type { DriftConfig } from '../config/drift'
+import { defaultItems, POWER_NAMES } from '../config/items'
+import type { ItemEvent, PowerId, RacerItems } from '../sim/items/itemTypes'
 import type { KartPhysicsConfig } from '../config/kartPhysics'
 import { forwardSpeed } from '../sim/kart/kartPhysics'
 import type { KartState } from '../sim/kart/kartState'
@@ -10,6 +12,25 @@ const HEX_RADIX = 16
 const HEX_DIGITS_PER_CHANNEL = 2
 const CHANNEL_MAX = 255
 const RGB_CHANNELS = 3
+/** Seconds over which the mosquito overlay fades in or out. */
+const BLIND_FADE_SECONDS = 0.5
+
+/** One simple icon per power, until real art (stage 6). */
+export const POWER_ICONS: Record<PowerId, string> = {
+  coco: '🥥',
+  tejo: '🪨',
+  mango: '🥭',
+  panela: '🟫',
+  armadillo: '🛡️',
+  avispa: '🐝',
+  colibri: '🐦',
+  mosquitos: '🦟',
+  sombrero: '👒',
+  hormigas: '🐜',
+  aguacero: '🌧️',
+  rayo: '⚡',
+  mascara: '🎭',
+}
 
 export interface HudPip {
   filled: boolean
@@ -23,6 +44,25 @@ export interface FinalTimes {
   lap3: string
   total: string
   best: string
+}
+
+/** What the item slot and the uchuva counter show. */
+export interface ItemHudModel {
+  /** True while a power is held or the roulette spins. */
+  hasPower: boolean
+  icon: string
+  name: string
+  /** E.g. "×3"; empty for single-use powers. */
+  usesText: string
+  /** Held power was rolled Bien Cargado. */
+  charged: boolean
+  rolling: boolean
+  /** E.g. "7/10". */
+  uchuvaText: string
+  /** Carrying the maximum: Bien Cargado is on. */
+  uchuvaFull: boolean
+  /** Mosquito overlay strength, 0..1. */
+  blind: number
 }
 
 /** Plain data the HUD draws; contains no DOM and no simulation references. */
@@ -59,6 +99,7 @@ export interface HudModel {
   positionTotalText: string
   /** Results line, e.g. "Posición: 2.º de 4"; empty unless the race is finished. */
   finalPositionText: string
+  items: ItemHudModel
 }
 
 /** Player rank (1-based) and number of racers. */
@@ -142,6 +183,61 @@ function computeLapText(race: RaceState): string {
   return `VUELTA ${race.currentLap}/${race.totalLaps}`
 }
 
+/** Item slot, uchuva counter and mosquito overlay for one racer. */
+export function buildItemHudModel(
+  items?: RacerItems,
+  maxUchuvas: number = defaultItems.uchuvas.max,
+): ItemHudModel {
+  if (!items) {
+    return {
+      hasPower: false,
+      icon: '',
+      name: '',
+      usesText: '',
+      charged: false,
+      rolling: false,
+      uchuvaText: `0/${maxUchuvas}`,
+      uchuvaFull: false,
+      blind: 0,
+    }
+  }
+  const { slot, status } = items
+  const rolling = slot.rouletteTime > 0
+  const shown = rolling ? slot.rouletteShowing : slot.power
+  return {
+    hasPower: shown !== null,
+    icon: shown ? POWER_ICONS[shown] : '',
+    name: shown ? POWER_NAMES[shown] : '',
+    usesText: !rolling && shown !== null && slot.uses > 1 ? `×${slot.uses}` : '',
+    charged: !rolling && shown !== null && slot.charged,
+    rolling,
+    uchuvaText: `${items.uchuvas}/${maxUchuvas}`,
+    uchuvaFull: items.uchuvas >= maxUchuvas,
+    blind: clamp01(status.blindTime / BLIND_FADE_SECONDS),
+  }
+}
+
+function uchuvaCount(amount: number): string {
+  return `${amount} ${amount === 1 ? 'uchuva' : 'uchuvas'}`
+}
+
+/** Short popup for an event that concerns the player (grid slot `playerSlot`), or null. */
+export function eventPopupText(event: ItemEvent, playerSlot: number): string | null {
+  switch (event.type) {
+    case 'hit':
+      return event.slot === playerSlot ? '¡Golpeado!' : null
+    case 'blocked':
+      return event.slot === playerSlot ? '¡Bloqueado por el escudo!' : null
+    case 'uchuvasStolen':
+      if (event.amount <= 0) return null
+      if (event.from === playerSlot) return `¡Te robaron ${uchuvaCount(event.amount)}!`
+      if (event.to === playerSlot) return `¡Robaste ${uchuvaCount(event.amount)}!`
+      return null
+    default:
+      return null
+  }
+}
+
 /** Builds everything the HUD needs for one frame from the kart and race state. */
 export function buildHudModel(
   kart: KartState,
@@ -149,6 +245,7 @@ export function buildHudModel(
   drift: DriftConfig,
   race?: RaceState,
   position?: RacePosition,
+  items?: RacerItems,
 ): HudModel {
   const speed = Math.max(0, forwardSpeed(kart))
   const level = kart.boost.level
@@ -212,5 +309,6 @@ export function buildHudModel(
     positionText,
     positionTotalText,
     finalPositionText,
+    items: buildItemHudModel(items),
   }
 }

@@ -26,10 +26,13 @@ Juego de karts en 3D estilo _Crash Team Racing_ con animales colombianos. Corre 
 | Girar             | `A` `D` / `←` `→` | Stick izquierdo       |
 | Saltar y derrapar | `Espacio`         | Bumper derecho        |
 | Nitro             | `Shift`           | Bumper izquierdo      |
+| Usar poder        | `E`               | X                     |
 | Mirar atrás       | `Q`               | Y                     |
 | Reiniciar kart    | `R`               | —                     |
 
 Para derrapar, salta con `Espacio` y sigue girando al aterrizar. Mantén pulsado y carga la barra hasta la zona roja; cada `Shift` dentro de esa zona encadena un nitro más fuerte hasta tres. Pulsar antes de la zona roja o dejar la barra llena demasiado tiempo rompe la cadena.
+
+Con un poder en la ranura, `E` (o el botón X del mando) lo usa; mantener `Q` (o Y) mientras lo usas lo lanza hacia atrás.
 
 ## Panel de depuración
 

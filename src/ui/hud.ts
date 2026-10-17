@@ -2,13 +2,14 @@ import './hud.css'
 import './quickRaceMenu.css'
 import type { Vec2 } from '../sim/math'
 import type { Track } from '../sim/track'
-import type { FinalTimes, HudModel } from './hudModel'
+import type { FinalTimes, HudModel, ItemHudModel } from './hudModel'
 import { Minimap } from './minimap'
 
 const PIP_COUNT = 3
 const PERFECT_TEXT = '¡Perfecto!'
 const SPEED_UNIT = 'km/h'
 const PERCENT = 100
+const MOSQUITO_BLOTCHES = 14
 const PERCENT_DECIMALS = 1
 
 function el(tag: string, className: string, parent?: HTMLElement): HTMLElement {
@@ -63,6 +64,21 @@ export class Hud {
   private readonly nitroLabel: HTMLElement
   private readonly nitroTime: HTMLElement
   private readonly perfectPopup: HTMLElement
+
+  // Items
+  private readonly itemSlot = el('div', 'hud-item', this.root)
+  private readonly itemIcon: HTMLElement
+  private readonly itemName: HTMLElement
+  private readonly itemUses: HTMLElement
+  private readonly itemCharged: HTMLElement
+  private readonly uchuvaBadge = el('div', 'hud-uchuvas', this.root)
+  private readonly uchuvaValue: HTMLElement
+  private readonly uchuvaFullTag: HTMLElement
+  private readonly mosquitoOverlay = el('div', 'hud-mosquitos', this.root)
+  private readonly flashOverlay = el('div', 'hud-flash', this.root)
+  private readonly eventPopup = el('div', 'hud-event-popup', this.root)
+  private itemState: ItemHudModel | null = null
+  private blind = -1
 
   // Cached state
   private speedKmh = -1
@@ -142,7 +158,31 @@ export class Hud {
     this.perfectPopup = el('div', 'hud-perfect', this.root)
     this.perfectPopup.textContent = PERFECT_TEXT
 
+    // Item slot, uchuva counter and overlays
+    this.itemIcon = el('span', 'hud-item-icon', this.itemSlot)
+    const itemText = el('div', 'hud-item-text', this.itemSlot)
+    this.itemName = el('span', 'hud-item-name', itemText)
+    this.itemUses = el('span', 'hud-item-uses', itemText)
+    this.itemCharged = el('span', 'hud-item-charged', itemText)
+    this.itemCharged.textContent = 'BIEN CARGADO'
+    el('span', 'hud-uchuvas-icon', this.uchuvaBadge).textContent = '🟠'
+    this.uchuvaValue = el('span', 'hud-uchuvas-value', this.uchuvaBadge)
+    this.uchuvaFullTag = el('span', 'hud-uchuvas-full', this.uchuvaBadge)
+    this.uchuvaFullTag.textContent = '¡Bien Cargado!'
+    for (let i = 0; i < MOSQUITO_BLOTCHES; i++) el('span', 'hud-mosquito', this.mosquitoOverlay)
+
     parent.append(this.root)
+  }
+
+  /** Short message in the middle of the screen (hit, blocked, robbed...). */
+  showPopup(text: string): void {
+    this.eventPopup.textContent = text
+    replay(this.eventPopup, 'is-showing')
+  }
+
+  /** Brief white flash over the screen (lightning). */
+  flash(): void {
+    replay(this.flashOverlay, 'is-flashing')
   }
 
   /** Whether the results modal is showing. */
@@ -160,14 +200,48 @@ export class Hud {
   }
 
   /** Draws the model, touching only what changed since the previous call. */
-  update(model: HudModel, playerPos?: Vec2, playerHeading?: number): void {
+  update(
+    model: HudModel,
+    playerPos?: Vec2,
+    playerHeading?: number,
+    others?: readonly Vec2[],
+  ): void {
     this.updateSpeed(model)
     this.updateDrift(model)
     this.updateNitro(model)
     this.updateRace(model)
+    this.updateItems(model.items)
 
     if (playerPos && playerHeading !== undefined) {
-      this.minimap.update(playerPos, playerHeading)
+      this.minimap.update(playerPos, playerHeading, others)
+    }
+  }
+
+  private updateItems(items: ItemHudModel): void {
+    const prev = this.itemState
+    if (!prev || items.icon !== prev.icon || items.name !== prev.name) {
+      this.itemIcon.textContent = items.icon
+      this.itemName.textContent = items.name
+      this.itemSlot.classList.toggle('is-filled', items.hasPower)
+    }
+    if (!prev || items.rolling !== prev.rolling) {
+      this.itemSlot.classList.toggle('is-rolling', items.rolling)
+    }
+    if (!prev || items.usesText !== prev.usesText) this.itemUses.textContent = items.usesText
+    if (!prev || items.charged !== prev.charged) {
+      this.itemSlot.classList.toggle('is-charged', items.charged)
+    }
+    if (!prev || items.uchuvaText !== prev.uchuvaText) {
+      this.uchuvaValue.textContent = items.uchuvaText
+    }
+    if (!prev || items.uchuvaFull !== prev.uchuvaFull) {
+      this.uchuvaBadge.classList.toggle('is-full', items.uchuvaFull)
+    }
+    this.itemState = items
+    if (items.blind !== this.blind) {
+      this.blind = items.blind
+      this.mosquitoOverlay.style.opacity = String(items.blind)
+      this.mosquitoOverlay.classList.toggle('is-active', items.blind > 0)
     }
   }
 

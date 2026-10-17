@@ -6,7 +6,7 @@ import { defaultKartPhysics } from '../config/kartPhysics'
 import { cocoraTrack } from '../config/tracks/cocoraTrack'
 import { testTrack } from '../config/tracks/testTrack'
 import { GamepadSource } from '../input/gamepad'
-import { combineInputs, type InputSource, type KartInput } from '../input/kartInput'
+import { combineInputs, NEUTRAL_INPUT, type InputSource, type KartInput } from '../input/kartInput'
 import { KeyboardSource } from '../input/keyboard'
 import { ChaseCamera } from '../render/chaseCamera'
 import { createScene, resizeToCanvas, type SceneContext } from '../render/createScene'
@@ -15,18 +15,23 @@ import { KartEffects } from '../render/effects/kartEffects'
 import { KartFeedback } from '../render/effects/kartFeedback'
 import { SpeedLines } from '../render/effects/speedLines'
 import { KartView } from '../render/kartView'
+import { ItemView } from '../render/items/itemView'
+import { hitPoseInto, type HitPose } from '../render/items/itemViewLogic'
 import { createTrackView } from '../render/trackView'
 import { FixedStep } from '../sim/fixedStep'
 import { forwardSpeed } from '../sim/kart/kartPhysics'
 import { cloneKartState, interpolateKart, type KartState } from '../sim/kart/kartState'
+import type { Vec2 } from '../sim/math'
 import type { TrackDefinition } from '../sim/track'
+import { ItemSystem } from '../sim/items/itemSystem'
+import type { Racer } from '../sim/racer'
 import { RaceWorld } from '../sim/world'
 import { saveTrackRecord } from '../sim/race/records'
 import { createDebugPanel, isDebugEnabled, type DebugReadout } from '../ui/debugPanel'
 import { FpsOverlay } from '../ui/fpsOverlay'
 import { Hud } from '../ui/hud'
 import { racePosition } from '../sim/race/standings'
-import { buildHudModel } from '../ui/hudModel'
+import { buildHudModel, eventPopupText } from '../ui/hudModel'
 import { BotManager } from '../sim/botManager'
 import { RacingBot } from '../ai/racingBot'
 import { botDifficulties } from '../config/bots'
@@ -41,6 +46,8 @@ const BOT_COLORS = ['#3c7be8', '#3cc15a', '#e8c53c', '#a43ce8', '#3ce0e0', '#e88
 const BOT_COUNT = 7
 /** Base seed of the bots' random choices; each bot adds its grid slot. */
 const BOT_SEED = 1
+/** The player always takes grid slot 0. */
+const PLAYER_SLOT = 0
 
 function selectTrack(): TrackDefinition {
   if (typeof window !== 'undefined') {
@@ -67,6 +74,13 @@ export class Game {
   private readonly speedLines = new SpeedLines(SPEED_LINE_STREAKS, defaultEffects.speedLines.color)
   private readonly kartFeedback = new KartFeedback(defaultEffects.camera)
   private readonly chaseCamera: ChaseCamera
+  private readonly items = new ItemSystem(this.world.track)
+  private readonly itemView = new ItemView()
+  private readonly hitPose: HitPose = { yaw: 0, pitch: 0 }
+  /** Player first, then the bots in grid order; rebuilt when a race starts. */
+  private racers: Racer[] = [this.world.player]
+  private readonly itemEntries: { racer: Racer; input: KartInput }[] = []
+  private readonly botPositions: Vec2[] = []
   private botManager: BotManager | null = null
   private readonly menu: QuickRaceMenu
   private settings: RaceSettings
@@ -85,10 +99,12 @@ export class Game {
     this.scene.scene.add(
       createTrackView(this.world.track),
       this.kartView.object,
+      this.itemView.object,
       this.kartEffects.object,
       this.speedLines.object,
     )
     this.chaseCamera = new ChaseCamera(this.scene.camera, this.cameraConfig)
+    this.itemView.setKarts([this.kartView.object])
     this.previousKart = cloneKartState(this.world.kart)
     this.settings = parseRaceSettings(typeof window === 'undefined' ? '' : window.location.search)
     this.menu = new QuickRaceMenu(this.settings, this.world.track.name, (chosen) =>
@@ -136,6 +152,10 @@ export class Game {
       this.scene.scene.add(view.object)
     }
     this.botManager = manager
+    this.racers = [this.world.player, ...manager.getBotRacers()]
+    this.itemEntries.length = 0
+    for (const racer of this.racers) this.itemEntries.push({ racer, input: NEUTRAL_INPUT })
+    this.itemView.setKarts([this.kartView.object, ...this.botViews.map((view) => view.object)])
     this.resetKart()
   }
 
@@ -155,6 +175,12 @@ export class Game {
     this.botViews = []
     this.previousBotKarts = []
     this.botManager = null
+    this.racers = [this.world.player]
+    this.itemEntries.length = 0
+    this.items.reset()
+    this.items.drainEvents()
+    this.itemView.reset()
+    this.itemView.setKarts([this.kartView.object])
   }
 
   start(): void {
@@ -175,11 +201,34 @@ export class Game {
           this.previousBotKarts = bots.getBotKarts().map(cloneKartState)
           bots.update(stepSeconds)
           bots.resolveCollisions()
+          this.stepItems(input, bots, stepSeconds)
         })
       : 1
 
     this.renderBots(alpha, dt)
     this.render(interpolateKart(this.previousKart, this.world.kart, alpha), input, dt)
+  }
+
+  /** Runs the item simulation for the player and every bot with the inputs they just used. */
+  private stepItems(input: KartInput, bots: BotManager, stepSeconds: number): void {
+    const infos = bots.getBotInfos()
+    for (let i = 0; i < this.itemEntries.length; i++) {
+      const entry = this.itemEntries[i]
+      if (entry) entry.input = i === 0 ? input : (infos[i - 1]?.input ?? NEUTRAL_INPUT)
+    }
+    this.items.update(this.itemEntries, stepSeconds)
+  }
+
+  /** Feeds this frame's item events to the effects and the HUD. */
+  private handleItemEvents(): void {
+    const events = this.items.drainEvents()
+    if (events.length === 0) return
+    this.itemView.handleEvents(events, this.racers)
+    for (const event of events) {
+      const text = eventPopupText(event, PLAYER_SLOT)
+      if (text) this.hud.showPopup(text)
+      if (event.type === 'lightning' && event.slots.includes(PLAYER_SLOT)) this.hud.flash()
+    }
   }
 
   private renderBots(alpha: number, dt: number): void {
@@ -190,7 +239,9 @@ export class Game {
       if (!info || !view) continue
       const kart = interpolateKart(this.previousBotKarts[i] ?? info.kart, info.kart, alpha)
       const speed = forwardSpeed(kart)
-      view.update(kart, info.input.steer, speed, speed / this.physics.maxSpeed, dt)
+      const status = this.racers[i + 1]?.items.status
+      const pose = status ? hitPoseInto(status, this.hitPose) : undefined
+      view.update(kart, info.input.steer, speed, speed / this.physics.maxSpeed, dt, pose)
     }
   }
 
@@ -199,7 +250,16 @@ export class Game {
     const speedRatio = speed / this.physics.maxSpeed
 
     resizeToCanvas(this.scene)
-    this.kartView.update(kart, input.steer, speed, speedRatio, dt)
+    this.kartView.update(
+      kart,
+      input.steer,
+      speed,
+      speedRatio,
+      dt,
+      hitPoseInto(this.world.player.items.status, this.hitPose),
+    )
+    this.handleItemEvents()
+    this.itemView.update(this.items, this.racers, dt)
     this.kartEffects.update(kart, speedRatio, dt)
 
     const feedback = this.kartFeedback.update(kart.boost, kart.drift, this.timer.getElapsed(), dt)
@@ -209,15 +269,28 @@ export class Game {
       dt,
     )
 
-    const racers = [this.world.player, ...(this.botManager?.getBotRacers() ?? [])]
+    const racers = this.racers
     const position = {
       rank: racePosition(this.world.player, racers),
       total: racers.length,
     }
+    this.botPositions.length = 0
+    for (let i = 1; i < racers.length; i++) {
+      const other = racers[i]
+      if (other) this.botPositions.push(other.kart.position)
+    }
     this.hud.update(
-      buildHudModel(kart, this.physics, this.driftConfig, this.world.raceManager.state, position),
+      buildHudModel(
+        kart,
+        this.physics,
+        this.driftConfig,
+        this.world.raceManager.state,
+        position,
+        this.world.player.items,
+      ),
       { x: kart.position.x, z: kart.position.z },
       kart.heading,
+      this.botPositions,
     )
 
     if (this.world.raceManager.state.phase === 'finished' && !this.hasSavedRecord) {
@@ -243,5 +316,8 @@ export class Game {
     this.previousKart = cloneKartState(this.world.kart)
     this.previousBotKarts = this.botManager?.getBotKarts().map(cloneKartState) ?? []
     this.chaseCamera.reset()
+    this.items.reset()
+    this.items.drainEvents()
+    this.itemView.reset()
   }
 }

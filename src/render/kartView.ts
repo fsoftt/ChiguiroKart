@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 import { damp } from '../sim/math'
 import type { KartState } from '../sim/kart/kartState'
+import type { HitPose } from './items/itemViewLogic'
 
 const BODY_COLOR = '#e8413c'
 const DRIVER_COLOR = '#a0673a'
@@ -54,10 +55,20 @@ export class KartView {
   /**
    * @param speed forward speed (m/s)
    * @param speedRatio forward speed divided by top speed
+   * @param hit extra spin-out yaw and flip pitch from a hit (see `hitPoseInto`)
    */
-  update(state: KartState, steer: number, speed: number, speedRatio: number, dt: number): void {
+  update(
+    state: KartState,
+    steer: number,
+    speed: number,
+    speedRatio: number,
+    dt: number,
+    hit?: HitPose,
+  ): void {
     this.object.position.set(state.position.x, state.position.y, state.position.z)
-    this.object.rotation.y = state.heading
+    this.object.rotation.order = 'YXZ'
+    this.object.rotation.y = state.heading + (hit?.yaw ?? 0)
+    this.object.rotation.x = hit?.pitch ?? 0
 
     for (const wheel of this.wheels) wheel.rotation.x += (speed / WHEEL_RADIUS) * dt
     for (const pivot of this.frontWheelPivots) pivot.rotation.y = -steer * MAX_WHEEL_STEER

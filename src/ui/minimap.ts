@@ -1,6 +1,9 @@
 import type { Vec2 } from '../sim/math'
 import type { Track } from '../sim/track'
 
+/** Same colors as the bots' karts, in grid order. */
+const BOT_DOT_COLORS = ['#3c7be8', '#3cc15a', '#e8c53c', '#a43ce8', '#3ce0e0', '#e8883c', '#e83ca8']
+
 export class Minimap {
   readonly element: HTMLCanvasElement
   private readonly ctx: CanvasRenderingContext2D
@@ -122,12 +125,26 @@ export class Minimap {
     ctx.fill()
   }
 
-  update(playerPos: Vec2, playerHeading: number): void {
+  /** @param others positions of the rival karts, drawn as dots under the player's arrow */
+  update(playerPos: Vec2, playerHeading: number, others: readonly Vec2[] = []): void {
     const ctx = this.ctx
     ctx.clearRect(0, 0, this.size, this.size)
 
     // Draw cached track background
     ctx.drawImage(this.bgCanvas, 0, 0)
+
+    for (let i = 0; i < others.length; i++) {
+      const other = others[i]
+      if (!other) continue
+      const o = this.toCanvas(other)
+      ctx.fillStyle = BOT_DOT_COLORS[i % BOT_DOT_COLORS.length] ?? '#ffffff'
+      ctx.beginPath()
+      ctx.arc(o.x, o.y, 3, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.lineWidth = 1
+      ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)'
+      ctx.stroke()
+    }
 
     // Draw player arrow / marker
     const p = this.toCanvas(playerPos)
