@@ -141,7 +141,7 @@ export class EnvironmentView extends THREE.Group {
       density,
       this.keepClear,
     )
-    this.vegetation = createVegetation(layout, vegetation.flowerColors)
+    this.vegetation = createVegetation(layout, vegetation)
     this.add(this.vegetation)
   }
 

@@ -7,7 +7,7 @@ type V3 = readonly [number, number, number]
 /** Height of the wax palm model (m); instances scale it. */
 export const PALM_HEIGHT = 18
 
-function blade(
+export function blade(
   b: MeshBuilder,
   x: number,
   z: number,
@@ -144,7 +144,7 @@ export function fernGeometry(): THREE.BufferGeometry {
  * One arching leaf: rises by `rise`, then droops by `droop`; the width swells and tapers.
  * `(x, y, z)` is its base, `yaw` the direction it points.
  */
-function frond(
+export function frond(
   b: MeshBuilder,
   x: number,
   y: number,

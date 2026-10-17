@@ -26,6 +26,44 @@ export interface TerrainSettings {
 
 export type FenceStyle = 'wood' | 'stone'
 
+/** Plant models; each vegetation layer draws one of them (see `VegetationSettings.models`). */
+export type PlantModel =
+  // grass layer
+  | 'grass'
+  | 'dryGrass'
+  | 'snowGrass'
+  // flowers layer
+  | 'flowers'
+  // bushes layer
+  | 'bush'
+  | 'dryBush'
+  | 'frailejon'
+  // ferns layer
+  | 'fern'
+  | 'macarenia'
+  | 'agave'
+  // palms layer (tall landmark plants)
+  | 'waxPalm'
+  | 'coconutPalm'
+  | 'moriche'
+  | 'cardon'
+  | 'ceiba'
+  // trees layer
+  | 'broadleaf'
+  | 'jungle'
+  | 'saman'
+  | 'dryTree'
+  | 'eucalyptus'
+  // cypress layer (slopes)
+  | 'cypress'
+  | 'snowPine'
+  | 'saltCrystal'
+  | 'rockSpire'
+  // distant layer
+  | 'distantTree'
+  | 'distantPalm'
+  | 'distantRock'
+
 export interface VegetationSettings {
   /** Counts at full quality; the quality table scales them. */
   grass: number
@@ -39,7 +77,17 @@ export interface VegetationSettings {
   distant: number
   /** Petal colors of the flowers. */
   flowerColors: readonly string[]
+  /**
+   * Model each layer draws; a missing layer keeps Cocora's (grass, flowers, bush, fern,
+   * waxPalm, broadleaf, cypress, distantTree). Any model works in any layer, but each is sized
+   * for the layer listed next to it in `PlantModel`.
+   */
+  models?: Partial<Record<VegetationLayerName, PlantModel>>
 }
+
+/** The vegetation layers, from the road outward. */
+export type VegetationLayerName =
+  'grass' | 'flowers' | 'bushes' | 'ferns' | 'palms' | 'trees' | 'cypress' | 'distant'
 
 /** A prop placed beside the road, off the drivable area. */
 export type PropKind = 'finca' | 'yipao' | 'cart' | 'sacks'
