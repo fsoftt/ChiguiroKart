@@ -11,6 +11,8 @@ const SPEED_UNIT = 'km/h'
 const PERCENT = 100
 const MOSQUITO_BLOTCHES = 14
 const PERCENT_DECIMALS = 1
+const RACE_TITLE = '¡CARRERA TERMINADA!'
+const TIME_TRIAL_TITLE = '¡CONTRARRELOJ TERMINADA!'
 
 function el(tag: string, className: string, parent?: HTMLElement): HTMLElement {
   const node = document.createElement(tag)
@@ -45,12 +47,15 @@ export class Hud {
   private readonly timerContainer = el('div', 'hud-timer-badge', this.root)
   private readonly timerValue: HTMLElement
   private readonly bestLapValue: HTMLElement
+  private readonly ghostDeltaValue: HTMLElement
   private readonly countdownBadge = el('div', 'hud-countdown', this.root)
   private readonly wrongWayBadge = el('div', 'hud-wrong-way', this.root)
 
   // Results
   private readonly resultsOverlay = el('div', 'hud-results', this.root)
   private readonly resultsCard = el('div', 'hud-results-card', this.resultsOverlay)
+  private readonly resultsTitle: HTMLElement
+  private readonly resultsRecord: HTMLElement
   private readonly resultsPosition: HTMLElement
   private readonly resultsTable: HTMLTableElement
 
@@ -99,6 +104,9 @@ export class Hud {
   private finalPositionText = ''
   private timeText = ''
   private bestLapText = ''
+  private ghostDeltaText = ''
+  private ghostAhead = false
+  private newRecord = false
   private countdownLabel = ''
   private wrongWay = false
   private finished = false
@@ -117,12 +125,15 @@ export class Hud {
     this.timerValue = el('span', 'hud-timer-value', this.timerContainer)
     this.timerValue.textContent = '0:00.00'
     this.bestLapValue = el('span', 'hud-best-lap', this.timerContainer)
+    this.ghostDeltaValue = el('span', 'hud-ghost-delta', this.timerContainer)
 
     this.wrongWayBadge.textContent = '¡VÍA CONTRARIA!'
 
     // Results modal
-    const title = el('h2', 'hud-results-title', this.resultsCard)
-    title.textContent = '¡CARRERA TERMINADA!'
+    this.resultsTitle = el('h2', 'hud-results-title', this.resultsCard)
+    this.resultsTitle.textContent = RACE_TITLE
+    this.resultsRecord = el('div', 'hud-results-record', this.resultsCard)
+    this.resultsRecord.textContent = '¡Nuevo récord!'
     this.resultsPosition = el('div', 'hud-results-position', this.resultsCard)
     this.resultsTable = document.createElement('table')
     this.resultsTable.className = 'hud-results-table'
@@ -193,6 +204,12 @@ export class Hud {
   /** Shows or hides the whole HUD (race badges, minimap and results), e.g. behind the menu. */
   setVisible(visible: boolean): void {
     this.root.classList.toggle('is-hidden', !visible)
+  }
+
+  /** Time trial hides the position badge and the item widgets, which only make sense with bots. */
+  setTimeTrial(enabled: boolean): void {
+    this.root.classList.toggle('is-time-trial', enabled)
+    this.resultsTitle.textContent = enabled ? TIME_TRIAL_TITLE : RACE_TITLE
   }
 
   setTrack(track: Track): void {
@@ -274,6 +291,21 @@ export class Hud {
     if (model.bestLapText !== this.bestLapText) {
       this.bestLapText = model.bestLapText
       this.bestLapValue.textContent = model.bestLapText
+    }
+
+    if (model.ghostDeltaText !== this.ghostDeltaText) {
+      this.ghostDeltaText = model.ghostDeltaText
+      this.ghostDeltaValue.textContent = model.ghostDeltaText
+    }
+
+    if (model.ghostAhead !== this.ghostAhead) {
+      this.ghostAhead = model.ghostAhead
+      this.ghostDeltaValue.classList.toggle('is-ahead', model.ghostAhead)
+    }
+
+    if (model.newRecord !== this.newRecord) {
+      this.newRecord = model.newRecord
+      this.resultsRecord.classList.toggle('is-visible', model.newRecord)
     }
 
     if (model.countdownLabel !== this.countdownLabel) {

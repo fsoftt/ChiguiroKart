@@ -20,12 +20,25 @@ import { hitPoseInto, type HitPose } from '../render/items/itemViewLogic'
 import { createTrackView } from '../render/trackView'
 import { FixedStep } from '../sim/fixedStep'
 import { forwardSpeed } from '../sim/kart/kartPhysics'
-import { cloneKartState, interpolateKart, type KartState } from '../sim/kart/kartState'
+import {
+  cloneKartState,
+  createKartState,
+  interpolateKart,
+  type KartState,
+} from '../sim/kart/kartState'
 import type { Vec2 } from '../sim/math'
 import type { TrackDefinition } from '../sim/track'
 import { ItemSystem } from '../sim/items/itemSystem'
 import type { Racer } from '../sim/racer'
 import { RaceWorld } from '../sim/world'
+import {
+  ghostPoseAt,
+  GhostRecorder,
+  lapDelta,
+  loadGhost,
+  saveGhostIfBetter,
+  type Ghost,
+} from '../sim/race/ghost'
 import { saveTrackRecord } from '../sim/race/records'
 import { createDebugPanel, isDebugEnabled, type DebugReadout } from '../ui/debugPanel'
 import { FpsOverlay } from '../ui/fpsOverlay'
@@ -44,6 +57,8 @@ const MS_PER_KMH = 3.6
 const SPEED_LINE_STREAKS = 90
 const BOT_COLORS = ['#3c7be8', '#3cc15a', '#e8c53c', '#a43ce8', '#3ce0e0', '#e8883c', '#e83ca8']
 const BOT_COUNT = 7
+const GHOST_COLOR = '#8fd3ff'
+const GHOST_OPACITY = 0.4
 /** Base seed of the bots' random choices; each bot adds its grid slot. */
 const BOT_SEED = 1
 /** The player always takes grid slot 0. */
@@ -74,7 +89,7 @@ export class Game {
   private readonly speedLines = new SpeedLines(SPEED_LINE_STREAKS, defaultEffects.speedLines.color)
   private readonly kartFeedback = new KartFeedback(defaultEffects.camera)
   private readonly chaseCamera: ChaseCamera
-  private readonly items = new ItemSystem(this.world.track)
+  private items = new ItemSystem(this.world.track)
   private readonly itemView = new ItemView()
   private readonly hitPose: HitPose = { yaw: 0, pitch: 0 }
   /** Player first, then the bots in grid order; rebuilt when a race starts. */
@@ -93,6 +108,17 @@ export class Game {
   private botViews: KartView[] = []
   private previousBotKarts: KartState[] = []
   private hasSavedRecord = false
+  /** True from the start of a race or time trial until the menu is shown again. */
+  private racing = false
+  private readonly ghostRecorder = new GhostRecorder()
+  private readonly ghostView = new KartView(GHOST_COLOR)
+  private readonly ghostKart: KartState = createKartState({ x: 0, y: 0, z: 0 }, 0)
+  /** Best saved ghost of the track, played back during a time trial. */
+  private ghost: Ghost | null = null
+  private ghostDelta: number | null = null
+  private ghostDeltaLaps = 0
+  private newRecord = false
+  private lastAlpha = 1
 
   constructor(canvas: HTMLCanvasElement) {
     this.scene = createScene(canvas)
@@ -105,6 +131,9 @@ export class Game {
     )
     this.chaseCamera = new ChaseCamera(this.scene.camera, this.cameraConfig)
     this.itemView.setKarts([this.kartView.object])
+    this.ghostView.makeGhost(GHOST_OPACITY)
+    this.ghostView.object.visible = false
+    this.scene.scene.add(this.ghostView.object)
     this.previousKart = cloneKartState(this.world.kart)
     this.settings = parseRaceSettings(typeof window === 'undefined' ? '' : window.location.search)
     this.menu = new QuickRaceMenu(this.settings, this.world.track.name, (chosen) =>
@@ -126,12 +155,12 @@ export class Game {
         camera: this.cameraConfig,
         readout: this.readout,
         onReset: () => {
-          if (this.botManager) this.resetKart()
+          if (this.racing) this.resetKart()
         },
       })
     }
     window.addEventListener('keydown', (event) => {
-      if (event.code === RESET_KEY && this.botManager) this.resetKart()
+      if (event.code === RESET_KEY && this.racing) this.resetKart()
       if (event.code === 'Enter' && this.hud.isFinished) this.startRace(this.settings)
     })
   }
@@ -142,6 +171,22 @@ export class Game {
     this.menu.hide()
     this.hud.setVisible(true)
     this.clearBots()
+    const timeTrial = settings.mode === 'contrarreloj'
+    this.hud.setTimeTrial(timeTrial)
+    // The time trial track has no boxes or uchuvas
+    this.items = timeTrial
+      ? new ItemSystem(this.world.track, undefined, undefined, undefined, false)
+      : new ItemSystem(this.world.track)
+    this.ghost = timeTrial ? loadGhost(this.world.track.name) : null
+    this.racing = true
+    if (timeTrial) {
+      this.botManager = null
+      this.racers = [this.world.player]
+      this.itemEntries.length = 0
+      this.itemView.setKarts([this.kartView.object])
+      this.resetKart()
+      return
+    }
     const manager = new BotManager(this.world, this.physics, this.driftConfig, {
       rubberBand: rubberBandFor(settings),
     })
@@ -162,6 +207,9 @@ export class Game {
   /** Stops the race, removes the bots and shows the menu again. */
   showMenu(): void {
     this.clearBots()
+    this.racing = false
+    this.ghost = null
+    this.ghostView.object.visible = false
     this.hasSavedRecord = false
     this.world.resetKart()
     this.previousKart = cloneKartState(this.world.kart)
@@ -194,18 +242,24 @@ export class Game {
 
     const bots = this.botManager
     // The simulation only runs during a race; the menu shows the idle grid
-    const alpha = bots
+    const alpha = this.racing
       ? this.fixedStep.advance(dt, (stepSeconds) => {
           this.previousKart = cloneKartState(this.world.kart)
           this.world.step(input, stepSeconds)
+          if (!bots) {
+            this.ghostRecorder.record(this.world.kart, this.world.raceManager.state)
+            return
+          }
           this.previousBotKarts = bots.getBotKarts().map(cloneKartState)
           bots.update(stepSeconds)
           bots.resolveCollisions()
           this.stepItems(input, bots, stepSeconds)
         })
       : 1
+    this.lastAlpha = alpha
 
     this.renderBots(alpha, dt)
+    this.renderGhost(dt)
     this.render(interpolateKart(this.previousKart, this.world.kart, alpha), input, dt)
   }
 
@@ -245,6 +299,42 @@ export class Game {
     }
   }
 
+  /** Draws the saved ghost at the current race time (the green light is time 0). */
+  private renderGhost(dt: number): void {
+    const view = this.ghostView
+    const ghost = this.settings.mode === 'contrarreloj' && this.racing ? this.ghost : null
+    const state = this.world.raceManager.state
+    const time =
+      state.phase === 'countdown'
+        ? 0
+        : state.totalRaceTime + (state.phase === 'racing' ? this.lastAlpha / SIMULATION_HZ : 0)
+    const pose = ghost ? ghostPoseAt(ghost, time) : null
+    view.object.visible = pose !== null
+    if (!pose) return
+    const kart = this.ghostKart
+    kart.position.x = pose.x
+    kart.position.y = pose.y
+    kart.position.z = pose.z
+    kart.heading = pose.heading
+    kart.onGround = pose.onGround
+    kart.drift.direction = pose.drift
+    view.update(kart, 0, pose.speed, pose.speed / this.physics.maxSpeed, dt)
+  }
+
+  /** Time trial bookkeeping: gap to the ghost at each lap end and saving the best run. */
+  private updateTimeTrial(): void {
+    const state = this.world.raceManager.state
+    if (state.lapTimes.length > this.ghostDeltaLaps) {
+      this.ghostDeltaLaps = state.lapTimes.length
+      if (this.ghost)
+        this.ghostDelta = lapDelta(this.ghost, state.lapTimes.length - 1, state.lapTimes)
+    }
+    if (state.phase !== 'finished' || this.hasSavedRecord) return
+    this.hasSavedRecord = true
+    const run = this.ghostRecorder.finish(this.world.track.name, state)
+    if (run) this.newRecord = saveGhostIfBetter(run).isNewBest
+  }
+
   private render(kart: KartState, input: KartInput, dt: number): void {
     const speed = forwardSpeed(kart)
     const speedRatio = speed / this.physics.maxSpeed
@@ -279,6 +369,8 @@ export class Game {
       const other = racers[i]
       if (other) this.botPositions.push(other.kart.position)
     }
+    const timeTrial = this.settings.mode === 'contrarreloj' && this.racing
+    if (timeTrial) this.updateTimeTrial()
     this.hud.update(
       buildHudModel(
         kart,
@@ -287,13 +379,19 @@ export class Game {
         this.world.raceManager.state,
         position,
         this.world.player.items,
+        timeTrial ? { ghostDelta: this.ghostDelta, newRecord: this.newRecord } : undefined,
       ),
       { x: kart.position.x, z: kart.position.z },
       kart.heading,
       this.botPositions,
     )
 
-    if (this.world.raceManager.state.phase === 'finished' && !this.hasSavedRecord) {
+    if (
+      !timeTrial &&
+      this.racing &&
+      this.world.raceManager.state.phase === 'finished' &&
+      !this.hasSavedRecord
+    ) {
       this.hasSavedRecord = true
       saveTrackRecord(
         this.world.track.name,
@@ -311,6 +409,10 @@ export class Game {
 
   private resetKart(): void {
     this.hasSavedRecord = false
+    this.ghostRecorder.reset()
+    this.ghostDelta = null
+    this.ghostDeltaLaps = 0
+    this.newRecord = false
     this.world.resetKart()
     this.botManager?.reset()
     this.previousKart = cloneKartState(this.world.kart)

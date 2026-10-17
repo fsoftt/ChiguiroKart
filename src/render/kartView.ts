@@ -52,6 +52,18 @@ export class KartView {
     }
   }
 
+  /** Makes the whole kart translucent and tinted (used for the time trial ghost). */
+  makeGhost(opacity: number): void {
+    this.object.traverse((child) => {
+      if (!(child instanceof THREE.Mesh)) return
+      const material = child.material
+      if (!(material instanceof THREE.MeshToonMaterial)) return
+      material.transparent = true
+      material.opacity = opacity
+      material.depthWrite = false
+    })
+  }
+
   /**
    * @param speed forward speed (m/s)
    * @param speedRatio forward speed divided by top speed

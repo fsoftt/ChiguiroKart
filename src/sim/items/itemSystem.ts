@@ -38,9 +38,11 @@ export class ItemSystem {
     readonly seed = 1,
     /** Needed by the panela to add its nitro. */
     private readonly drift: DriftConfig = defaultDrift,
+    /** False for the time trial: no boxes and no uchuvas on the track. */
+    withPickups = true,
   ) {
-    this.boxes = createPickups(track, track.itemBoxes, config.boxes.lift)
-    this.uchuvas = createPickups(track, track.uchuvas, config.uchuvas.lift)
+    this.boxes = withPickups ? createPickups(track, track.itemBoxes, config.boxes.lift) : []
+    this.uchuvas = withPickups ? createPickups(track, track.uchuvas, config.uchuvas.lift) : []
     this.rng = createRng(seedFor(seed, 0))
   }
 

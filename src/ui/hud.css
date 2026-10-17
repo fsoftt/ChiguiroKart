@@ -762,3 +762,30 @@
     transform: translateX(-50%) translateY(-20px);
   }
 }
+
+/* Time trial: ghost gap, record banner and hidden race-only widgets */
+.hud-ghost-delta {
+  font-size: clamp(11px, 2vw, 15px);
+  color: #ff8a80;
+}
+
+.hud-ghost-delta.is-ahead {
+  color: #a8e6cf;
+}
+
+.hud-results-record {
+  display: none;
+  margin: -8px 0 8px;
+  font-size: clamp(20px, 4vw, 30px);
+  color: #a8e6cf;
+}
+
+.hud-results-record.is-visible {
+  display: block;
+}
+
+.hud.is-time-trial .hud-position,
+.hud.is-time-trial .hud-item,
+.hud.is-time-trial .hud-uchuvas {
+  display: none;
+}

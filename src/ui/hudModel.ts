@@ -99,7 +99,20 @@ export interface HudModel {
   positionTotalText: string
   /** Results line, e.g. "Posición: 2.º de 4"; empty unless the race is finished. */
   finalPositionText: string
+  /** Time trial: gap to the ghost at the last lap end, e.g. "FANTASMA -0.42"; else empty. */
+  ghostDeltaText: string
+  /** True when the last lap end was ahead of the ghost. */
+  ghostAhead: boolean
+  /** Time trial: the finished run is a new best. */
+  newRecord: boolean
   items: ItemHudModel
+}
+
+/** Time trial extras for the HUD. */
+export interface TimeTrialHud {
+  /** Gap to the ghost in seconds at the last lap end (negative = ahead), or null. */
+  ghostDelta: number | null
+  newRecord: boolean
 }
 
 /** Player rank (1-based) and number of racers. */
@@ -133,6 +146,12 @@ export function formatTime(seconds: number): string {
   const secs = Math.floor(seconds % 60)
   const hundredths = Math.floor((seconds % 1) * 100)
   return `${mins}:${secs.toString().padStart(2, '0')}.${hundredths.toString().padStart(2, '0')}`
+}
+
+/** Signed seconds with two decimals, e.g. "+0.42" or "-1.30". */
+export function formatDelta(seconds: number): string {
+  const rounded = Math.round(seconds * 100) / 100
+  return `${rounded < 0 ? '-' : '+'}${Math.abs(rounded).toFixed(2)}`
 }
 
 /** Linear interpolation between two `#rrggbb` colors. */
@@ -246,6 +265,7 @@ export function buildHudModel(
   race?: RaceState,
   position?: RacePosition,
   items?: RacerItems,
+  timeTrial?: TimeTrialHud,
 ): HudModel {
   const speed = Math.max(0, forwardSpeed(kart))
   const level = kart.boost.level
@@ -309,6 +329,10 @@ export function buildHudModel(
     positionText,
     positionTotalText,
     finalPositionText,
+    ghostDeltaText:
+      timeTrial?.ghostDelta != null ? `FANTASMA ${formatDelta(timeTrial.ghostDelta)}` : '',
+    ghostAhead: timeTrial?.ghostDelta != null && timeTrial.ghostDelta < 0,
+    newRecord: finished && (timeTrial?.newRecord ?? false),
     items: buildItemHudModel(items),
   }
 }
