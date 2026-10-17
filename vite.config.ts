@@ -17,5 +17,7 @@ export default defineConfig({
   },
   test: {
     include: ['tests/**/*.test.ts'],
+    // Whole-race simulations take a few seconds each and run in parallel files
+    testTimeout: 20000,
   },
 })
