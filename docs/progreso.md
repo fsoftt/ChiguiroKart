@@ -189,17 +189,29 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 
 ## Etapa 9 — Contenido completo 🚧
 
-Flujo de juego (elegir pista y modo Copa). Las pistas, los elementos especiales y los atajos van en otras tareas.
-
+- ✅ Contrato de la etapa: superficies `ice`, `sand` y `water` (el Delfín rosado ignora agua y barro), atajos con marea (`TideRule`), franjas turbo (`BoostPad`) y peligros de pista (`HazardDefinition`: `herd`, `float`, `iceWall`, `rock`) en `sim/track.ts` y `TrackData` (el editor los conserva al importar y exportar); tema visual por pista (`config/tracks/theme.ts`) y catálogo de 12 pistas en 3 copas (`config/tracks/catalog.ts`).
+- ✅ Las 11 pistas nuevas como datos (`config/tracks/<id>Track.ts`), de 918 a 1080 m, cada una con al menos un atajo legal (checkpoints opcionales solo donde el atajo salta), cajas, uchuvas, franjas turbo y tema propio:
+  - Copa Andina: Nevado del Ruiz (lago congelado de hielo; túnel cerrado por un muro de hielo que solo rompe un nitro nivel 3), Catedral de Sal de Zipaquirá (subterránea; pasaje estrecho entre rocas y bajada a un nivel inferior), Bogotá (subida en zigzag a Monserrate hasta 17,5 m, callejón por una casa colonial, cresta del teleférico con turbo).
+  - Copa Caribe: Murallas de Cartagena (paseo sobre la muralla, rampa del cañón), Ciudad Perdida (escalinata y paso tras la cascada), San Andrés (banco de arena que aparece con marea baja en la vuelta 2), Carnaval de Barranquilla (dos carrozas recorren el carril izquierdo; callejón de papelillo con turbo a la salida).
+  - Copa Selva y Llano: Caño Cristales (vado sobre piedras), Llanos Orientales (campo de barro que corta la gran curva; estampida de vacas que hace girar), Amazonas (túnel de la ceiba y rampa del tronco sobre el río), Desierto de la Tatacoa (salto del cañón con turbo y cárcavas con dos salidas).
+- ✅ Simulación (`sim/hazards/`): franjas turbo en `stepRacer` (nitro corto, solo en carrera y en el suelo); marea según la vuelta del líder; `HazardSystem` dentro de `ItemSystem` (también en contrarreloj) con movimiento determinista por tiempo de carrera (`loop` y `pingPong` con pausa); las vacas hacen girar por la regla única de golpes y carrozas, rocas y muro de hielo empujan como una pared; el muro se rompe con nitro nivel 3 y vuelve a los 8 s si no hay un kart encima. Valores en `config/hazards.ts`.
+- ✅ Bots: esquivan obstáculos como a los karts de adelante (`RaceWorld.obstacles`), no toman un atajo cerrado por un muro de hielo salvo con nitro nivel 3 y solo toman el banco de arena con marea baja.
+- ✅ Render: cielo con degradado, niebla, luces y suelo por tema (modo subterráneo para Zipaquirá), plano de mar o río, colores de hielo, arena y agua, franjas turbo brillantes, color del atajo según la marea, 18 tipos de decoración _low-poly_ instanciados y colocados con semilla (`render/scenery/`), y vacas, carrozas, muro de hielo (con estallido al romperse) y rocas (`render/hazardView.ts`). Unas 35–42 _draw calls_ sin karts (~90 con 8 karts).
 - ✅ `Game` carga cualquier pista del catálogo al empezar una carrera: reconstruye `RaceWorld`, `ItemSystem` y la vista de objetos, reemplaza la escenografía (con `disposeObject` para liberar geometrías, materiales y texturas), aplica el tema (`applySceneTheme`) y actualiza el minimapa. `?pista=test` y `?pista=custom` siguen funcionando; se agregan `?pista=<TrackId>` y `?copa=<CupId>`. Pista por defecto: Cocora.
-- ✅ Un solo lugar para lo que depende de la pista en `game/game.ts`: `setupTrack`, `teardownTrack` y `updateTrack` (marcados con `TODO(stage 9)` para los peligros, la marea y los obstáculos).
+- ✅ Un solo lugar para lo que depende de la pista en `game/game.ts`: `setupTrack`, `teardownTrack` y `updateTrack` (escenografía con tema, vista de peligros y marea).
 - ✅ Menú en cuatro pasos: modo (Carrera rápida, Copa, Contrarreloj), pista (12 pistas agrupadas por copa) o copa (3 copas con sus 4 pistas), personaje y dificultad. Teclado (flechas, WASD, Enter, Esc) y ratón. Lógica pura en `ui/trackSelectModel.ts`.
 - ✅ Modo Copa: 4 carreras con el mismo personaje, dificultad y los mismos 7 bots; puntos 15, 12, 10, 8, 6, 4, 2, 1 (`config/cups.ts`); desempate por el mejor resultado de la última carrera y luego por el puesto en la parrilla (`game/cup.ts`). Al terminar cada carrera, tabla de la copa de 8 filas y botón «Siguiente carrera» (Enter); al terminar la cuarta, podio final con «Menú» y «Repetir copa» (`ui/cupResultsModel.ts`). Quienes no han terminado se ordenan por la clasificación en ese momento.
 - ✅ HUD: «Carrera 2/4 · Copa Andina» durante las carreras de copa.
 - ✅ Pruebas: ajustes, puntos, desempates, avance de la copa, vistas de resultados y selección de pista.
 - ✅ Comprobado en Chromium: menú → pista → carrera sin errores de consola, cambio de pista desde el menú después de una carrera y la copa completa (4 carreras y repetir copa) forzando la llegada con `window.game` (solo en desarrollo).
 - ✅ Prueba de integración `tests/tracksRace.test.ts`: las 12 pistas con 8 karts (el jugador conducido por un bot), poderes, colisiones y peligros activos, 1 vuelta cada una (San Andrés además 3 vueltas para ver la marea). Todos terminan, sin NaN, sin karts atascados (>8 s sin avanzar 3 m) y con 0 reapariciones en cada pista; las vacas de los Llanos y las carrozas de Barranquilla se mueven, los bots no chocan contra el muro de hielo del Nevado y en San Andrés usan el banco de arena solo con marea baja (vuelta 2). Comprobado en Chromium (`?pista=<id>` en las 12 pistas, sin errores de consola ni peticiones fallidas).
-- ⬜ Falta: las pistas (diseños, atajos, elementos especiales), copas online y el cierre de la etapa.
+- ⬜ Falta: copas online (llegan con las etapas 7 y 8, que se dejaron para el final) y la prueba de juego de las 12 pistas.
+
+**Notas:**
+
+- El formato no permite saltos de verdad: el suelo es una curva suave y el kart se pega al piso en las crestas, así que el teleférico de Bogotá, la rampa del cañón, el tronco del Amazonas y el cañón de la Tatacoa son crestas con turbo. La altura de un atajo es una rampa recta entre sus dos extremos (la escalinata de Ciudad Perdida es una rampa empinada) y las franjas turbo solo van en el circuito principal. Pasar por dentro de una carroza en movimiento quedó fuera.
+- Algunas curvas de Ciudad Perdida, San Andrés, Barranquilla, Amazonas, Tatacoa y Caño Cristales tienen radio de 18–29 m, menos que los 35 m buscados; los bots las toman sin rozar.
+- Las pruebas de carreras completas tardan varios segundos; el límite de Vitest pasó a 20 s por prueba.
 
 ## Etapa 10 — Pulido 🚧
 
