@@ -43,6 +43,8 @@ let clip: ClipName = clipNames.find((c) => c === params.get('clip')) ?? 'idle'
 spinBox.checked = params.get('girar') !== '0'
 allBox.checked = params.get('todos') === '1'
 const yaw = Number(params.get('angulo') ?? '0.6')
+const distance = Number(params.get('distancia') ?? '5.2')
+const height = Number(params.get('altura') ?? '2.3')
 
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, preserveDrawingBuffer: true })
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
@@ -96,8 +98,8 @@ function rebuild(): void {
   camera.position.set(0, 4.5, 11)
   camera.lookAt(0, 0.4, -0.6)
   if (!wide) {
-    camera.position.set(Math.sin(yaw) * 4, 2.1, Math.cos(yaw) * 4)
-    camera.lookAt(0, 1.0, 0)
+    camera.position.set(Math.sin(yaw) * distance, height, Math.cos(yaw) * distance)
+    camera.lookAt(0, 0.95, 0)
   }
   const character = characters[current]
   if (info) {

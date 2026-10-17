@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { missingRigParts } from '../src/render/characters/characterAssets'
-import { boneNames, clipNames } from '../src/render/characters/rig'
+import { boneNames, clipNames, faceBones, requiredBoneNames } from '../src/render/characters/rig'
 
 describe('missingRigParts', () => {
   it('accepts a model with the whole rig', () => {
@@ -16,6 +16,11 @@ describe('missingRigParts', () => {
   })
 
   it('rejects an empty model', () => {
-    expect(missingRigParts([], []).length).toBe(boneNames.length + clipNames.length)
+    expect(missingRigParts([], []).length).toBe(requiredBoneNames.length + clipNames.length)
+  })
+
+  it('does not require the optional face bones', () => {
+    const withoutFace = boneNames.filter((name) => !(faceBones as readonly string[]).includes(name))
+    expect(missingRigParts(withoutFace, clipNames)).toEqual([])
   })
 })

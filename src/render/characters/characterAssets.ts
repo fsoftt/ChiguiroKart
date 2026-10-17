@@ -3,7 +3,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { clone } from 'three/examples/jsm/utils/SkeletonUtils.js'
 import { characterIds, type CharacterId } from '../../config/characters'
 import { buildCharacterAsset, type CharacterAsset } from './buildCharacter'
-import { boneNames, clipNames, RACER_MESH_NAME } from './rig'
+import { clipNames, requiredBoneNames, RACER_MESH_NAME } from './rig'
 import { addOutline, vertexColorToon } from './toon'
 
 /** Rig contract parts (bones and clips) absent from a model; empty when it is valid. */
@@ -14,7 +14,7 @@ export function missingRigParts(
   const bones = new Set(boneList)
   const clips = new Set(clipList)
   return [
-    ...boneNames.filter((name) => !bones.has(name)).map((name) => `bone ${name}`),
+    ...requiredBoneNames.filter((name) => !bones.has(name)).map((name) => `bone ${name}`),
     ...clipNames.filter((name) => !clips.has(name)).map((name) => `clip ${name}`),
   ]
 }
