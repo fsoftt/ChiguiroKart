@@ -193,6 +193,7 @@ Cada etapa lista su objetivo, las tareas y los criterios para darla por terminad
 
 - Música por pista y efectos de sonido por personaje, motor, nitros y poderes.
 - Saltos de verdad: rampas que lanzan el kart al aire (con huecos o desniveles bruscos en el suelo) para el teleférico de Bogotá, la rampa del cañón de Cartagena, el tronco del Amazonas y el cañón de la Tatacoa, que hoy son crestas con turbo. Incluye alturas propias en los atajos (escalones reales en la escalinata de Ciudad Perdida) y franjas turbo dentro de los atajos.
+- Arte con el acabado de _CTR Nitro-Fueled_ según `arte.md`: iluminación con sombras y atmósfera; personajes de caricatura con caras expresivas y karts con forma propia; pistas con terreno esculpido, vegetación densa, decoración y trazados con desniveles, túneles y caminos a varias alturas. Personajes propios por código (reemplazables por modelos de Blender) y recursos CC0 para vegetación y objetos.
 - Efectos finales: polvo, agua, nieve y arena por superficie; marcas de llantas; sacudida de cámara; textos emergentes.
 - Menús animados y transiciones.
 - Controles táctiles para celular.
@@ -200,7 +201,7 @@ Cada etapa lista su objetivo, las tareas y los criterios para darla por terminad
 - Accesibilidad: modo para daltonismo en colores de nitro, reducir sacudidas de cámara.
 - Optimización para cumplir las metas de rendimiento en celular.
 
-**Terminada cuando:** el juego se ve y suena completo y corre a 30 FPS en un celular de gama media.
+**Terminada cuando:** el juego se ve y suena completo, con un acabado cercano a _CTR Nitro-Fueled_, y corre a 30 FPS en un celular de gama media.
 
 ---
 
