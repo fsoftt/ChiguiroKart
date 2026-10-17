@@ -2,6 +2,7 @@ import { headingOf } from '../../sim/math'
 import type { Track } from '../../sim/track'
 import { DecorBuilder, type Vec3Tuple } from './decorBuilder'
 import { chevronSigns, pennantSpots, type PropSpot } from './decorLayout'
+import { addRichProp } from './props'
 import { ATLAS_CELLS } from './proceduralTextures'
 import type { TerrainField } from './terrainField'
 
@@ -145,6 +146,9 @@ export function addProps(b: DecorBuilder, spots: readonly PropSpot[]): void {
           break
         case 'sacks':
           sacks(b)
+          break
+        default:
+          addRichProp(b, spot.kind)
           break
       }
     })

@@ -42,7 +42,24 @@ export interface VegetationSettings {
 }
 
 /** A prop placed beside the road, off the drivable area. */
-export type PropKind = 'finca' | 'yipao' | 'cart' | 'sacks'
+export type PropKind =
+  | 'finca'
+  | 'yipao'
+  | 'cart'
+  | 'sacks'
+  | 'grandstand'
+  | 'colonialHouse'
+  | 'chiva'
+  | 'boat'
+  | 'mountainHut'
+  | 'saltCross'
+  | 'cannon'
+  | 'beachHut'
+  | 'stoneTerrace'
+  | 'carnivalStage'
+  | 'maloca'
+  | 'corral'
+  | 'observatory'
 
 export interface PropPlacement {
   kind: PropKind
