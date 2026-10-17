@@ -33,6 +33,8 @@ const SIMULATION_HZ = 60
 const RESET_KEY = 'KeyR'
 const MS_PER_KMH = 3.6
 const SPEED_LINE_STREAKS = 90
+const BOT_COLORS = ['#3c7be8', '#3cc15a', '#e8c53c', '#a43ce8', '#3ce0e0', '#e8883c', '#e83ca8']
+const BOT_COUNT = 3
 
 function selectTrack(): TrackDefinition {
   if (typeof window !== 'undefined') {
@@ -66,6 +68,8 @@ export class Game {
   private readonly readout: DebugReadout = { speedKmh: 0, onGround: true }
 
   private previousKart: KartState
+  private botViews: KartView[] = []
+  private previousBotKarts: KartState[] = []
   private hasSavedRecord = false
 
   constructor(canvas: HTMLCanvasElement) {
@@ -80,7 +84,13 @@ export class Game {
     this.previousKart = cloneKartState(this.world.kart)
     // Initialize BotManager and add a simple AI bot
     this.botManager = new BotManager(this.world, this.physics, this.driftConfig)
-    this.botManager.addBot(new SimpleBot())
+    for (let i = 0; i < BOT_COUNT; i++) {
+      this.botManager.addBot(new SimpleBot())
+      const view = new KartView(BOT_COLORS[i % BOT_COLORS.length])
+      this.botViews.push(view)
+      this.scene.scene.add(view.object)
+    }
+    this.previousBotKarts = this.botManager.getBotKarts().map(cloneKartState)
 
     this.hud.setTrack(this.world.track)
 
@@ -112,10 +122,25 @@ export class Game {
     const alpha = this.fixedStep.advance(dt, (stepSeconds) => {
       this.previousKart = cloneKartState(this.world.kart)
       this.world.step(input, stepSeconds)
+      this.previousBotKarts = this.botManager.getBotKarts().map(cloneKartState)
       this.botManager.update(stepSeconds)
+      this.botManager.resolveCollisions()
     })
 
+    this.renderBots(alpha, dt)
     this.render(interpolateKart(this.previousKart, this.world.kart, alpha), input, dt)
+  }
+
+  private renderBots(alpha: number, dt: number): void {
+    const infos = this.botManager.getBotInfos()
+    for (let i = 0; i < infos.length; i++) {
+      const info = infos[i]
+      const view = this.botViews[i]
+      if (!info || !view) continue
+      const kart = interpolateKart(this.previousBotKarts[i] ?? info.kart, info.kart, alpha)
+      const speed = forwardSpeed(kart)
+      view.update(kart, info.input.steer, speed, speed / this.physics.maxSpeed, dt)
+    }
   }
 
   private render(kart: KartState, input: KartInput, dt: number): void {
@@ -160,6 +185,7 @@ export class Game {
     this.world.resetKart()
     this.botManager.reset()
     this.previousKart = cloneKartState(this.world.kart)
+    this.previousBotKarts = this.botManager.getBotKarts().map(cloneKartState)
     this.chaseCamera.reset()
   }
 }

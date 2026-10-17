@@ -7,6 +7,7 @@ import type { KartPhysicsConfig } from '../config/kartPhysics'
 import type { DriftConfig } from '../config/drift'
 import type { KartState } from './kart/kartState'
 import type { RaceState } from './race/raceState'
+import { resolveKartCollisions } from './kart/kartCollision'
 import { createRacer, resetRacer, stepRacer, type Racer } from './racer'
 
 interface BotEntry {
@@ -32,7 +33,8 @@ export class BotManager {
 
   /** Add a new bot instance. */
   addBot(provider: BotInputProvider) {
-    const racer = createRacer(this.world.track, this.world.raceOptions)
+    // Slot 0 is the player, bots take 1, 2, ... in order
+    const racer = createRacer(this.world.track, this.world.raceOptions, this.bots.length + 1)
     this.bots.push({ provider, racer, lastInput: { ...NEUTRAL_INPUT } })
   }
 
@@ -57,6 +59,16 @@ export class BotManager {
   /** Get the internal array of bot kart states (read‑only). */
   getBotKarts(): KartState[] {
     return this.bots.map((b) => b.racer.kart)
+  }
+
+  /** Player kart followed by every bot kart, for kart-vs-kart collisions. */
+  allKarts(): KartState[] {
+    return [this.world.kart, ...this.bots.map((b) => b.racer.kart)]
+  }
+
+  /** Resolve collisions between the player and all bots. Call after everyone has stepped. */
+  resolveCollisions() {
+    resolveKartCollisions(this.allKarts(), this.physics)
   }
 
   /** Get the kart, race state and last input of each bot. */

@@ -100,13 +100,17 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 
 - 🚧 Infraestructura inicial: `BotInputProvider`, `SimpleBot` (apunta al siguiente checkpoint) y `BotManager`, que mueve los bots con la misma física que el jugador (`input/botInput.ts`, `sim/botManager.ts`).
 - ✅ Estado de carrera por kart: cada kart es un `Racer` con su propio `RaceManager` (vueltas, checkpoints, reaparición, ahogo de motor). Jugador y bots pasan por el mismo `stepRacer`, y cada bot apunta con sus propios checkpoints (`sim/racer.ts`).
-- ⬜ Vista 3D de los bots (hoy no se dibujan) y choques entre karts.
+- ✅ Vista 3D de los bots y choques entre karts: cada bot se dibuja con su propio `KartView` (color de carrocería distinto) y se interpola entre pasos fijos igual que el jugador (`game/game.ts`, `render/kartView.ts`). `resolveKartCollisions` trata los karts como círculos en XZ (`kartRadius`), los separa por igual y aplica un impulso de masas iguales con `kartRestitution` si se acercan; ignora pares con más de `kartHeight` de separación vertical. Se llama una vez por paso, tras mover al jugador y a todos los bots (`sim/kart/kartCollision.ts`, `BotManager.resolveCollisions`).
+- ✅ Parrilla de salida: `gridPose(track, slot)` (dos karts por fila, escalonados a ambos lados de la línea central y cada fila más atrás sobre la dirección de salida; valores en `config/grid.ts`). El jugador usa la casilla 0, los bots 1, 2, ... en orden de `addBot`, y `resetRacer` devuelve cada kart a su casilla (`sim/racer.ts`).
+- ✅ La partida lleva 3 bots por ahora (la Carrera rápida contra 7 llegará después).
 - ⬜ Línea de bots en la pista, derrape y nitros por dificultad, uso de atajos y ayuda de remontada.
 - ⬜ Posiciones en tiempo real, HUD de posición y modo Carrera rápida contra 7 bots.
-- 🚧 Pruebas de los bots: estado de carrera por kart, `BotManager` y `SimpleBot` (9 pruebas en `tests/racer.test.ts`, 143 en total).
+- 🚧 Pruebas de los bots: estado de carrera por kart, `BotManager` y `SimpleBot` (9 pruebas en `tests/racer.test.ts`, más 6 de parrilla en `tests/grid.test.ts` y 7 de choques en `tests/kartCollision.test.ts`; 156 en total).
 
 **Notas:**
 
 - La primera versión de los bots rompió el build y el arranque del juego (`require()` en el navegador y campos de `KartInput` equivocados). Se corrigió junto con los shaders de partículas, que habían perdido los `;` desde la etapa 2 y no compilaban, por lo que el humo y las llamas no se veían.
 - `SimpleBot` no acelera durante la cuenta regresiva: antes mantenía el acelerador y, con su propio estado de carrera, se habría ahogado en cada salida. El turbo de salida de los bots llegará con la dificultad.
 - `R` reinicia también a los bots.
+- La velocidad del kart es un vector (`velocity`) separado de `heading`, así que el impulso del choque modifica solo el vector, igual que el rebote contra el muro; el agarre lateral se encarga después de realinear la velocidad con el rumbo.
+- La parrilla va detrás de la línea de salida, por lo que en pistas con una curva justo antes de la meta las filas traseras podrían quedar fuera del asfalto; se comprobó que las 8 casillas caben en Cocora.

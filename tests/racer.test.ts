@@ -6,7 +6,7 @@ import { SimpleBot } from '../src/input/botInput'
 import { BotManager } from '../src/sim/botManager'
 import { createKartState } from '../src/sim/kart/kartState'
 import type { Checkpoint } from '../src/sim/race/checkpoint'
-import { createRacer, stepRacer } from '../src/sim/racer'
+import { createRacer, gridPose, stepRacer } from '../src/sim/racer'
 import { Track, type TrackDefinition } from '../src/sim/track'
 import { RaceWorld } from '../src/sim/world'
 
@@ -41,7 +41,7 @@ function makeWorld(countdownSeconds = 1): RaceWorld {
 describe('Racer', () => {
   it('starts on the grid with a fresh race state in countdown', () => {
     const racer = createRacer(square, { countdownSeconds: 2 })
-    const pose = square.startPose()
+    const pose = gridPose(square, 0)
 
     expect(racer.kart.position).toEqual(pose.position)
     expect(racer.kart.heading).toBe(pose.heading)
@@ -127,7 +127,7 @@ describe('BotManager', () => {
 
     bots.reset()
 
-    const pose = world.track.startPose()
+    const pose = gridPose(world.track, 1)
     const after = bots.getBotInfos()[0]
     expect(after?.kart.position).toEqual(pose.position)
     expect(after?.kart.heading).toBe(pose.heading)

@@ -24,6 +24,12 @@ export interface KartPhysicsConfig {
   gravity: number
   /** Collision radius against walls (m). */
   radius: number
+  /** Collision radius against other karts (m). Karts are circles in the XZ plane. */
+  kartRadius: number
+  /** Karts whose vertical gap exceeds this (m) do not collide, e.g. one jumping over another. */
+  kartHeight: number
+  /** Fraction of the approach speed bounced back in a kart-vs-kart hit. */
+  kartRestitution: number
   /** Fraction of the into-wall speed bounced back. */
   wallBounce: number
   /** Along-wall speed lost per unit of into-wall speed on impact (friction coefficient). */
@@ -47,6 +53,9 @@ export const defaultKartPhysics: KartPhysicsConfig = {
   lateralGrip: 8,
   gravity: 30,
   radius: 0.9,
+  kartRadius: 1.1,
+  kartHeight: 1.2,
+  kartRestitution: 0.4,
   wallBounce: 0.3,
   wallFriction: 0.5,
   wallAlignRate: 10,

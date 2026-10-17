@@ -19,12 +19,12 @@ export class KartView {
   private readonly frontWheelPivots: THREE.Group[] = []
   private roll = 0
 
-  constructor() {
+  constructor(bodyColor: string = BODY_COLOR) {
     const toon = (color: string): THREE.MeshToonMaterial => new THREE.MeshToonMaterial({ color })
 
-    const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.35, 2.1), toon(BODY_COLOR))
+    const chassis = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.35, 2.1), toon(bodyColor))
     chassis.position.y = 0.45
-    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.25, 0.6), toon(BODY_COLOR))
+    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.25, 0.6), toon(bodyColor))
     nose.position.set(0, 0.45, 1.25)
     const driver = new THREE.Mesh(new THREE.SphereGeometry(0.42, 16, 12), toon(DRIVER_COLOR))
     driver.position.set(0, 1.05, -0.2)
