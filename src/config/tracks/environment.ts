@@ -22,6 +22,13 @@ export interface TerrainSettings {
   hillHeight: number
   /** How fast the land climbs far from the road (m of height per m of distance). */
   valleySlope: number
+  /**
+   * Negative `valleySlope` makes the land fall away from the road (coasts, river plains);
+   * `floor` is the lowest the land goes there (m). Never applies within road + shoulder.
+   */
+  floor?: number
+  /** How far below the road the ravine under a jump gap is carved (m). Default 14. */
+  gapDepth?: number
 }
 
 export type FenceStyle = 'wood' | 'stone'

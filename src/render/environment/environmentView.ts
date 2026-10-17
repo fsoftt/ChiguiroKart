@@ -41,6 +41,11 @@ interface RoadMaterial {
   tile: number
 }
 
+export interface EnvironmentOptions {
+  /** True for branches whose road is drawn by the caller (tidal ribbons); fence and land stay. */
+  skipRoad?: (branchIndex: number) => boolean
+}
+
 /**
  * The rich environment of a track (see `TrackEnvironment`): sculpted terrain, textured road with
  * rounded curbs, a themed fence, instanced vegetation with wind, and decoration. Visual only.
@@ -50,7 +55,8 @@ export class EnvironmentView extends THREE.Group {
   /** The land, so tests and tools can sample it exactly as drawn. */
   readonly field: TerrainField
   private vegetation: THREE.Group | null = null
-  private readonly keepClear: KeepClear[]
+  /** Circles taken by props; decoration scenery stays out of them. */
+  readonly keepClear: KeepClear[]
   private readonly roads = new Map<string, RoadMaterial>()
   private readonly environment: TrackEnvironment
   private density = -1
@@ -60,6 +66,7 @@ export class EnvironmentView extends THREE.Group {
     theme: TrackTheme,
     environment: TrackEnvironment,
     density: number,
+    options: EnvironmentOptions = {},
   ) {
     super()
     this.name = 'environment'
@@ -92,7 +99,8 @@ export class EnvironmentView extends THREE.Group {
     const posts: THREE.Matrix4[] = []
     ;[main, ...branches].forEach((path, index) => {
       const isMain = index === 0
-      this.addRoad(path, theme, isMain ? ROAD_LIFT : BRANCH_LIFT)
+      if (isMain || !options.skipRoad?.(index - 1))
+        this.addRoad(path, theme, isMain ? ROAD_LIFT : BRANCH_LIFT)
       if (isMain) this.addCurbs(path, theme)
       const fence = buildFence(track, path, index, decor, environment.decor.bannerDensity)
       if (fence.rails) railGeometries.push(fence.rails)

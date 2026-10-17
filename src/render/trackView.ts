@@ -68,16 +68,33 @@ export class TrackView extends THREE.Group {
     this.name = `track:${track.name}`
     const water = theme.water ? createWater(theme.water) : null
     if (water) this.add(water)
-    if (theme.environment && !track.hasTide) {
-      // Rich environment: it replaces the flat ground, plain road, curbs and walls
-      this.environment = new EnvironmentView(
+    if (theme.environment) {
+      // Rich environment: it replaces the flat ground, plain road, curbs and walls. Tidal
+      // branches keep a recolorable ribbon instead of its road
+      const environment = new EnvironmentView(
         track,
         theme,
         theme.environment,
         options.vegetationDensity ?? 1,
+        { skipRoad: (index) => track.branches[index]?.tide !== undefined },
       )
+      this.environment = environment
+      track.branches.forEach((branch, index) => {
+        if (!branch.tide) return
+        const ribbon = createTidalRibbon(track, createBranchPath(track, branch, index))
+        this.tidal.push({ branch, material: ribbon.material })
+        this.add(ribbon.mesh)
+      })
       this.addFeatures(water)
-      this.add(this.environment)
+      this.add(environment)
+      if (theme.decorations.length > 0) {
+        this.add(
+          createScenery(track, theme, {
+            heightAt: environment.field.heightAt,
+            keepClear: environment.keepClear,
+          }),
+        )
+      }
       this.update()
       return
     }

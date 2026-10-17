@@ -55,7 +55,16 @@ export interface ScatterOptions {
   setIndex?: number
   /** If the track has water, pieces are not placed at or under this height. */
   waterLevel?: number
+  /** Ground height at (x, z) (a sculpted terrain); defaults to the sim road height. */
+  heightAt?: (x: number, z: number) => number
+  /** Circles to keep clear of (props of an environment). */
+  keepClear?: readonly { x: number; z: number; radius: number }[]
 }
+
+/** Spots where the terrain is steeper than this (rise over run) are skipped. */
+const MAX_TERRAIN_SLOPE = 0.8
+/** Distance used to measure the slope of the terrain (m). */
+const SLOPE_STEP = 1.5
 
 /**
  * Picks `count` spots off the road for a kind of scenery. Deterministic: the same track and
@@ -85,7 +94,10 @@ export function scatterDecorations(
     const nearest = track.project(x, z)
     if (nearest.distance - nearest.halfWidth < rule.minGap) continue
 
-    const y = track.roadHeight(x, z)
+    const heightAt = options.heightAt
+    if (options.keepClear?.some((c) => Math.hypot(c.x - x, c.z - z) < c.radius)) continue
+    const y = heightAt ? heightAt(x, z) : track.roadHeight(x, z)
+    if (heightAt && terrainSlope(heightAt, x, z, y) > MAX_TERRAIN_SLOPE) continue
     if (options.waterLevel !== undefined && y <= options.waterLevel + 0.05) continue
 
     const cx = Math.floor(x / cell)
@@ -106,6 +118,23 @@ export function scatterDecorations(
     else grid.set(key, [item])
   }
   return items
+}
+
+function terrainSlope(
+  heightAt: (x: number, z: number) => number,
+  x: number,
+  z: number,
+  h: number,
+): number {
+  const d = SLOPE_STEP
+  return (
+    Math.max(
+      Math.abs(heightAt(x + d, z) - h),
+      Math.abs(heightAt(x - d, z) - h),
+      Math.abs(heightAt(x, z + d) - h),
+      Math.abs(heightAt(x, z - d) - h),
+    ) / d
+  )
 }
 
 function crowded(

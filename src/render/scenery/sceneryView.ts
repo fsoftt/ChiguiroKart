@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import type { TrackTheme } from '../../config/tracks/theme'
 import type { Track } from '../../sim/track'
-import { scatterDecorations } from './scatter'
+import { scatterDecorations, type ScatterOptions } from './scatter'
 import { sceneryMaterial } from './sceneryKit'
 import { sceneryModel } from './sceneryModels'
 
@@ -9,7 +9,11 @@ import { sceneryModel } from './sceneryModels'
  * Scatters the theme's decorations around the track. Each set becomes one instanced mesh per
  * material layer of its prop, so a track's scenery costs a handful of draw calls.
  */
-export function createScenery(track: Track, theme: TrackTheme): THREE.Group {
+export function createScenery(
+  track: Track,
+  theme: TrackTheme,
+  extra: Pick<ScatterOptions, 'heightAt' | 'keepClear'> = {},
+): THREE.Group {
   const group = new THREE.Group()
   group.name = 'scenery'
   const matrix = new THREE.Matrix4()
@@ -20,7 +24,8 @@ export function createScenery(track: Track, theme: TrackTheme): THREE.Group {
   const up = new THREE.Vector3(0, 1, 0)
 
   theme.decorations.forEach((set, setIndex) => {
-    const options = {
+    const options: ScatterOptions = {
+      ...extra,
       setIndex,
       ...(theme.water ? { waterLevel: theme.water.level } : {}),
     }
