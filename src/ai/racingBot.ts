@@ -7,7 +7,9 @@ import {
 import { defaultDrift, type DriftConfig } from '../config/drift'
 import { NEUTRAL_INPUT, type KartInput } from '../input/kartInput'
 import type { BotContext, BotInputProvider } from '../input/botInput'
+import { insideLip } from '../sim/hazards/jumps'
 import { forwardSpeed } from '../sim/kart/kartPhysics'
+import type { KartState } from '../sim/kart/kartState'
 import { clamp, damp, forwardOf, headingOf, lerp, rightOf, wrapAngle, type Vec2 } from '../sim/math'
 import type { Racer } from '../sim/racer'
 import type { Track } from '../sim/track'
@@ -63,6 +65,9 @@ export class RacingBot implements BotInputProvider {
   private drift: DriftControl | null = null
   private items: ItemControl | null = null
   private itemRng: Rng = createRng(0)
+  private trickRng: Rng = createRng(0)
+  /** True while the kart is in a jump lip zone (the hop is decided on entering it). */
+  private inLip = false
   private route: Route | null = null
   private routeTrack: Track | null = null
   private cursor: RouteCursor | null = null
@@ -204,9 +209,21 @@ export class RacingBot implements BotInputProvider {
       throttle: over > 0 ? 0 : 1,
       brake: over > this.behavior.brakeMargin ? clamp(over / 10, 0.3, 1) : 0,
       steer: command?.forcedSteer ?? this.steer,
-      jump: command?.jump ?? false,
+      jump: (command?.jump ?? false) || this.hopAtLip(ctx.world.track, kart),
       boost: command?.boost ?? false,
     }
+  }
+
+  /**
+   * Presses jump on the first step in a jump lip zone, with the skill's chance, to earn the
+   * landing nitro. Rolled once per pass on its own random stream.
+   */
+  private hopAtLip(track: Track, kart: KartState): boolean {
+    const inLip =
+      kart.onGround && track.jumps.some((j) => insideLip(j, kart.position.x, kart.position.z))
+    const entering = inLip && !this.inLip
+    this.inLip = inLip
+    return entering && this.trickRng() < this.skill.jumpTrickChance
   }
 
   /** Sets up route and random state on first use and after a reset. */
@@ -224,6 +241,8 @@ export class RacingBot implements BotInputProvider {
     // Separate generator so item use never changes the driving random sequence
     this.itemRng = createRng(seedFor(this.seed ^ 0x51ed270b, ctx.self.slot))
     this.items = new ItemControl(this.skill, this.behavior, this.itemRng)
+    this.trickRng = createRng(seedFor(this.seed ^ 0x7a1c4e93, ctx.self.slot))
+    this.inLip = false
     this.cursor = {
       branch: -1,
       index: this.route.nearestMainIndex({

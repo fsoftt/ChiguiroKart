@@ -5,10 +5,16 @@ import { clamp, dotXZ, forwardOf, lerp, moveTowards, rightOf, wrapAngle } from '
 import { applyLandingBoost, boostSpeedBonus, tickBoost } from './boost'
 import { checkDriftEnd, driftSteer, readEdges, tryHop, tryStartDrift, updateDrift } from './drift'
 import { NEUTRAL_KART_PERKS, type KartPerks } from './kartPerks'
-import type { KartState } from './kartState'
+import { createRampState, type KartState } from './kartState'
 
 /** Ground height lookup, so physics does not depend on a concrete track type. */
 export type GroundHeight = (x: number, z: number) => number
+
+/**
+ * An airborne kart that ends up more than this far under the ground did not land: it hit the
+ * far wall of a gap or a cliff. It keeps falling (and respawns) instead of being lifted onto it.
+ */
+const MAX_LEDGE_RECOVERY = 1
 
 /** Advances one kart by `dt` seconds. Mutates `state`. */
 export function stepKart(
@@ -38,7 +44,11 @@ export function stepKart(
   const wasAirborne = !state.onGround
   landOnGround(state, groundHeight, config.groundSnapDistance)
   if (state.onGround && wasAirborne) {
-    applyLandingBoost(state, driftConfig, perks.landingBoostFactor)
+    // A ramp launch only earns the landing nitro if the player hopped at the lip
+    if (!state.ramp.active || state.ramp.tricked) {
+      applyLandingBoost(state, driftConfig, perks.landingBoostFactor)
+    }
+    state.ramp = createRampState()
     state.airTime = 0
     tryStartDrift(state, input, driftConfig)
   }
@@ -158,13 +168,15 @@ function integrate(state: KartState, dt: number): void {
 /**
  * Resolves ground contact. A kart that was grounded and is not rising (no hop in progress)
  * sticks to the surface when the ground drops away by at most `snapDistance`, so downhill
- * slopes do not flicker between ground and air. Bigger drops still make it airborne.
+ * slopes do not flicker between ground and air. Bigger drops still make it airborne. A kart
+ * that falls far under the ground (the far wall of a gap) does not land at all.
  */
 function landOnGround(state: KartState, groundHeight: GroundHeight, snapDistance: number): void {
   const ground = groundHeight(state.position.x, state.position.z)
   const wasOnGround = state.onGround
   const snaps = wasOnGround && state.velocity.y <= 0 && state.position.y - ground <= snapDistance
-  state.onGround = state.position.y <= ground || snaps
+  const underLedge = !wasOnGround && ground - state.position.y > MAX_LEDGE_RECOVERY
+  state.onGround = !underLedge && (state.position.y <= ground || snaps)
   if (!state.onGround) return
   state.position.y = ground
   state.velocity.y = Math.max(state.velocity.y, 0)

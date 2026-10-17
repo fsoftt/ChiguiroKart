@@ -52,8 +52,8 @@ export const tatacoaData: TrackData = {
       points: [
         roadPoint(2 * SAMPLES_PER_SEGMENT),
         { x: 60, z: -112 },
-        { x: 76, z: -85 },
-        { x: 76, z: -60 },
+        { x: 76, z: -92 },
+        { x: 76, z: -54 },
         roadPoint(8 * SAMPLES_PER_SEGMENT + 8),
       ],
       halfWidth: 6,
@@ -107,7 +107,11 @@ export const tatacoaData: TrackData = {
     { at: 0.05, offset: -2.5, length: 8 },
     { at: 0.05, offset: 2.5, length: 8 },
     { at: 0.78, offset: 0 },
+    // Turbo before the lip of the canyon jump
+    { at: 0.15, offset: 0, length: 8, width: 5, branch: 'Salto del cañón' },
   ],
+  // The canyon jump: the shortcut leaves the rim with a lip over a twelve metre chasm
+  jumps: [{ at: 0.43, branch: 'Salto del cañón', launchSpeed: 13, gap: 12 }],
   hazards: [],
 }
 

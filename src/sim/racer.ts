@@ -10,6 +10,7 @@ import { resolveTrackCollision } from './kart/trackCollision'
 import { defaultItems, type ItemsConfig } from '../config/items'
 import { defaultHazards, type HazardsConfig } from '../config/hazards'
 import { applyBoostPads } from './hazards/boostPads'
+import { applyJumps } from './hazards/jumps'
 import { endDrift } from './kart/drift'
 import { createRacerItems, type RacerItems } from './items/itemTypes'
 import { statusModifiers } from './items/statusModifiers'
@@ -128,8 +129,11 @@ export function stepRacer(
     lateralGrip: stats.lateralGrip * surfaceProps.gripMultiplier * modifiers.gripFactor,
   }
 
-  // Turbo strips: only once the race has started, so parked karts are not boosted
-  if (race.state.phase === 'racing') applyBoostPads(kart, track, drift, hazards)
+  // Turbo strips and launch ramps: only once the race has started, so parked karts are untouched
+  if (race.state.phase === 'racing') {
+    applyBoostPads(kart, track, drift, hazards)
+    applyJumps(kart, track, drivingInput.jump, dt)
+  }
 
   stepKart(
     kart,

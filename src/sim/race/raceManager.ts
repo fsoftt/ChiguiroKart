@@ -3,6 +3,7 @@ import type { KartInput } from '../../input/kartInput'
 import { headingOf, type Vec2 } from '../math'
 import { addBoost } from '../kart/boost'
 import { createBoostState, createDriftState } from '../kart/driftState'
+import { createRampState } from '../kart/kartState'
 import type { KartState } from '../kart/kartState'
 import { checkGateCrossing, type Checkpoint } from './checkpoint'
 import { createRaceState, type RaceState } from './raceState'
@@ -188,6 +189,7 @@ export class RaceManager {
 
     kart.velocity = { x: 0, y: 0, z: 0 }
     kart.airTime = 0
+    kart.ramp = createRampState()
     kart.drift = createDriftState()
     kart.boost = createBoostState()
   }

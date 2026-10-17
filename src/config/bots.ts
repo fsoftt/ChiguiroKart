@@ -40,6 +40,8 @@ export interface BotDifficultyConfig {
   blindSteerNoise: number
   /** Share of the look-ahead distance kept while blinded (< 1 = shorter). */
   blindLookaheadScale: number
+  /** Chance of hopping at a jump lip, which earns the landing nitro. */
+  jumpTrickChance: number
   /** True if the bot only throws panela on a straight; false = right away. */
   panelaNeedsStraight: boolean
 }
@@ -62,6 +64,7 @@ export const botDifficulties: Record<BotDifficulty, BotDifficultyConfig> = {
     itemDefensiveChance: 0.5,
     blindSteerNoise: 0.6,
     blindLookaheadScale: 0.6,
+    jumpTrickChance: 0.3,
     panelaNeedsStraight: false,
   },
   normal: {
@@ -81,6 +84,7 @@ export const botDifficulties: Record<BotDifficulty, BotDifficultyConfig> = {
     itemDefensiveChance: 0.8,
     blindSteerNoise: 0.4,
     blindLookaheadScale: 0.75,
+    jumpTrickChance: 0.7,
     panelaNeedsStraight: true,
   },
   dificil: {
@@ -100,6 +104,7 @@ export const botDifficulties: Record<BotDifficulty, BotDifficultyConfig> = {
     itemDefensiveChance: 0.95,
     blindSteerNoise: 0.25,
     blindLookaheadScale: 0.85,
+    jumpTrickChance: 0.95,
     panelaNeedsStraight: true,
   },
 }

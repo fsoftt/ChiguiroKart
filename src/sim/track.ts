@@ -12,6 +12,13 @@ export interface TrackBranch {
   surface: SurfaceType
   /** If set, the surface changes with the tide instead of being `surface` (San Andrés). */
   tide?: TideRule
+  /**
+   * Ground height at each point of `points` (m), piecewise linear by arc length. Without it
+   * the branch ramps linearly between the road heights at its two ends.
+   */
+  heights?: readonly number[]
+  /** If set, the height profile is quantized into this many flat treads with sharp risers. */
+  steps?: number
 }
 
 /**
@@ -35,6 +42,36 @@ export interface BoostPad {
   length: number
   /** Size across the heading (m). */
   width: number
+}
+
+/** A stretch of missing ground: `from`..`to` metres along the main loop or along a branch. */
+export interface GapZone {
+  /** -1 for the main loop, otherwise the index into `Track.branches`. */
+  branch: number
+  /** Arc length (m) where the gap starts, measured from the start of its piece. */
+  from: number
+  /** Arc length (m) where the gap ends. */
+  to: number
+}
+
+/**
+ * A launch ramp: a grounded kart inside the lip zone (`length` metres right before `position`,
+ * the full road width) that moves along `heading` is thrown up at `launchSpeed`. Past the lip
+ * the ground may be missing (`gap`), so a kart that is too slow falls in and respawns.
+ */
+export interface Jump {
+  /** Center of the lip edge (x, z), where the ground ends or the ramp tops out. */
+  position: Vec2
+  /** Direction of travel over the lip (rad, same convention as `headingOf`). */
+  heading: number
+  /** Half the width of the lip zone across the heading (m). */
+  halfWidth: number
+  /** Size of the lip zone along the heading, counted back from `position` (m). */
+  length: number
+  /** Vertical speed given to the kart (m/s). */
+  launchSpeed: number
+  /** Resolved missing ground right after the lip, if any. */
+  gap?: GapZone
 }
 
 /**
@@ -83,6 +120,15 @@ export interface TrackDefinition {
   uchuvas?: readonly Vec2[]
   /** Optional turbo strips. */
   boostPads?: readonly BoostPad[]
+  /** Optional launch ramps (see `Jump`). */
+  jumps?: readonly Jump[]
+  /**
+   * Ground height ignoring gaps: what the road surface would be there. Used for drawing and for
+   * things that must not fall into a gap. Defaults to `groundHeight`.
+   */
+  roadHeight?: (x: number, z: number) => number
+  /** True where there is no ground (inside a jump gap). */
+  gapAt?: (x: number, z: number) => boolean
   /** Optional track obstacles (cattle, floats, ice walls, rocks). */
   hazards?: readonly HazardDefinition[]
 }
@@ -122,6 +168,7 @@ export class Track {
   /** Uchuva spots (x, z). */
   readonly uchuvas: readonly Vec2[]
   readonly boostPads: readonly BoostPad[]
+  readonly jumps: readonly Jump[]
   readonly hazards: readonly HazardDefinition[]
   /**
    * True while the tide is low (see `TideRule`). Race state, not geometry: the race code sets
@@ -129,6 +176,8 @@ export class Track {
    */
   tideLow = false
   private readonly customGroundHeight?: ((x: number, z: number) => number) | undefined
+  private readonly customRoadHeight?: ((x: number, z: number) => number) | undefined
+  private readonly customGapAt?: ((x: number, z: number) => boolean) | undefined
   private readonly customSurfaceAt?: ((x: number, z: number) => SurfaceType) | undefined
 
   constructor(definition: TrackDefinition) {
@@ -143,8 +192,11 @@ export class Track {
     this.itemBoxes = definition.itemBoxes ?? []
     this.uchuvas = definition.uchuvas ?? []
     this.boostPads = definition.boostPads ?? []
+    this.jumps = definition.jumps ?? []
     this.hazards = definition.hazards ?? []
     this.customGroundHeight = definition.groundHeight
+    this.customRoadHeight = definition.roadHeight
+    this.customGapAt = definition.gapAt
     this.customSurfaceAt = definition.surfaceAt
 
     this.checkpoints = definition.checkpoints ?? this.generateDefaultCheckpoints()
@@ -164,6 +216,16 @@ export class Track {
       return this.customGroundHeight(x, z)
     }
     return 0
+  }
+
+  /** Ground height ignoring jump gaps (the road surface as if it were whole). */
+  roadHeight(x: number, z: number): number {
+    return this.customRoadHeight ? this.customRoadHeight(x, z) : this.groundHeight(x, z)
+  }
+
+  /** True if (x, z) is over a jump gap, where `groundHeight` is the deep gap floor. */
+  inGap(x: number, z: number): boolean {
+    return this.customGapAt ? this.customGapAt(x, z) : false
   }
 
   /** Surface type at a position. Tidal branches follow `tideLow`, even with a custom lookup. */

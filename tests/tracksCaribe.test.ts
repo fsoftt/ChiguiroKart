@@ -174,10 +174,14 @@ describe.each(Object.entries(circuits))('Copa Caribe: %s', (key, { data, theme, 
       const projection = track.mainProjection(spot.x, spot.z)
       expect(projection.distance).toBeLessThan(data.halfWidth - 1)
     }
-    for (const pad of track.boostPads) {
-      const projection = track.mainProjection(pad.position.x, pad.position.z)
-      expect(projection.distance + pad.width / 2).toBeLessThan(data.halfWidth)
-    }
+    track.boostPads.forEach((pad, i) => {
+      // A pad on a shortcut must fit inside that shortcut instead
+      const branch = track.branches.find((b) => b.name === data.boostPads?.[i]?.branch)
+      const projection = branch
+        ? track.project(pad.position.x, pad.position.z)
+        : track.mainProjection(pad.position.x, pad.position.z)
+      expect(projection.distance + pad.width / 2).toBeLessThan(branch?.halfWidth ?? data.halfWidth)
+    })
     for (let slot = 0; slot < 8; slot++) {
       const { position } = gridPose(track, slot)
       const projection = track.project(position.x, position.z)

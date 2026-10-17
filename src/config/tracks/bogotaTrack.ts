@@ -3,7 +3,8 @@ import type { TrackTheme } from './theme'
 
 /**
  * Bogotá: La Candelaria y Monserrate: a clockwise loop from the old town up a zigzag road to
- * Monserrate and back down. The cable car crest is a jump on the descent (boost pad before it).
+ * Monserrate and back down. The cable car crest is a real jump over a gap on the descent (boost
+ * pad before it).
  * Shortcut: a narrow wooden alley through the colonial house the street goes around.
  */
 export const bogotaData: TrackData = {
@@ -122,6 +123,12 @@ export const bogotaData: TrackData = {
   boostPads: [
     { at: 0.4811, offset: 0 },
     { at: 0.9811, offset: 0 },
+    // Turbo on the wooden alley shortcut
+    { at: 0.25, offset: 0, length: 8, width: 3.5, branch: 'Callejón de la casa colonial' },
+  ],
+  jumps: [
+    // The gondola gap: the cable car crest ends in a lip over a missing stretch of road
+    { at: 0.5455, launchSpeed: 11, gap: 8 },
   ],
 }
 

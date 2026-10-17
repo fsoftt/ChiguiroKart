@@ -25,6 +25,14 @@ const ROAD_LIFT = 0.01
 const BRANCH_LIFT = 0.015
 const UP = new THREE.Vector3(0, 1, 0)
 const GROUND_DEFAULT_Y = -0.05
+/** Height of a jump ramp wedge at its lip edge (m). */
+const RAMP_HEIGHT = 0.6
+/** Rows the ramp wedge is cut into, so it follows a sloped road. */
+const RAMP_ROWS = 4
+/** Spacing (m) of the samples of a branch with a gap: the gap edges are cut to within half. */
+const GAP_SAMPLE_SPACING = 0.25
+/** Spacing (m) of the samples of a stepped branch: a riser is a near vertical quad. */
+const STEP_SAMPLE_SPACING = 0.1
 /** The ground sinks this far below the water level, so the water tints it. */
 const SEABED_DEPTH = 1.5
 
@@ -96,9 +104,9 @@ export class TrackView extends THREE.Group {
     this.add(createCurbs(track, theme, main, -main.halfWidth, -main.halfWidth + CURB_WIDTH))
     this.add(createWall(track, theme, main, main.halfWidth))
     this.add(createWall(track, theme, main, -main.halfWidth - WALL_THICKNESS))
-    for (const branch of track.branches) {
+    track.branches.forEach((branch, index) => {
       const path: Path = {
-        points: branch.points,
+        points: branchSamples(track, branch, index),
         closed: false,
         halfWidth: branch.halfWidth,
         surfaceAt: () => branch.surface,
@@ -114,7 +122,8 @@ export class TrackView extends THREE.Group {
       }
       this.add(createWall(track, theme, path, path.halfWidth))
       this.add(createWall(track, theme, path, -path.halfWidth - WALL_THICKNESS))
-    }
+    })
+    if (track.jumps.length > 0) this.add(createJumpRamps(track, theme))
     this.add(createStartLine(track))
     if (track.boostPads.length > 0) this.add(createBoostPads(track))
     this.add(createScenery(track, theme))
@@ -181,6 +190,31 @@ interface Path {
   openAt: (point: Vec2) => boolean
 }
 
+/**
+ * Points to draw a branch from. Its own polyline normally; resampled finely when it has stairs
+ * (so each riser is a sharp step) or a gap (so the road ends where the ground does).
+ */
+function branchSamples(track: Track, branch: TrackBranch, index: number): readonly Vec2[] {
+  const gapped = track.jumps.some((jump) => jump.gap?.branch === index)
+  const stepped = (branch.steps ?? 0) > 0
+  if (!gapped && !stepped) return branch.points
+  const spacing = stepped ? STEP_SAMPLE_SPACING : GAP_SAMPLE_SPACING
+  const samples: Vec2[] = []
+  for (let i = 0; i + 1 < branch.points.length; i++) {
+    const a = branch.points[i]
+    const b = branch.points[i + 1]
+    if (!a || !b) continue
+    const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / spacing))
+    for (let k = 0; k < count; k++) {
+      const t = k / count
+      samples.push({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t })
+    }
+  }
+  const last = branch.points[branch.points.length - 1]
+  if (last) samples.push({ x: last.x, z: last.z })
+  return samples
+}
+
 function pathPoint(path: Path, i: number): Vec2 {
   const count = path.points.length
   const index = path.closed ? ((i % count) + count) % count : Math.min(Math.max(i, 0), count - 1)
@@ -234,10 +268,13 @@ function stripGeometry(
     )
       continue
 
-    const ya0 = track.groundHeight(a0.x, a0.z) + yOffset
-    const ya1 = track.groundHeight(a1.x, a1.z) + yOffset
-    const yb0 = track.groundHeight(b0.x, b0.z) + yOffset
-    const yb1 = track.groundHeight(b1.x, b1.z) + yOffset
+    // No road over a jump gap; the edges keep the height of the whole road (no sheet falls)
+    if (overGap(track, path, i)) continue
+
+    const ya0 = track.roadHeight(a0.x, a0.z) + yOffset
+    const ya1 = track.roadHeight(a1.x, a1.z) + yOffset
+    const yb0 = track.roadHeight(b0.x, b0.z) + yOffset
+    const yb1 = track.roadHeight(b1.x, b1.z) + yOffset
 
     // Two triangles per segment
     positions.push(
@@ -273,6 +310,13 @@ function stripGeometry(
   if (colorAt) geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
   geometry.computeVertexNormals()
   return geometry
+}
+
+/** True if the middle of segment `i` of the path lies over a jump gap. */
+function overGap(track: Track, path: Path, i: number): boolean {
+  const a = pathPoint(path, i)
+  const b = pathPoint(path, i + 1)
+  return track.inGap((a.x + b.x) / 2, (a.z + b.z) / 2)
 }
 
 function createRoadRibbon(track: Track, theme: TrackTheme, path: Path, lift: number): THREE.Mesh {
@@ -333,10 +377,10 @@ function createWall(track: Track, theme: TrackTheme, path: Path, offset: number)
     if (!n0 || !n1 || !f0 || !f1) continue
     if (path.openAt({ x: (n0.x + n1.x) / 2, z: (n0.z + n1.z) / 2 })) continue
 
-    const yn0 = track.groundHeight(n0.x, n0.z)
-    const yn1 = track.groundHeight(n1.x, n1.z)
-    const yf0 = track.groundHeight(f0.x, f0.z)
-    const yf1 = track.groundHeight(f1.x, f1.z)
+    const yn0 = track.roadHeight(n0.x, n0.z)
+    const yn1 = track.roadHeight(n1.x, n1.z)
+    const yf0 = track.roadHeight(f0.x, f0.z)
+    const yf1 = track.roadHeight(f1.x, f1.z)
 
     // Near face
     positions.push(
@@ -415,6 +459,54 @@ function createWall(track: Track, theme: TrackTheme, path: Path, offset: number)
     geometry,
     new THREE.MeshToonMaterial({ color: theme.wall, side: THREE.DoubleSide }),
   )
+}
+
+/**
+ * A wedge at each jump lip: it rises from the road to `RAMP_HEIGHT` at the edge, across the
+ * whole road. It is only a visual cue; the launch itself comes from the simulation.
+ */
+function createJumpRamps(track: Track, theme: TrackTheme): THREE.Mesh {
+  const positions: number[] = []
+  for (const jump of track.jumps) {
+    const forward = { x: Math.sin(jump.heading), z: Math.cos(jump.heading) }
+    const right = { x: forward.z, z: -forward.x }
+    const point = (u: number, v: number, rise: number): [number, number, number] => {
+      const x = jump.position.x + right.x * u + forward.x * v
+      const z = jump.position.z + right.z * u + forward.z * v
+      return [x, track.roadHeight(x, z) + ROAD_LIFT + rise, z]
+    }
+    const rise = (row: number): number => (RAMP_HEIGHT * row) / RAMP_ROWS
+    const quad = (a: number[], b: number[], c: number[], d: number[]): void => {
+      positions.push(...a, ...b, ...c, ...a, ...c, ...d)
+    }
+    const hw = jump.halfWidth
+    for (let row = 0; row < RAMP_ROWS; row++) {
+      const v0 = -jump.length + (jump.length * row) / RAMP_ROWS
+      const v1 = -jump.length + (jump.length * (row + 1)) / RAMP_ROWS
+      // Top, then the two sides
+      quad(
+        point(-hw, v0, rise(row)),
+        point(hw, v0, rise(row)),
+        point(hw, v1, rise(row + 1)),
+        point(-hw, v1, rise(row + 1)),
+      )
+      for (const u of [-hw, hw]) {
+        quad(point(u, v0, 0), point(u, v1, 0), point(u, v1, rise(row + 1)), point(u, v0, rise(row)))
+      }
+    }
+    // Front face at the edge
+    quad(point(-hw, 0, 0), point(hw, 0, 0), point(hw, 0, RAMP_HEIGHT), point(-hw, 0, RAMP_HEIGHT))
+  }
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  geometry.computeVertexNormals()
+  const material = new THREE.MeshToonMaterial({
+    color: theme.curb[0] ?? theme.wall,
+    side: THREE.DoubleSide,
+  })
+  const mesh = new THREE.Mesh(geometry, material)
+  mesh.name = 'jumpRamps'
+  return mesh
 }
 
 function createStartLine(track: Track): THREE.Mesh {

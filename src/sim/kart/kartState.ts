@@ -1,6 +1,20 @@
 import { lerp, lerpAngle, type Vec3 } from '../math'
 import { createBoostState, createDriftState, type BoostState, type DriftState } from './driftState'
 
+/** A launch off a jump lip, kept until the kart lands. */
+export interface RampState {
+  /** True from the launch until the landing. */
+  active: boolean
+  /** Seconds since the launch. */
+  age: number
+  /** True if the player hopped at the lip: only then does the landing give a nitro. */
+  tricked: boolean
+}
+
+export function createRampState(): RampState {
+  return { active: false, age: 0, tricked: false }
+}
+
 export interface KartState {
   position: Vec3
   /** World-space velocity (m/s). */
@@ -16,6 +30,8 @@ export interface KartState {
   boostHeld: boolean
   drift: DriftState
   boost: BoostState
+  /** Launch off a jump lip in progress (see `RampState`). */
+  ramp: RampState
 }
 
 export function createKartState(position: Vec3, heading: number): KartState {
@@ -29,6 +45,7 @@ export function createKartState(position: Vec3, heading: number): KartState {
     boostHeld: false,
     drift: createDriftState(),
     boost: createBoostState(),
+    ramp: createRampState(),
   }
 }
 
@@ -39,6 +56,7 @@ export function cloneKartState(state: KartState): KartState {
     velocity: { ...state.velocity },
     drift: { ...state.drift },
     boost: { ...state.boost },
+    ramp: { ...state.ramp },
   }
 }
 

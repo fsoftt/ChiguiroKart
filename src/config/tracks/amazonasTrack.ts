@@ -98,6 +98,8 @@ export const amazonasData: TrackData = {
     { at: 0.56, offset: 0, length: 8 },
     { at: 0.35, offset: 0 },
   ],
+  // The broken log: a lip over ten metres of river on the log ramp
+  jumps: [{ at: 0.3474, branch: 'Rampa del tronco', launchSpeed: 12, gap: 10 }],
   hazards: [],
 }
 

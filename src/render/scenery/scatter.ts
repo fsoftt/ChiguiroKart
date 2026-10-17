@@ -85,7 +85,7 @@ export function scatterDecorations(
     const nearest = track.project(x, z)
     if (nearest.distance - nearest.halfWidth < rule.minGap) continue
 
-    const y = track.groundHeight(x, z)
+    const y = track.roadHeight(x, z)
     if (options.waterLevel !== undefined && y <= options.waterLevel + 0.05) continue
 
     const cx = Math.floor(x / cell)

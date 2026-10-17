@@ -1,5 +1,5 @@
 import { lineAlong, rowAcross, spotAt } from '../config/tracks/pickupLayout'
-import { headingOf, type Vec2 } from './math'
+import { headingOf, rightOf, type Vec2 } from './math'
 import type { Checkpoint } from './race/checkpoint'
 import type { SurfaceType } from './race/surface'
 import {
@@ -7,11 +7,22 @@ import {
   type BoostPad,
   type HazardDefinition,
   type HazardKind,
+  type Jump,
+  type GapZone,
   type TideRule,
   type TrackBranch,
   type TrackDefinition,
 } from './track'
-import { buildCenterline, createGroundHeight, nearestIndex, type ControlPoint } from './trackSpline'
+import {
+  branchLength,
+  branchPointAt,
+  buildCenterline,
+  createGapTest,
+  createTerrain,
+  loopArcs,
+  nearestIndex,
+  type ControlPoint,
+} from './trackSpline'
 
 /** localStorage key where the editor leaves the track for `?pista=custom`. */
 export const CUSTOM_TRACK_KEY = 'chiguirokart.customTrack.v1'
@@ -39,6 +50,13 @@ const MAX_HAZARD_COUNT = 16
 const MIN_HAZARD_RADIUS = 0.3
 const MAX_HAZARD_RADIUS = 20
 const MAX_HAZARD_PAUSE = 30
+const MAX_BRANCH_STEPS = 64
+const MAX_LAUNCH_SPEED = 40
+const MAX_GAP = 60
+const MAX_NAME_LENGTH = 100
+/** Length of the lip zone behind a jump edge (m). */
+export const JUMP_LIP_LENGTH = 4
+export const DEFAULT_LAUNCH_SPEED = 10
 
 export const MIN_CONTROL_POINTS = 4
 const MAX_CONTROL_POINTS = 200
@@ -72,12 +90,23 @@ export interface TrackBranchData {
   surface: SurfaceType
   /** Optional tide rule (see `TideRule`); `surface` is ignored while it is set. */
   tide?: TideRule
+  /**
+   * Ground height at each of `points` (m, same length), piecewise linear by arc length. The ends
+   * should match the road heights where the branch joins the main road.
+   */
+  heights?: number[]
+  /** Quantizes the height profile into this many flat treads with sharp risers (stairs). */
+  steps?: number
 }
 
-/** Turbo strip `at` (0..1 along the loop), `offset` m right of the centerline, along the road. */
+/**
+ * Turbo strip `at` (0..1 along the loop), `offset` m right of the centerline, along the road.
+ * With `branch` (a branch name) `at` runs along that branch by arc length instead.
+ */
 export interface BoostPadData {
   at: number
   offset: number
+  branch?: string
   /** Defaults: 6 m long, 4 m wide. */
   length?: number
   width?: number
@@ -88,6 +117,21 @@ export interface TrackCheckpointsData {
   count: number
   /** Gates (0-based) that are NOT mandatory, e.g. the one a shortcut legally skips. */
   optional: number[]
+}
+
+/**
+ * Launch ramp: the lip edge is at `at` (0..1 along the loop by samples, or along `branch` by arc
+ * length). A grounded kart in the 4 m before it, moving forward faster than a jog, is thrown up
+ * at `launchSpeed`; the ground can be missing for `gap` metres past the edge.
+ */
+export interface JumpData {
+  at: number
+  /** Branch name; the jump is on the main loop if omitted. */
+  branch?: string
+  /** Vertical speed given at the lip (m/s). Default 10: enough airtime for the landing boost. */
+  launchSpeed?: number
+  /** Metres of missing ground right after the lip. Default 0 (launch only). */
+  gap?: number
 }
 
 /** A row of `count` power boxes across the road at `at` (0..1 along the loop). */
@@ -115,8 +159,10 @@ export interface TrackData {
   checkpoints: TrackCheckpointsData
   itemBoxRows: ItemBoxRowData[]
   uchuvaLines: UchuvaLineData[]
-  /** Optional turbo strips on the main loop. */
+  /** Optional turbo strips. */
   boostPads?: BoostPadData[]
+  /** Optional launch ramps and gaps. */
+  jumps?: JumpData[]
   /** Optional obstacles, in world coordinates (see `HazardDefinition`). */
   hazards?: HazardDefinition[]
 }
@@ -171,6 +217,16 @@ function parseBranch(value: unknown): TrackBranchData | null {
     if (!tide) return null
     branch.tide = tide
   }
+  if (value.heights !== undefined) {
+    const heights = parseList(value.heights, (v) => num(v), points.length)
+    if (!Array.isArray(value.heights) || !heights || heights.length !== points.length) return null
+    branch.heights = heights
+  }
+  if (value.steps !== undefined) {
+    const steps = int(value.steps, 1, MAX_BRANCH_STEPS)
+    if (steps === null) return null
+    branch.steps = steps
+  }
   return branch
 }
 
@@ -189,6 +245,10 @@ function parseBoostPad(value: unknown): BoostPadData | null {
   const offset = num(value.offset, -MAX_HALF_WIDTH, MAX_HALF_WIDTH)
   if (at === null || offset === null) return null
   const pad: BoostPadData = { at, offset }
+  if (value.branch !== undefined) {
+    if (typeof value.branch !== 'string' || value.branch.length > MAX_NAME_LENGTH) return null
+    pad.branch = value.branch
+  }
   if (value.length !== undefined) {
     const length = num(value.length, MIN_PAD_SIZE, MAX_PAD_SIZE)
     if (length === null) return null
@@ -200,6 +260,28 @@ function parseBoostPad(value: unknown): BoostPadData | null {
     pad.width = width
   }
   return pad
+}
+
+function parseJump(value: unknown): JumpData | null {
+  if (!isRecord(value)) return null
+  const at = num(value.at, 0, 1)
+  if (at === null) return null
+  const jump: JumpData = { at }
+  if (value.branch !== undefined) {
+    if (typeof value.branch !== 'string' || value.branch.length > MAX_NAME_LENGTH) return null
+    jump.branch = value.branch
+  }
+  if (value.launchSpeed !== undefined) {
+    const launchSpeed = num(value.launchSpeed, 1, MAX_LAUNCH_SPEED)
+    if (launchSpeed === null) return null
+    jump.launchSpeed = launchSpeed
+  }
+  if (value.gap !== undefined) {
+    const gap = num(value.gap, 0, MAX_GAP)
+    if (gap === null) return null
+    jump.gap = gap
+  }
+  return jump
 }
 
 function parseVec2(value: unknown): Vec2 | null {
@@ -295,6 +377,11 @@ export function parseTrackData(json: unknown): TrackData | null {
     if (!Array.isArray(json.boostPads) || !boostPads) return null
     data.boostPads = boostPads
   }
+  if (json.jumps !== undefined) {
+    const jumps = parseList(json.jumps, parseJump, MAX_PICKUP_GROUPS)
+    if (!Array.isArray(json.jumps) || !jumps) return null
+    data.jumps = jumps
+  }
   if (json.hazards !== undefined) {
     const hazards = parseList(json.hazards, parseHazard, MAX_HAZARDS)
     if (!Array.isArray(json.hazards) || !hazards) return null
@@ -381,6 +468,8 @@ export function buildTrackDefinition(data: TrackData): TrackDefinition {
       surface: b.surface,
     }
     if (b.tide) branch.tide = { ...b.tide, lowLaps: [...b.tide.lowLaps] }
+    if (b.heights) branch.heights = [...b.heights]
+    if (b.steps !== undefined) branch.steps = b.steps
     return branch
   })
   const shape = new Track({ name: data.name, centerline, halfWidth: data.halfWidth, branches })
@@ -392,6 +481,14 @@ export function buildTrackDefinition(data: TrackData): TrackDefinition {
     if (branch) return branch.surface
     return sampleSurface(data, nearestIndex(centerline, x, z))
   }
+
+  const jumps = (data.jumps ?? []).flatMap((jump) => {
+    const resolved = buildJump(centerline, shape, data, jump)
+    return resolved ? [resolved] : []
+  })
+  const gaps = jumps.flatMap((jump) => (jump.gap ? [jump.gap] : []))
+  const gapAt = createGapTest(shape, centerline, gaps)
+  const terrain = createTerrain(shape, centerline, heights, gapAt)
 
   const count = centerline.length
   const itemBoxes = data.itemBoxRows.flatMap((row) =>
@@ -406,12 +503,18 @@ export function buildTrackDefinition(data: TrackData): TrackDefinition {
     centerline,
     halfWidth: data.halfWidth,
     branches,
-    groundHeight: createGroundHeight(shape, centerline, heights),
+    groundHeight: terrain.groundHeight,
+    roadHeight: terrain.roadHeight,
+    ...(gapAt ? { gapAt } : {}),
     surfaceAt,
     checkpoints: buildCheckpoints(data, centerline, data.halfWidth),
     itemBoxes,
     uchuvas,
-    boostPads: (data.boostPads ?? []).map((pad) => buildBoostPad(centerline, pad)),
+    boostPads: (data.boostPads ?? []).flatMap((pad) => {
+      const built = buildBoostPad(centerline, shape, pad)
+      return built ? [built] : []
+    }),
+    jumps,
     hazards: (data.hazards ?? []).map((hazard) => ({
       ...hazard,
       path: hazard.path.map((p) => ({ x: p.x, z: p.z })),
@@ -422,16 +525,92 @@ export function buildTrackDefinition(data: TrackData): TrackDefinition {
 const DEFAULT_PAD_LENGTH = 6
 const DEFAULT_PAD_WIDTH = 4
 
-function buildBoostPad(centerline: readonly Vec2[], pad: BoostPadData): BoostPad {
+function buildBoostPad(
+  centerline: readonly Vec2[],
+  shape: Track,
+  pad: BoostPadData,
+): BoostPad | null {
+  const length = pad.length ?? DEFAULT_PAD_LENGTH
+  const width = pad.width ?? DEFAULT_PAD_WIDTH
+  if (pad.branch !== undefined) {
+    const branch = shape.branches.find((b) => b.name === pad.branch)
+    if (!branch) return null
+    const { point, heading } = branchPointAt(branch, pad.at * branchLength(branch))
+    const right = rightOf(heading)
+    return {
+      position: { x: point.x + right.x * pad.offset, z: point.z + right.z * pad.offset },
+      heading,
+      length,
+      width,
+    }
+  }
   const index = sampleIndexAt(pad.at, centerline.length)
   const a = centerline[index]
   const b = centerline[(index + 1) % centerline.length]
   return {
     position: spotAt(centerline, index, pad.offset),
     heading: a && b ? headingOf(b.x - a.x, b.z - a.z) : 0,
-    length: pad.length ?? DEFAULT_PAD_LENGTH,
-    width: pad.width ?? DEFAULT_PAD_WIDTH,
+    length,
+    width,
   }
+}
+
+/** Resolves a jump to its lip position, heading and gap range; null for an unknown branch. */
+function buildJump(
+  centerline: readonly Vec2[],
+  shape: Track,
+  data: TrackData,
+  jump: JumpData,
+): Jump | null {
+  const launchSpeed = jump.launchSpeed ?? DEFAULT_LAUNCH_SPEED
+  const gapLength = jump.gap ?? 0
+  if (jump.branch !== undefined) {
+    const branchIndex = shape.branches.findIndex((b) => b.name === jump.branch)
+    const branch = shape.branches[branchIndex]
+    if (!branch) return null
+    const total = branchLength(branch)
+    const from = jump.at * total
+    const { point, heading } = branchPointAt(branch, from)
+    const resolved: Jump = {
+      position: point,
+      heading,
+      halfWidth: branch.halfWidth,
+      length: JUMP_LIP_LENGTH,
+      launchSpeed,
+    }
+    if (gapLength > 0) {
+      resolved.gap = { branch: branchIndex, from, to: Math.min(from + gapLength, total) }
+    }
+    return resolved
+  }
+  const count = centerline.length
+  const index = sampleIndexAt(jump.at, count)
+  const lip = centerline[index]
+  const before = centerline[wrapIndex(index - 1, count)]
+  const after = centerline[wrapIndex(index + 1, count)]
+  if (!lip || !before || !after) return null
+  const resolved: Jump = {
+    position: { x: lip.x, z: lip.z },
+    heading: headingOf(after.x - before.x, after.z - before.z),
+    halfWidth: data.halfWidth,
+    length: JUMP_LIP_LENGTH,
+    launchSpeed,
+  }
+  if (gapLength > 0) resolved.gap = mainGap(centerline, index, gapLength)
+  return resolved
+}
+
+/** Gap on the main loop from sample `index`, snapped to samples so the drawn road ends cleanly. */
+function mainGap(centerline: readonly Vec2[], index: number, gapLength: number): GapZone {
+  const arcs = loopArcs(centerline)
+  const from = arcs[index] ?? 0
+  let end = index + 1
+  for (let i = index + 1; i < arcs.length; i++) {
+    const arc = arcs[i] ?? 0
+    const best = arcs[end] ?? 0
+    if (Math.abs(arc - from - gapLength) < Math.abs(best - from - gapLength)) end = i
+  }
+  return { branch: -1, from, to: arcs[end] ?? from }
 }
 
 function segmentsCross(a: Vec2, b: Vec2, c: Vec2, d: Vec2): boolean {
@@ -476,6 +655,7 @@ export function validateTrackData(data: TrackData): string[] {
       }
     }
   })
+  messages.push(...validateJumps(data, track))
   if (data.checkpoints.count < 3) messages.push('Pocos checkpoints: usa al menos 3.')
   const mandatory = definition.checkpoints?.filter((c) => c.mandatory).length ?? 0
   if (mandatory < 2) messages.push('Debe haber al menos 2 checkpoints obligatorios.')
@@ -484,5 +664,58 @@ export function validateTrackData(data: TrackData): string[] {
     return q !== undefined && Math.hypot(q.x - p.x, q.z - p.z) < data.halfWidth
   })
   if (tight) messages.push('Hay puntos muy juntos (menos de un ancho de media carretera).')
+  return messages
+}
+
+/** Largest difference (m) allowed between a branch end height and the road it joins. */
+const MAX_END_HEIGHT_MISMATCH = 0.75
+
+function validateJumps(data: TrackData, track: Track): string[] {
+  const messages: string[] = []
+  const known = (name: string): boolean => data.branches.some((b) => b.name === name)
+  for (const jump of data.jumps ?? []) {
+    if (jump.branch !== undefined && !known(jump.branch)) {
+      messages.push(`Un salto usa el atajo "${jump.branch}", que no existe.`)
+    }
+  }
+  for (const pad of data.boostPads ?? []) {
+    if (pad.branch !== undefined && !known(pad.branch)) {
+      messages.push(`Un turbo usa el atajo "${pad.branch}", que no existe.`)
+    }
+  }
+  for (const gap of track.jumps.flatMap((jump) => (jump.gap ? [jump.gap] : []))) {
+    const branch = track.branches[gap.branch]
+    if (branch && gap.to - gap.from < 0.5) {
+      messages.push(`Un hueco del atajo "${branch.name}" se sale del atajo.`)
+    }
+  }
+  const spots = [...track.itemBoxes, ...track.uchuvas, ...track.boostPads.map((p) => p.position)]
+  if (spots.some((spot) => track.inGap(spot.x, spot.z))) {
+    messages.push('Hay cajas, uchuvas o turbos dentro de un hueco de salto.')
+  }
+  data.branches.forEach((branch, index) => {
+    if (!branch.heights) return
+    if (branch.heights.length !== branch.points.length) {
+      messages.push(`El atajo "${branch.name}" necesita una altura por punto.`)
+      return
+    }
+    const built = track.branches[index]
+    const first = branch.points[0]
+    const last = branch.points[branch.points.length - 1]
+    if (!built || !first || !last) return
+    const ends: [Vec2, number | undefined][] = [
+      [first, branch.heights[0]],
+      [last, branch.heights[branch.heights.length - 1]],
+    ]
+    for (const [end, height] of ends) {
+      const road = track.roadHeight(end.x, end.z)
+      if (height !== undefined && Math.abs(height - road) > MAX_END_HEIGHT_MISMATCH) {
+        messages.push(
+          `Un extremo del atajo "${branch.name}" no coincide con la altura de la carretera.`,
+        )
+        break
+      }
+    }
+  })
   return messages
 }

@@ -30,7 +30,8 @@ function speedAlongHeading(state: KartState): number {
 /** Gives the kart its hop velocity when jump was just pressed on the ground. */
 export function tryHop(state: KartState, jumpPressed: boolean, config: DriftConfig): void {
   if (!jumpPressed || !state.onGround || state.drift.direction !== 0) return
-  state.velocity.y = config.hopSpeed
+  // Never cancels a launch that happened in the same step (a hop at a jump lip)
+  state.velocity.y = Math.max(state.velocity.y, config.hopSpeed)
 }
 
 /** Starts a drift if the kart just landed holding jump while steering fast enough. */

@@ -216,10 +216,11 @@ describe.each(TRACKS)(
       let steepest = 0
       track.centerline.forEach((point, i) => {
         const next = track.point(i + 1)
-        const height = track.groundHeight(point.x, point.z)
+        // The road itself: jump gaps (deep on purpose) are checked in jumps.test.ts
+        const height = track.roadHeight(point.x, point.z)
         expect(height).toBeGreaterThan(-3)
         const run = Math.hypot(next.x - point.x, next.z - point.z)
-        const rise = Math.abs(track.groundHeight(next.x, next.z) - height)
+        const rise = Math.abs(track.roadHeight(next.x, next.z) - height)
         steepest = Math.max(steepest, rise / run)
       })
       expect(steepest).toBeLessThan(MAX_SLOPE)
@@ -299,11 +300,9 @@ describe.each(TRACKS)(
       expect(data.uchuvaLines.length).toBeGreaterThanOrEqual(5)
       expect(data.uchuvaLines.length).toBeLessThanOrEqual(7)
       expect(track.boostPads.length).toBeGreaterThanOrEqual(1)
-      const spots = [
-        ...track.itemBoxes,
-        ...track.uchuvas,
-        ...track.boostPads.map((p) => p.position),
-      ]
+      // Pads placed on a shortcut belong to the branch, not to the main road
+      const mainPads = track.boostPads.filter((_, i) => data.boostPads?.[i]?.branch === undefined)
+      const spots = [...track.itemBoxes, ...track.uchuvas, ...mainPads.map((p) => p.position)]
       for (const spot of spots) {
         expect(track.mainProjection(spot.x, spot.z).distance).toBeLessThan(track.halfWidth)
       }
@@ -357,7 +356,7 @@ describe.each(TRACKS)(
         ).toBe(true)
         const height = (back: number): number => {
           const point = track.point(index + Math.round(back / 2.7))
-          return track.groundHeight(point.x, point.z)
+          return track.roadHeight(point.x, point.z)
         }
         expect(height(0)).toBeGreaterThan(height(-35))
         expect(height(0)).toBeGreaterThan(height(30) + 2)

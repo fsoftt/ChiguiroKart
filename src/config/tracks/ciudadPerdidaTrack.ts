@@ -67,6 +67,9 @@ export const ciudadPerdidaData: TrackData = {
       ],
       halfWidth: 4.5,
       surface: 'dirt',
+      // The climb is concentrated in the middle of the wall, cut into nine stone treads
+      heights: [1.8, 1.9, 2.1, 5.2, 5.5, 5.6, 5.6],
+      steps: 9,
     },
     {
       // Wading behind the waterfall instead of going down to the pool and back up

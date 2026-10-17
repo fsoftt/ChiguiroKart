@@ -45,7 +45,7 @@ function stepEntity(ctx: ItemContext, entity: ItemEntity, dt: number): boolean {
 
 function setGroundHeight(ctx: ItemContext, entity: ItemEntity): void {
   const { x, z } = entity.position
-  entity.position.y = ctx.track.groundHeight(x, z) + ctx.config.powers.entityHeight
+  entity.position.y = ctx.track.roadHeight(x, z) + ctx.config.powers.entityHeight
 }
 
 function moveForward(entity: ItemEntity, distance: number): void {

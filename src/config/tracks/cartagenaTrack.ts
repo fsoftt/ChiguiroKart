@@ -76,7 +76,13 @@ export const cartagenaData: TrackData = {
     { at: at(190), count: 5, offset: 3 },
     { at: at(205), count: 5, offset: 0 },
   ],
-  boostPads: [{ at: at(8 * SAMPLES_PER_SEGMENT + 6), offset: 0, length: 8, width: 5 }],
+  boostPads: [
+    { at: at(8 * SAMPLES_PER_SEGMENT + 6), offset: 0, length: 8, width: 5 },
+    // Turbo on the wall walk shortcut
+    { at: 0.3, offset: 0, length: 8, width: 4, branch: 'Paseo de la muralla' },
+  ],
+  // The cannon ramp fires the kart off the crest: launch only, no gap
+  jumps: [{ at: at(9 * SAMPLES_PER_SEGMENT), launchSpeed: 12 }],
 }
 
 /** Sunset over the colonial walls: orange and pink sky, warm stone, cannons and balconies. */
