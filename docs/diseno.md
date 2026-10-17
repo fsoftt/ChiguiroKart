@@ -223,7 +223,7 @@ Doce pistas en tres copas de cuatro. Cada pista tiene al menos un **atajo**: má
 3. **Contrarreloj:** solo, contra el fantasma del mejor tiempo guardado en el navegador.
 4. **Online:** sala con código, hasta 8 jugadores, bots en los cupos vacíos.
 5. **Batalla** (futuro): arenas cerradas, 3 vidas, solo poderes.
-6. **Historia:** un jugador recorre las tres copas; cada una termina con un jefe. Al ganar las tres se desbloquea una cuarta copa en paisajes dañados por el capitalismo salvaje (_fracking_, bosques incendiados, minería), cuyo jefe final es un tigre malvado con cadena de oro. Detalle en el [plan](plan.md), etapa 9B.
+6. **Historia:** un jugador recorre las tres copas; cada una termina con un jefe. Al ganar las tres se desbloquea una cuarta copa en paisajes dañados por el capitalismo salvaje (_fracking_, bosques incendiados, minería), cuyo jefe final es un tigre malvado con cadena de oro y medallón del signo de pesos, anillos de oro y un diente de oro. Detalle en el [plan](plan.md), etapa 9B.
 
 ---
 

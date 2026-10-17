@@ -180,7 +180,7 @@ Cada etapa lista su objetivo, las tareas y los criterios para darla por terminad
 - Modo historia para un jugador: se recorren las tres copas en orden, con escenas cortas entre carreras.
 - Cada copa tiene un **jefe** en su última pista: un rival más fuerte, con presentación propia y una habilidad especial. Hay que ganarle para pasar a la siguiente copa.
 - Al terminar las tres copas se desbloquea una **cuarta copa** con cuatro pistas del paisaje colombiano dañado por el capitalismo salvaje: campos de _fracking_, bosques incendiados, ríos contaminados por minería y deforestación.
-- **Villano final:** un tigre malvado con cadena de oro, jefe de la última pista de la cuarta copa.
+- **Villano final:** un tigre malvado, jefe de la última pista de la cuarta copa. Lleva cadena de oro con un medallón del signo de pesos ($), anillos de oro en los dedos y un diente de oro.
 - El progreso se guarda en el navegador (`localStorage`).
 
 **Terminada cuando:** se puede jugar la historia de principio a fin, con los cuatro jefes y la copa final desbloqueable.
