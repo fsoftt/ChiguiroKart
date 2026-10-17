@@ -5,8 +5,8 @@ Referencia visual: _Crash Team Racing Nitro-Fueled_ (2019). Tomamos el nivel de 
 ## Personajes
 
 - **Forma aprobada y congelada:** el Chigüiro (2026-10-17) tiene la forma que aprobó el dueño del proyecto. No se cambia su geometría, proporciones ni piezas; solo se pueden ajustar colores, sombreado e iluminación. Cada personaje que se apruebe se agrega aquí.
-- **Proporciones de caricatura:** cabeza grande (40–45 % de la altura del piloto sentado), cuerpo pequeño, manos y pies grandes. La silueta debe reconocerse a 30 m.
-- **Cara expresiva:** ojos grandes con esclerótica, iris, pupila y dos brillos; párpados y cejas que se mueven con las animaciones (golpe, victoria, derrota); boca con forma (sonrisa, dientes o colmillos según el animal). Los rasgos del animal se exageran: hocico del chigüiro, anteojos del oso, pico del cóndor, manchas del jaguar.
+- **Proporciones de caricatura:** cabeza grande (como la del Chigüiro aprobado), cuerpo pequeño, manos y pies grandes. La silueta debe reconocerse a 30 m.
+- **Cara simple y suave:** la referencia es el Chigüiro aprobado. Cabeza de una sola forma redonda, ojos pequeños a medianos (esclerótica blanca, pupila oscura y un brillo) que sobresalen poco, y marcas del animal **pintadas** en la superficie (anteojos del oso, manchas del jaguar), no en relieve. Pocas piezas: nada de cejas esculpidas, párpados salientes en reposo ni crestas; los párpados y la boca solo aparecen en las expresiones (golpe, victoria, derrota).
 - **Formas suaves:** nada de cajas visibles. Esferas, cápsulas y tornos con suficientes segmentos, uniones que se solapan y piezas con bisel. Pelo y plumas sugeridos con mechones (no texturas realistas).
 - **Material:** _toon_ de 3 tonos más luz de borde (_rim light_) y contorno fino. Colores saturados con variación (vientre más claro, puntas más oscuras).
 - **Karts:** carrocería curva con personalidad del animal (no un chasis de cajas): guardabarros redondeados, escape cromado, número y calcomanías, volante y asiento visibles. Cada kart con color y forma propios.
