@@ -5,6 +5,7 @@ import type { SurfaceType } from '../sim/race/surface'
 import { DEFAULT_THEME, type TrackTheme } from '../config/tracks/theme'
 import { createBoostPads } from './boostPads'
 import { createScenery } from './scenery/sceneryView'
+import { markShadows } from './shadows'
 import { tideSurface } from './tideLogic'
 
 const WOOD_COLOR = '#8d5524'
@@ -81,7 +82,8 @@ export class TrackView extends THREE.Group {
     super()
     this.name = `track:${track.name}`
     this.add(createGround(theme))
-    if (theme.water) this.add(createWater(theme.water))
+    const water = theme.water ? createWater(theme.water) : null
+    if (water) this.add(water)
     const main: Path = {
       points: track.centerline,
       closed: true,
@@ -126,6 +128,9 @@ export class TrackView extends THREE.Group {
     if (track.jumps.length > 0) this.add(createJumpRamps(track, theme))
     this.add(createStartLine(track))
     if (track.boostPads.length > 0) this.add(createBoostPads(track))
+    // Ground, road, curbs, walls and ramps receive; scenery (added next) only casts
+    markShadows(this, { receive: true })
+    if (water) water.receiveShadow = false
     this.add(createScenery(track, theme))
     this.update()
   }
@@ -455,10 +460,12 @@ function createWall(track: Track, theme: TrackTheme, path: Path, offset: number)
   const geometry = new THREE.BufferGeometry()
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
   geometry.computeVertexNormals()
-  return new THREE.Mesh(
+  const wall = new THREE.Mesh(
     geometry,
     new THREE.MeshToonMaterial({ color: theme.wall, side: THREE.DoubleSide }),
   )
+  wall.castShadow = true
+  return wall
 }
 
 /**
@@ -506,6 +513,7 @@ function createJumpRamps(track: Track, theme: TrackTheme): THREE.Mesh {
   })
   const mesh = new THREE.Mesh(geometry, material)
   mesh.name = 'jumpRamps'
+  mesh.castShadow = true
   return mesh
 }
 

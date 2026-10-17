@@ -11,6 +11,7 @@ import {
   type EntityVisual,
 } from './itemMeshes'
 import { bobOffset, cycleHue, explosionRadius, fadeOut, lifeProgress } from './itemViewLogic'
+import { markShadows } from '../shadows'
 import { RacerStatusView } from './racerStatusView'
 
 const BOX_LIFT = 1.1
@@ -186,6 +187,7 @@ export class ItemView {
       for (const pickup of boxes) {
         const { group } = createBoxVisual(this.boxMaterials.cube, this.boxMaterials.label)
         group.position.set(pickup.position.x, pickup.position.y + BOX_LIFT, pickup.position.z)
+        markShadows(group, { cast: true })
         this.object.add(group)
         this.boxViews.push(group)
       }
@@ -196,6 +198,7 @@ export class ItemView {
       for (const pickup of uchuvas) {
         const { group } = createUchuvaVisual()
         group.position.set(pickup.position.x, pickup.position.y + UCHUVA_LIFT, pickup.position.z)
+        markShadows(group, { cast: true })
         this.object.add(group)
         this.uchuvaViews.push(group)
       }
@@ -230,6 +233,7 @@ export class ItemView {
         const visual = this.takeVisual(entity.kind)
         const scale = entityScale(entity.charged)
         visual.group.scale.setScalar(scale)
+        markShadows(visual.group, { cast: true })
         this.object.add(visual.group)
         entry = { visual, seen: this.frame }
         this.entities.set(entity.id, entry)

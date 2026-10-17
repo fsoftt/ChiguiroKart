@@ -44,6 +44,14 @@ export interface TrackTheme {
   ambientIntensity: number
   sun: string
   sunIntensity: number
+  /** Direction the sun's light comes from (toward the sun); normalized by `resolveLighting`. */
+  sunDirection?: readonly [number, number, number]
+  /** Tone mapping exposure; above 1 brightens, below 1 darkens. */
+  exposure?: number
+  /** Distant hill or mountain silhouette ring at the horizon; `height` 0 hides it. */
+  mountains?: { color: string; height: number; jagged?: number }
+  /** Cloud cover of the sky, 0 (clear) to 1 (overcast). */
+  clouds?: number
   /** Ground plane outside the road. */
   ground: string
   /** Road color for asphalt; other surfaces keep their own colors. */
@@ -66,11 +74,15 @@ export const DEFAULT_THEME: TrackTheme = {
   fogNear: 80,
   fogFar: 260,
   ambientSky: '#ffffff',
-  ambientGround: '#5a8f3c',
+  ambientGround: '#8a8048',
   ambientIntensity: 1.2,
   sun: '#ffffff',
-  sunIntensity: 1.5,
-  ground: '#4a9934',
+  sunIntensity: 1.4,
+  sunDirection: [0.4, 0.85, 0.35],
+  exposure: 1.2,
+  mountains: { color: '#4f8a63', height: 55, jagged: 0.6 },
+  clouds: 0.55,
+  ground: '#58903c',
   road: '#5b5f66',
   wall: '#e5b842',
   curb: ['#e8413c', '#ffffff'],

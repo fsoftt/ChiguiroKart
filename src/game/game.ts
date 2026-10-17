@@ -20,6 +20,7 @@ import {
   applySceneTheme,
   createScene,
   renderScene,
+  updateSceneFocus,
   resizeToCanvas,
   type SceneContext,
 } from '../render/createScene'
@@ -29,6 +30,7 @@ import { KartFeedback } from '../render/effects/kartFeedback'
 import { SpeedLines } from '../render/effects/speedLines'
 import { throwActionFor } from '../render/characterAnimLogic'
 import { CharacterView } from '../render/characterView'
+import { markShadows } from '../render/shadows'
 import { ItemView } from '../render/items/itemView'
 import { hitPoseInto, type HitPose } from '../render/items/itemViewLogic'
 import { placeFinishCamera, placeShowroomCamera } from '../render/showcaseCamera'
@@ -231,6 +233,8 @@ export class Game {
     this.ghostView = new CharacterView(this.settings.character)
     this.scene = createScene(canvas, this.settingsStore.get().quality)
     this.setupTrack()
+    markShadows(this.kartView.object, { cast: true })
+    this.scene.blobs.setTargets([this.kartView.object])
     this.scene.scene.add(
       this.kartView.object,
       this.itemView.object,
@@ -428,9 +432,11 @@ export class Game {
         character,
       )
       const view = new CharacterView(character)
+      markShadows(view.object, { cast: true })
       this.botViews.push(view)
       this.scene.scene.add(view.object)
     }
+    this.scene.blobs.setTargets([this.kartView.object, ...this.botViews.map((v) => v.object)])
     this.botManager = manager
     this.racers = [this.world.player, ...manager.getBotRacers()]
     this.itemEntries.length = 0
@@ -446,6 +452,7 @@ export class Game {
     if (this.currentCharacter === id) return
     this.currentCharacter = id
     this.kartView.setCharacter(id)
+    markShadows(this.kartView.object, { cast: true })
     this.ghostView.setCharacter(id)
   }
 
@@ -548,6 +555,7 @@ export class Game {
   private clearBots(): void {
     for (const view of this.botViews) this.scene.scene.remove(view.object)
     this.botViews = []
+    this.scene.blobs.setTargets([this.kartView.object])
     this.previousBotKarts = []
     this.botManager = null
     this.racers = [this.world.player]
@@ -757,6 +765,9 @@ export class Game {
       )
     }
 
+    updateSceneFocus(this.scene, this.kartView.object.position, (x, z) =>
+      this.world.track.roadHeight(x, z),
+    )
     renderScene(this.scene)
 
     this.readout.speedKmh = Math.abs(speed) * MS_PER_KMH

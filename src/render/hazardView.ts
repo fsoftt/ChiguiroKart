@@ -13,6 +13,7 @@ import {
 import { sceneryMaterial, type SceneryPart } from './scenery/sceneryKit'
 import { COW_HIP } from './scenery/sceneryModels'
 import { seededRandom } from './scenery/random'
+import { markShadows } from './shadows'
 
 /** Legs swing this far (rad) and this fast (rad/s) while the herd runs. */
 const LEG_SWING = 0.6
@@ -129,6 +130,7 @@ export class HazardView {
     }
 
     for (const batch of this.allBatches()) this.object.add(batch.mesh)
+    markShadows(this.object, { cast: true })
   }
 
   update(obstacles: readonly HazardObstacle[], time: number): void {
