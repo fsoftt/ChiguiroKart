@@ -7,6 +7,8 @@ import {
   shiftDifficulty,
   withDifficulty,
   withRubberBand,
+  shiftCharacter,
+  withCharacter,
 } from '../src/game/raceSettings'
 
 describe('parseRaceSettings', () => {
@@ -15,6 +17,7 @@ describe('parseRaceSettings', () => {
       mode: 'carrera',
       difficulty: 'normal',
       rubberBandEnabled: true,
+      character: 'chiguiro',
     })
   })
 
@@ -23,6 +26,7 @@ describe('parseRaceSettings', () => {
       mode: 'carrera',
       difficulty: 'dificil',
       rubberBandEnabled: false,
+      character: 'chiguiro',
     })
     expect(parseRaceSettings('?dificultad=facil').difficulty).toBe('facil')
   })
@@ -32,6 +36,7 @@ describe('parseRaceSettings', () => {
       mode: 'carrera',
       difficulty: 'normal',
       rubberBandEnabled: true,
+      character: 'chiguiro',
     })
     expect(parseRaceSettings('?remontada=1').rubberBandEnabled).toBe(true)
   })
@@ -54,8 +59,14 @@ describe('applying a selection', () => {
       mode: 'carrera',
       difficulty: 'normal',
       rubberBandEnabled: true,
+      character: 'chiguiro',
     })
-    expect(off).toEqual({ mode: 'carrera', difficulty: 'dificil', rubberBandEnabled: false })
+    expect(off).toEqual({
+      mode: 'carrera',
+      difficulty: 'dificil',
+      rubberBandEnabled: false,
+      character: 'chiguiro',
+    })
   })
 
   it('builds the rubber band config from the choice', () => {
@@ -82,5 +93,27 @@ describe('game mode', () => {
     expect(shiftMode(trial, 1).mode).toBe('contrarreloj')
     expect(shiftMode(trial, -1).mode).toBe('carrera')
     expect(shiftMode(base, -1).mode).toBe('carrera')
+  })
+})
+
+describe('character', () => {
+  it('reads ?personaje= and ignores unknown ids', () => {
+    expect(parseRaceSettings('?personaje=jaguar').character).toBe('jaguar')
+    expect(parseRaceSettings('?personaje=dragon').character).toBe('chiguiro')
+    expect(parseRaceSettings('').character).toBe('chiguiro')
+  })
+
+  it('sets the character without mutating the input', () => {
+    const base = parseRaceSettings('')
+    expect(withCharacter(base, 'titi').character).toBe('titi')
+    expect(base.character).toBe('chiguiro')
+  })
+
+  it('shifts the character and wraps around both ends', () => {
+    const first = parseRaceSettings('')
+    expect(shiftCharacter(first, 1).character).toBe('oso')
+    expect(shiftCharacter(first, -1).character).toBe('perezoso')
+    expect(shiftCharacter(withCharacter(first, 'perezoso'), 1).character).toBe('chiguiro')
+    expect(shiftCharacter(first, 8).character).toBe('chiguiro')
   })
 })
