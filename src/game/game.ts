@@ -11,6 +11,7 @@ import { CUSTOM_TRACK_KEY, buildTrackDefinition, parseTrackDataText } from '../s
 import { GamepadSource } from '../input/gamepad'
 import { combineInputs, NEUTRAL_INPUT, type InputSource, type KartInput } from '../input/kartInput'
 import { KeyboardSource } from '../input/keyboard'
+import { TouchControls } from '../input/touchView'
 import { ChaseCamera } from '../render/chaseCamera'
 import {
   applySceneTheme,
@@ -169,7 +170,12 @@ export class Game {
   private botManager: BotManager | null = null
   private readonly menu: QuickRaceMenu
   private settings: RaceSettings
-  private readonly inputSources: InputSource[] = [new KeyboardSource(), new GamepadSource()]
+  private readonly touchControls = new TouchControls()
+  private readonly inputSources: InputSource[] = [
+    new KeyboardSource(),
+    new GamepadSource(),
+    this.touchControls.source,
+  ]
   private readonly fpsOverlay: FpsOverlay | null
   private readonly hud = new Hud()
   private readonly readout: DebugReadout = { speedKmh: 0, onGround: true }
@@ -293,6 +299,7 @@ export class Game {
     const settings = this.settings
     this.hud.setVisible(true)
     this.hud.clearCupResults()
+    this.touchControls.setVisible(true)
     this.clearBots()
     this.loadTrack(this.currentTrackSource())
     this.cupBadge = this.cup ? cupBadgeText(this.cup, cupInfo(this.cup.cupId).name) : ''
@@ -357,6 +364,7 @@ export class Game {
     this.chaseCamera.reset()
     this.clearFinishShow()
     this.hud.setVisible(false)
+    this.touchControls.setVisible(false)
     this.menu.show(this.settings)
   }
 

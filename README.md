@@ -35,6 +35,8 @@ Juego de karts en 3D estilo _Crash Team Racing_ con animales colombianos. Corre 
 
 Para derrapar, salta con `Espacio` y sigue girando al aterrizar. Mantén pulsado y carga la barra hasta la zona roja; cada `Shift` dentro de esa zona encadena un nitro más fuerte hasta tres. Pulsar antes de la zona roja o dejar la barra llena demasiado tiempo rompe la cadena.
 
+En celulares y tablets aparecen controles táctiles en pantalla durante la carrera (nunca en una computadora con ratón): una barra deslizable a la izquierda para girar (el dedo a izquierda o derecha del centro gira hacia ese lado) y a la derecha los botones Acelerar, Frenar, Saltar (se mantiene para derrapar), Nitro, Poder y Atrás (mirar atrás). Se pueden usar varios dedos a la vez y se combinan con teclado y mando.
+
 Con un poder en la ranura, `E` (o el botón X del mando) lo usa; mantener `Q` (o Y) mientras lo usas lo lanza hacia atrás.
 
 ## Panel de depuración

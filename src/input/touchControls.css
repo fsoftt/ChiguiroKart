@@ -1,0 +1,228 @@
+/* On-screen controls for phones and tablets. Landscape first; portrait is a media query. */
+.touch-controls {
+  --tc-big: clamp(80px, 24vh, 120px);
+  --tc-mid: calc(var(--tc-big) * 0.72);
+  --tc-small: calc(var(--tc-big) * 0.5);
+  --tc-gap: 10px;
+  --tc-pad-height: calc(var(--tc-big) * 1.05);
+  --tc-left: calc(env(safe-area-inset-left, 0px) + 12px);
+  --tc-right: calc(env(safe-area-inset-right, 0px) + 12px);
+  --tc-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+  --tc-lift: 0px;
+  --tc-font: 'Baloo 2', 'Arial Rounded MT Bold', 'Trebuchet MS', system-ui, sans-serif;
+
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+  font-family: var(--tc-font);
+}
+
+.touch-controls[hidden] {
+  display: none;
+}
+
+/* The results modal needs the whole screen for its buttons */
+body:has(.hud-results.is-visible) .touch-controls {
+  display: none;
+}
+
+/* The HUD paints over the (translucent) controls so the minimap and speed stay readable */
+.hud {
+  z-index: 2;
+}
+
+/* No scrolling, zooming or panning gestures on the game canvas */
+body.has-touch-controls #game {
+  touch-action: none;
+}
+
+.touch-controls * {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Steering: a slide pad; the finger's horizontal position steers */
+.tc-pad {
+  position: absolute;
+  left: var(--tc-left);
+  bottom: var(--tc-bottom);
+  width: min(38vw, 360px);
+  height: var(--tc-pad-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 18px;
+  border-radius: calc(var(--tc-pad-height) / 2);
+  background: rgb(255 255 255 / 14%);
+  border: 3px solid rgb(255 255 255 / 40%);
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.tc-pad-arrow {
+  font-size: 28px;
+  color: rgb(255 255 255 / 70%);
+  pointer-events: none;
+}
+
+.tc-pad-knob {
+  position: absolute;
+  left: calc(50% - var(--tc-small) / 2);
+  top: calc(50% - var(--tc-small) / 2);
+  width: var(--tc-small);
+  height: var(--tc-small);
+  border-radius: 50%;
+  background: rgb(255 255 255 / 45%);
+  border: 3px solid rgb(255 255 255 / 80%);
+  pointer-events: none;
+}
+
+.tc-pad-knob.is-active {
+  background: rgb(255 210 63 / 70%);
+}
+
+.tc-button {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 50%;
+  border: 3px solid rgb(255 255 255 / 55%);
+  background: rgb(42 26 94 / 55%);
+  color: #fff;
+  font: 800 clamp(13px, 2.4vh, 18px) var(--tc-font);
+  text-shadow: 0 2px 0 rgb(27 16 51 / 80%);
+  pointer-events: auto;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.tc-button.is-pressed {
+  background: rgb(255 210 63 / 75%);
+  color: #1b1033;
+  text-shadow: none;
+  transform: scale(0.94);
+}
+
+.tc-throttle {
+  right: var(--tc-right);
+  bottom: calc(var(--tc-bottom) + var(--tc-lift));
+  width: var(--tc-big);
+  height: var(--tc-big);
+  background: rgb(46 160 90 / 60%);
+  font-size: clamp(16px, 3vh, 24px);
+}
+
+.tc-jump {
+  right: calc(var(--tc-right) + var(--tc-big) + var(--tc-gap));
+  bottom: calc(var(--tc-bottom) + var(--tc-lift));
+  width: var(--tc-mid);
+  height: var(--tc-mid);
+}
+
+.tc-brake {
+  right: calc(var(--tc-right) + var(--tc-big) + var(--tc-mid) + var(--tc-gap) * 2);
+  bottom: calc(var(--tc-bottom) + var(--tc-lift));
+  width: var(--tc-mid);
+  height: var(--tc-mid);
+  background: rgb(190 60 60 / 55%);
+}
+
+.tc-item {
+  right: calc(var(--tc-right) + (var(--tc-big) - var(--tc-mid)) / 2);
+  bottom: calc(var(--tc-bottom) + var(--tc-lift) + var(--tc-big) + var(--tc-gap));
+  width: var(--tc-mid);
+  height: var(--tc-mid);
+}
+
+.tc-boost {
+  right: calc(var(--tc-right) + var(--tc-big) + var(--tc-gap));
+  bottom: calc(var(--tc-bottom) + var(--tc-lift) + var(--tc-mid) + var(--tc-gap));
+  width: var(--tc-mid);
+  height: var(--tc-mid);
+  background: rgb(230 140 20 / 55%);
+}
+
+.tc-back {
+  right: calc(
+    var(--tc-right) + var(--tc-big) + var(--tc-mid) + var(--tc-gap) * 2 +
+      (var(--tc-mid) - var(--tc-small)) / 2
+  );
+  bottom: calc(var(--tc-bottom) + var(--tc-lift) + var(--tc-mid) + var(--tc-gap));
+  width: var(--tc-small);
+  height: var(--tc-small);
+  font-size: 12px;
+}
+
+/* Landscape: the speedometer and nitro bar make room for the buttons */
+@media (orientation: landscape) {
+  .touch-controls {
+    --tc-pad-width: min(30vw, 300px);
+  }
+
+  .tc-pad {
+    left: calc(var(--tc-left) + 84px);
+    width: var(--tc-pad-width);
+  }
+
+  body.has-touch-controls .hud-minimap {
+    width: 84px;
+    height: 84px;
+  }
+
+  body.has-touch-controls .hud-speed {
+    right: auto;
+    left: 50%;
+    transform: translateX(-50%) scale(0.7);
+    transform-origin: 50% 100%;
+  }
+
+  body.has-touch-controls .hud-drift {
+    bottom: calc(var(--hud-gap) + 70px);
+  }
+
+  body.has-touch-controls .hud-nitro {
+    right: auto;
+    left: var(--hud-gap);
+    bottom: calc(var(--hud-gap) + 150px);
+  }
+}
+
+/* Portrait: the pad becomes a strip along the bottom and the buttons sit above it */
+@media (orientation: portrait) {
+  .touch-controls {
+    --tc-big: clamp(80px, 25vw, 120px);
+    --tc-pad-height: 84px;
+    --tc-lift: calc(var(--tc-pad-height) + var(--tc-gap));
+  }
+
+  .tc-pad {
+    right: var(--tc-right);
+    width: auto;
+  }
+
+  /* Minimap and speed move above the strip, on the free left side */
+  body.has-touch-controls .hud-minimap {
+    width: 96px;
+    height: 96px;
+    bottom: calc(var(--hud-gap) + 94px + 12px);
+  }
+
+  body.has-touch-controls .hud-speed {
+    right: auto;
+    left: var(--hud-gap);
+    bottom: calc(var(--hud-gap) + 94px + 120px);
+    transform: scale(0.65);
+    transform-origin: 0 100%;
+  }
+
+  body.has-touch-controls .hud-nitro {
+    bottom: calc(var(--hud-gap) + 94px + 190px);
+  }
+}

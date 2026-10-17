@@ -18,7 +18,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | 7 — Online: sala con código             | ⬜     |
 | 8 — Online robusto                      | ⬜     |
 | 9 — Contenido completo                  | 🚧     |
-| 10 — Pulido                             | ⬜     |
+| 10 — Pulido                             | 🚧     |
 | 11 — Lanzamiento                        | ⬜     |
 
 ## Etapa 0 — Base del proyecto ✅
@@ -199,3 +199,7 @@ Flujo de juego (elegir pista y modo Copa). Las pistas, los elementos especiales 
 - ✅ Pruebas: ajustes, puntos, desempates, avance de la copa, vistas de resultados y selección de pista.
 - ✅ Comprobado en Chromium: menú → pista → carrera sin errores de consola, cambio de pista desde el menú después de una carrera y la copa completa (4 carreras y repetir copa) forzando la llegada con `window.game` (solo en desarrollo).
 - ⬜ Falta: las pistas (diseños, atajos, elementos especiales), copas online y el cierre de la etapa.
+
+## Etapa 10 — Pulido 🚧
+
+- ✅ Controles táctiles para celular y tablet (`input/touch.ts`, `input/touchView.ts`, `input/touchControls.css`): `TouchSource` entra en `inputSources` junto al teclado y el mando. Se muestran con `(pointer: coarse)` o `maxTouchPoints > 0` sin puntero fino, o tras el primer `touchstart`; nunca en escritorio con ratón. Barra deslizable a la izquierda (giro analógico -1..1 con zona muerta) y a la derecha Acelerar, Frenar, Saltar/derrapar (se mantiene), Nitro, Poder y Atrás, con _pointer events_ multitáctil por `pointerId`, `touch-action: none` y áreas de seguridad (`viewport-fit=cover`). Se ocultan en el menú y en los resultados (ambos ya se manejan con toques). En modo táctil el HUD se reacomoda (velocímetro, minimapa y barra de nitro). Pruebas en `tests/touch.test.ts`. Comprobado en Chromium con Pixel 7 horizontal y vertical: el kart acelera y gira con toques, sin errores de consola, y en escritorio no aparecen.
