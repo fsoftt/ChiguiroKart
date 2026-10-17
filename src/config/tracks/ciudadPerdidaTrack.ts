@@ -5,40 +5,96 @@ import type { TrackTheme } from './theme'
 
 const SAMPLES_PER_SEGMENT = 14
 
-/** Key landmarks of the Tairona terraces, clockwise from the jungle trail up to the top terrace. */
+/**
+ * Key landmarks of the Sierra Nevada climb, from the Buritaca river (y 0) to the top terrace of
+ * the Lost City (y 30) and a fast descent back. Two hairpins (radius ~25) and a wide corner
+ * climb the mountain; the terrace is flat around a pool; the way down has two crest ramps and a
+ * ravine. No stretch of road passes near another one, so the format never has to stack roads.
+ */
 const POINTS: TrackPointData[] = [
-  { x: -40, z: 105, y: 0.0 }, // 0: Start / finish line on the jungle trail
-  { x: 20, z: 108, y: 0.0 }, // 1: Trail straight
-  { x: 80, z: 100, y: 0.3 }, // 2: Stone bridge over the Buritaca river
-  { x: 130, z: 72, y: 1.2 }, // 3: Cobbled path into the first terraces
-  { x: 152, z: 30, y: 1.8 }, // 4: Foot of the ancient stairs (the stairs shortcut starts here)
-  { x: 198, z: -10, y: 3.2 }, // 5: Long way round the retaining wall
-  { x: 194, z: -62, y: 4.4 }, // 6: Terraza de los Tairona
-  { x: 140, z: -95, y: 5.4 }, // 7: Top of the terrace wall
-  { x: 105, z: -106, y: 5.6 }, // 8: Top of the stairs, main terrace straight (the stairs shortcut ends here, turbo strip)
-  { x: 70, z: -106, y: 5.4 }, // 9: Waterfall, upper bank (the waterfall shortcut starts here)
-  { x: 45, z: -97, y: 4.4 }, // 10: Steps down to the pool
-  { x: 35, z: -66, y: 3.4 }, // 11: East bank of the pool
-  { x: 28, z: -30, y: 3.0 }, // 12: Pool corner
-  { x: -3, z: -14, y: 2.9 }, // 13: Stepping stones across the pool
-  { x: -36, z: -30, y: 3.0 }, // 14: Pool corner
-  { x: -43, z: -66, y: 3.4 }, // 15: West bank of the pool
-  { x: -52, z: -97, y: 4.4 }, // 16: Climb back to the terrace
-  { x: -78, z: -106, y: 5.0 }, // 17: Upper bank again (the waterfall shortcut ends here)
-  { x: -125, z: -95, y: 4.8 }, // 18: Terraza del Cacique
-  { x: -155, z: -50, y: 3.8 }, // 19: Mossy switchback
-  { x: -155, z: 10, y: 2.6 }, // 20: Descent through the ceiba grove
-  { x: -130, z: 62, y: 1.4 }, // 21: Fern gully
-  { x: -92, z: 98, y: 0.4 }, // 22: Last bend back to the trail
+  { x: -10, z: 105, y: 0.0 }, // 0: Start / finish line on the jungle trail
+  { x: 35, z: 105, y: 0.2 }, // 1
+  { x: 52, z: 102, y: 0.3 }, // 2: Stone bridge over the Buritaca river
+  { x: 74, z: 101, y: 0.9 }, // 3
+  { x: 86, z: 101, y: 1.2 }, // 4: Foot of the Sierra: first hairpin begins (left, R~27)
+  { x: 94, z: 100, y: 1.7 }, // 5
+  { x: 102, z: 96, y: 2.2 }, // 6
+  { x: 108, z: 90, y: 2.6 }, // 7
+  { x: 112, z: 82, y: 3.1 }, // 8
+  { x: 113, z: 74, y: 3.6 }, // 9
+  { x: 112, z: 66, y: 4.1 }, // 10
+  { x: 108, z: 58, y: 4.6 }, // 11
+  { x: 102, z: 52, y: 5.0 }, // 12
+  { x: 94, z: 48, y: 5.5 }, // 13
+  { x: 86, z: 47, y: 6.0 }, // 14: First hairpin done, climbing west (the stairs shortcut rejoins here)
+  { x: 74, z: 47, y: 7.3 }, // 15
+  { x: 54, z: 47, y: 9.6 }, // 16
+  { x: 42, z: 47, y: 10.9 }, // 17
+  { x: 32, z: 47, y: 12.0 }, // 18: Second hairpin begins (right, R~27)
+  { x: 24, z: 46, y: 12.3 }, // 19
+  { x: 16, z: 42, y: 12.6 }, // 20
+  { x: 10, z: 36, y: 12.8 }, // 21
+  { x: 6, z: 28, y: 13.1 }, // 22
+  { x: 5, z: 20, y: 13.4 }, // 23
+  { x: 6, z: 12, y: 13.7 }, // 24
+  { x: 10, z: 4, y: 14.0 }, // 25
+  { x: 16, z: -2, y: 14.2 }, // 26
+  { x: 24, z: -6, y: 14.5 }, // 27
+  { x: 32, z: -7, y: 14.8 }, // 28: Second hairpin done, long climb east
+  { x: 42, z: -7, y: 15.5 }, // 29
+  { x: 62, z: -7, y: 16.8 }, // 30
+  { x: 86, z: -7, y: 18.4 }, // 31
+  { x: 110, z: -7, y: 20.0 }, // 32
+  { x: 132, z: -7, y: 21.5 }, // 33: Wide corner into the cliff (the ledge shortcut cuts across it)
+  { x: 144, z: -7, y: 22.1 }, // 34
+  { x: 153, z: -8, y: 22.6 }, // 35
+  { x: 160, z: -12, y: 23.0 }, // 36
+  { x: 167, z: -19, y: 23.5 }, // 37
+  { x: 171, z: -26, y: 23.9 }, // 38
+  { x: 172, z: -35, y: 24.3 }, // 39
+  { x: 172, z: -48, y: 25.0 }, // 40
+  { x: 172, z: -62, y: 26.4 }, // 41
+  { x: 172, z: -70, y: 27.2 }, // 42: Top of the cliff road
+  { x: 170, z: -80, y: 27.5 }, // 43
+  { x: 166, z: -89, y: 27.9 }, // 44
+  { x: 159, z: -96, y: 28.2 }, // 45
+  { x: 150, z: -100, y: 28.5 }, // 46
+  { x: 140, z: -102, y: 28.8 }, // 47
+  { x: 128, z: -102, y: 29.2 }, // 48
+  { x: 108, z: -105, y: 29.9 }, // 49
+  { x: 90, z: -108, y: 30.5 }, // 50: Terraza de los Tairona: the top terrace, waterfall upstream
+  { x: 70, z: -98, y: 30.2 }, // 51: Pool detour begins (the waterfall shortcut cuts across it)
+  { x: 48, z: -76, y: 28.7 }, // 52
+  { x: 22, z: -68, y: 27.4 }, // 53: Stepping stones in the pool, lowest point of the terrace
+  { x: -4, z: -76, y: 28.6 }, // 54
+  { x: -22, z: -94, y: 29.8 }, // 55
+  { x: -42, z: -106, y: 30.8 }, // 56: Back on the terrace, leaving the pool
+  { x: -64, z: -110, y: 30.0 }, // 57
+  { x: -78, z: -110, y: 29.2 }, // 58: Terrace lip: the first crest ramp (launch only)
+  { x: -108, z: -105, y: 26.3 }, // 59
+  { x: -124, z: -91, y: 24.3 }, // 60
+  { x: -132, z: -70, y: 22.2 }, // 61: Fast descent: second crest ramp
+  { x: -133, z: -50, y: 20.2 }, // 62
+  { x: -132, z: -30, y: 18.2 }, // 63: Ravine rim: the road swings out, the shortcut jumps straight across
+  { x: -138, z: -12, y: 16.7 }, // 64
+  { x: -154, z: 6, y: 14.8 }, // 65
+  { x: -166, z: 30, y: 12.6 }, // 66: Far side of the ravine bend
+  { x: -168, z: 54, y: 10.8 }, // 67
+  { x: -156, z: 74, y: 9.0 }, // 68
+  { x: -136, z: 88, y: 7.2 }, // 69
+  { x: -114, z: 96, y: 5.4 }, // 70: Ravine bypass rejoins the road
+  { x: -84, z: 103, y: 2.4 }, // 71
+  { x: -62, z: 106, y: 1.5 }, // 72
+  { x: -28, z: 106, y: 0.2 }, // 73: Last straight, flat for the grid
 ]
 
 const TOTAL_SAMPLES = POINTS.length * SAMPLES_PER_SEGMENT
 const loop = buildCenterline(POINTS, SAMPLES_PER_SEGMENT).points
 
-/** Centerline sample at control point `index`, so the shortcut ends sit exactly on the road. */
-function landmark(index: number): { x: number; z: number } {
-  const point = loop[index * SAMPLES_PER_SEGMENT]
-  if (!point) throw new Error(`Missing Ciudad Perdida landmark ${index}`)
+/** Centerline sample `index`, so the shortcut ends sit exactly on the road. */
+function road(index: number): { x: number; z: number } {
+  const point = loop[index]
+  if (!point) throw new Error(`Missing Ciudad Perdida road sample ${index}`)
   return { x: point.x, z: point.z }
 }
 
@@ -50,62 +106,98 @@ function at(index: number): number {
 export const ciudadPerdidaData: TrackData = {
   version: 1,
   name: 'Ciudad Perdida',
-  halfWidth: 8.5,
+  halfWidth: 6.5,
   samplesPerSegment: SAMPLES_PER_SEGMENT,
   points: POINTS,
   branches: [
     {
-      // Steep, narrow stone stairs straight up the terrace wall
+      // Steep, narrow stone stairs straight up between the legs of the first hairpin
       name: 'Escalinata de piedra',
       points: [
-        landmark(4),
-        { x: 150, z: 5 },
-        { x: 147, z: -30 },
-        { x: 143, z: -62 },
-        { x: 136, z: -84 },
-        { x: 122, z: -99 },
-        landmark(8),
+        road(34),
+        { x: 74, z: 97 },
+        { x: 79, z: 86 },
+        { x: 79, z: 64 },
+        { x: 74, z: 52 },
+        road(218),
       ],
       halfWidth: 4.5,
       surface: 'dirt',
       // The climb is concentrated in the middle of the wall, cut into nine stone treads
-      heights: [1.8, 1.9, 2.1, 5.2, 5.5, 5.6, 5.6],
+      heights: [0.5, 0.8, 3, 6.2, 8.4, 8.6],
       steps: 9,
+    },
+    {
+      // A narrow ledge cut into the cliff, straight across the wide corner
+      name: 'Cornisa del acantilado',
+      points: [
+        road(434),
+        { x: 100, z: -16 },
+        { x: 122, z: -30 },
+        { x: 146, z: -46 },
+        { x: 164, z: -58 },
+        road(572),
+      ],
+      halfWidth: 3,
+      surface: 'dirt',
     },
     {
       // Wading behind the waterfall instead of going down to the pool and back up
       name: 'Tras la cascada',
       points: [
-        landmark(9),
-        { x: 40, z: -106 },
-        { x: 5, z: -106 },
-        { x: -30, z: -106 },
-        { x: -58, z: -107 },
-        landmark(17),
+        road(700),
+        { x: 62, z: -108 },
+        { x: 32, z: -109 },
+        { x: 4, z: -109 },
+        { x: -22, z: -108 },
+        road(784),
       ],
       halfWidth: 6,
       surface: 'water',
     },
+    {
+      // Straight across the ravine: a ramp and a twelve metre gap instead of the long bend
+      name: 'Salto del barranco',
+      points: [road(882), { x: -131, z: 0 }, { x: -129, z: 30 }, { x: -127, z: 60 }, road(974)],
+      halfWidth: 5,
+      surface: 'dirt',
+    },
   ],
-  checkpoints: { count: 14, optional: [3, 4, 6, 7, 8, 9, 10] },
+  // Gates 1-2 lie inside the first hairpin, 6-7 around the cliff corner, 10 on the pool detour
+  // and 12-13 along the ravine bend
+  checkpoints: { count: 14, optional: [1, 2, 6, 7, 10, 12, 13] },
   itemBoxRows: [
-    { at: at(20), count: 4 },
-    { at: at(115), count: 3 },
-    { at: at(170), count: 4 },
-    { at: at(205), count: 3 },
+    { at: at(145), count: 4 },
+    { at: at(405), count: 3 },
+    { at: at(740), count: 4 },
+    { at: at(907), count: 3 },
   ],
   uchuvaLines: [
-    { at: at(6), count: 5, offset: -4 },
-    { at: at(44), count: 5, offset: 4 },
-    { at: at(112), count: 5, offset: 0 },
-    { at: at(150), count: 5, offset: -3 },
-    { at: at(185), count: 5, offset: 3 },
-    { at: at(218), count: 5, offset: 0 },
+    { at: at(14), count: 5, offset: -3 },
+    { at: at(284), count: 5, offset: 3 },
+    { at: at(487), count: 5, offset: 0 },
+    { at: at(680), count: 5, offset: -3 },
+    { at: at(764), count: 5, offset: 3 },
+    { at: at(932), count: 5, offset: 0 },
+    { at: at(1008), count: 5, offset: -2 },
   ],
-  boostPads: [{ at: at(8 * SAMPLES_PER_SEGMENT + 5), offset: 0, length: 8, width: 5 }],
+  boostPads: [
+    // Start straight, and the exit of the stairs
+    { at: at(10), offset: 0, length: 8, width: 5 },
+    { at: at(228), offset: 0, length: 8, width: 5 },
+    // Turbo on the ledge, and before the lip of the ravine jump
+    { at: 0.5, offset: 0, branch: 'Cornisa del acantilado', length: 6, width: 3 },
+    { at: 0.2, offset: 0, branch: 'Salto del barranco', length: 8, width: 5 },
+  ],
+  jumps: [
+    // Crest ramps (launch only) on the straights of the descent
+    { at: at(806), launchSpeed: 8 },
+    { at: at(848), launchSpeed: 8 },
+    // The ravine jump: the ramp is 45 m into the shortcut, then twelve metres of nothing
+    { at: 0.365, branch: 'Salto del barranco', launchSpeed: 13, gap: 12 },
+  ],
 }
 
-/** Misty Sierra Nevada jungle: deep greens, grey stone terraces and dense fog. */
 /** Sierra Nevada cloud jungle: stone terraces, conical huts and dense forest. */
 export const ciudadPerdidaEnvironment: TrackEnvironment = {
   seed: 3505,

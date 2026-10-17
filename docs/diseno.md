@@ -190,12 +190,12 @@ Doce pistas en tres copas de cuatro. Cada pista tiene al menos un **atajo**: má
 
 ### Copa Caribe
 
-| Pista                        | Ambiente                                                           | Atajos                                                                               |
-| ---------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| **Murallas de Cartagena**    | Murallas, cañones, balcones con flores, atardecer.                 | Carrera por encima de la muralla; rampa con un cañón que lanza el kart.              |
-| **Ciudad Perdida**           | Selva de la Sierra Nevada, terrazas de piedra, escaleras antiguas. | Escalinatas de piedra (salto en cadena); cascada que se cruza por detrás.            |
-| **San Andrés**               | Mar de siete colores, playas, palmeras.                            | Banco de arena que solo aparece cuando baja la marea en ciertas vueltas.             |
-| **Carnaval de Barranquilla** | Desfile, carrozas, papelillo, marimondas.                          | Pasar por dentro de una carroza en movimiento; tramo de confeti que oculta un turbo. |
+| Pista                        | Ambiente                                                           | Atajos                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| **Murallas de Cartagena**    | Murallas, cañones, balcones con flores, atardecer.                 | Carrera por encima de la muralla; rampa con un cañón que lanza el kart.                            |
+| **Ciudad Perdida**           | Selva de la Sierra Nevada, terrazas de piedra, escaleras antiguas. | Escalinata de piedra, cornisa estrecha, cascada que se cruza por detrás y salto sobre un barranco. |
+| **San Andrés**               | Mar de siete colores, playas, palmeras.                            | Banco de arena que solo aparece cuando baja la marea en ciertas vueltas.                           |
+| **Carnaval de Barranquilla** | Desfile, carrozas, papelillo, marimondas.                          | Pasar por dentro de una carroza en movimiento; tramo de confeti que oculta un turbo.               |
 
 ### Copa Selva y Llano
 

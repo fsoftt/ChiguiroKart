@@ -224,6 +224,7 @@ describe('track content', () => {
     ['Bogotá', bogotaData],
     ['Amazonas', amazonasData],
     ['Tatacoa', tatacoaData],
+    ['Ciudad Perdida', ciudadPerdidaData],
   ]
 
   it.each(gapped)('%s: the gap is cleared at 20 m/s and not at 8 m/s', (_name, data) => {
@@ -264,6 +265,22 @@ describe('track content', () => {
     for (const spot of spots) expect(track.inGap(spot.x, spot.z)).toBe(false)
     const messages = validateTrackData(data)
     expect(messages.filter((m) => /hueco|altura|salto|turbo/i.test(m))).toEqual([])
+  })
+
+  it('Ciudad Perdida: the crest ramps launch the kart and it lands back on the road', () => {
+    const track = new Track(buildTrackDefinition(ciudadPerdidaData))
+    const crests = track.jumps.filter((j) => !j.gap)
+    expect(crests.length).toBeGreaterThanOrEqual(2)
+    for (const crest of crests) {
+      for (const speed of [14, 20, 28]) {
+        const run = runJump(track, crest, speed)
+        expect(run.fell, `${speed} m/s`).toBe(false)
+        expect(run.peakVy).toBeGreaterThan(6)
+        expect(run.landed).toBe(true)
+        const landing = track.project(run.landedAt.x, run.landedAt.z)
+        expect(landing.distance, `${speed} m/s`).toBeLessThan(landing.halfWidth - 1)
+      }
+    }
   })
 
   it('Ciudad Perdida: the stone stairs are real steps with sharp risers', () => {

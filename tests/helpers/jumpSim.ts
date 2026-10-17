@@ -25,6 +25,8 @@ export interface JumpRun {
   landed: boolean
   /** Distance along the heading between the lip edge and where it came down (m). */
   landedPast: number
+  /** Ground position where it came down (m); the lip position if it never landed. */
+  landedAt: { x: number; z: number }
 }
 
 /** When the jump button is pressed: never, on entering the lip zone, or N seconds after launch. */
@@ -53,6 +55,7 @@ export function runJump(
     landingBoostLevel: 0,
     landed: false,
     landedPast: 0,
+    landedAt: { x: jump.position.x, z: jump.position.z },
   }
   let launched = false
   let airSteps = 0
@@ -83,6 +86,7 @@ export function runJump(
     if (launched && kart.onGround && wasAirborne && !run.landed) {
       run.landed = true
       run.landingBoostLevel = kart.boost.level
+      run.landedAt = { x: kart.position.x, z: kart.position.z }
       run.landedPast =
         (kart.position.x - jump.position.x) * forward.x +
         (kart.position.z - jump.position.z) * forward.z

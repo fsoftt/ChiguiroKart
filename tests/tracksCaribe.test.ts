@@ -24,11 +24,18 @@ interface Circuit {
   theme: TrackTheme
   /** Half-width range the design brief asks for. */
   halfWidth: readonly [number, number]
+  /** Loop length range (m). Defaults to 700-1100. */
+  length?: readonly [number, number]
 }
 
 const circuits: Record<string, Circuit> = {
   cartagena: { data: cartagenaData, theme: cartagenaTheme, halfWidth: [8, 10] },
-  ciudadPerdida: { data: ciudadPerdidaData, theme: ciudadPerdidaTheme, halfWidth: [8, 10] },
+  ciudadPerdida: {
+    data: ciudadPerdidaData,
+    theme: ciudadPerdidaTheme,
+    halfWidth: [6, 7.5],
+    length: [900, 1200],
+  },
   sanAndres: { data: sanAndresData, theme: sanAndresTheme, halfWidth: [8, 10] },
   barranquilla: { data: barranquillaData, theme: barranquillaTheme, halfWidth: [10, 11] },
 }
@@ -114,15 +121,17 @@ function cachedSolo(
 const NO_SHORTCUT = { shortcutChance: 0 }
 const ALL_SHORTCUTS = { shortcutChance: 1 }
 
-describe.each(Object.entries(circuits))('Copa Caribe: %s', (key, { data, theme, halfWidth }) => {
+describe.each(Object.entries(circuits))('Copa Caribe: %s', (key, circuit) => {
+  const { data, theme, halfWidth } = circuit
+  const length = circuit.length ?? [700, 1100]
   const definition = buildTrackDefinition(data)
   const track = new Track(definition)
   const route = new Route(track)
 
   it('has a valid layout with a sane size, width and relief', () => {
     expect(validateTrackData(data)).toEqual([])
-    expect(track.loopLength).toBeGreaterThanOrEqual(700)
-    expect(track.loopLength).toBeLessThanOrEqual(1100)
+    expect(track.loopLength).toBeGreaterThanOrEqual(length[0])
+    expect(track.loopLength).toBeLessThanOrEqual(length[1])
     expect(data.halfWidth).toBeGreaterThanOrEqual(halfWidth[0])
     expect(data.halfWidth).toBeLessThanOrEqual(halfWidth[1])
 
@@ -242,6 +251,37 @@ describe.each(Object.entries(circuits))('Copa Caribe: %s', (key, { data, theme, 
     const taken = cachedSolo(key, data, ALL_SHORTCUTS, { low: true })
     const skipped = cachedSolo(key, data, NO_SHORTCUT, { low: true })
     expect(taken.totalTime).toBeLessThan(skipped.totalTime)
+  })
+})
+
+describe('Ciudad Perdida relief', () => {
+  const track = new Track(buildTrackDefinition(ciudadPerdidaData))
+
+  it('climbs at least 25 m from the river to the top terrace and has 3+ shortcuts', () => {
+    const heights = track.centerline.map((p) => track.groundHeight(p.x, p.z))
+    expect(Math.max(...heights) - Math.min(...heights)).toBeGreaterThanOrEqual(25)
+    expect(track.branches.length).toBeGreaterThanOrEqual(3)
+    expect(track.jumps.some((jump) => jump.gap)).toBe(true)
+  })
+
+  it('has a narrow road with hairpins and no road passing close to another one', () => {
+    expect(track.halfWidth).toBeLessThanOrEqual(7)
+    const arcs = track.centerline.map((_p, i) => (i * track.loopLength) / track.centerline.length)
+    let closest = Infinity
+    for (let i = 0; i < track.centerline.length; i += 2) {
+      for (let j = i + 1; j < track.centerline.length; j += 2) {
+        const apart = Math.min(
+          Math.abs((arcs[j] ?? 0) - (arcs[i] ?? 0)),
+          track.loopLength - Math.abs((arcs[j] ?? 0) - (arcs[i] ?? 0)),
+        )
+        if (apart < 100) continue
+        const a = track.point(i)
+        const b = track.point(j)
+        closest = Math.min(closest, Math.hypot(a.x - b.x, a.z - b.z))
+      }
+    }
+    // Two corridors side by side and still a gap between them
+    expect(closest).toBeGreaterThan(track.halfWidth * 2 + 10)
   })
 })
 
