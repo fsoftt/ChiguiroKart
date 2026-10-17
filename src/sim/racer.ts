@@ -5,6 +5,7 @@ import type { KartInput } from '../input/kartInput'
 import { stepKart } from './kart/kartPhysics'
 import { createKartState, type KartState } from './kart/kartState'
 import { resolveTrackCollision } from './kart/trackCollision'
+import { createRacerItems, type RacerItems } from './items/itemTypes'
 import { RaceManager, type RaceManagerOptions } from './race/raceManager'
 import { getSurfaceProperties } from './race/surface'
 import { forwardOf, rightOf } from './math'
@@ -21,6 +22,8 @@ export interface Racer {
    * bots use it for their difficulty and the rubber band.
    */
   speedScale: number
+  /** Uchuvas, held power and temporary effects (written by `ItemSystem`). */
+  items: RacerItems
 }
 
 /**
@@ -45,6 +48,7 @@ export function createRacer(track: Track, raceOptions?: RaceManagerOptions, slot
   return {
     slot,
     speedScale: 1,
+    items: createRacerItems(),
     kart: createKartState(position, heading),
     race: new RaceManager(track.checkpoints, raceOptions),
   }
@@ -54,6 +58,7 @@ export function createRacer(track: Track, raceOptions?: RaceManagerOptions, slot
 export function resetRacer(racer: Racer, track: Track): void {
   const { position, heading } = gridPose(track, racer.slot)
   racer.kart = createKartState(position, heading)
+  racer.items = createRacerItems()
   racer.race.reset()
 }
 
