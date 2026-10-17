@@ -32,6 +32,16 @@ export interface BotDifficultyConfig {
   shortcutChance: number
   /** Chance of timing the start boost. */
   startBoostChance: number
+  /** Seconds the bot waits after getting a power before using it. */
+  itemReactionDelay: number
+  /** Chance (0..1) per power of using it on purpose (traps, shield); otherwise it waits for the hold timeout. */
+  itemDefensiveChance: number
+  /** Steering noise (0..1) added while blinded by mosquitos. */
+  blindSteerNoise: number
+  /** Share of the look-ahead distance kept while blinded (< 1 = shorter). */
+  blindLookaheadScale: number
+  /** True if the bot only throws panela on a straight; false = right away. */
+  panelaNeedsStraight: boolean
 }
 
 export const botDifficulties: Record<BotDifficulty, BotDifficultyConfig> = {
@@ -48,6 +58,11 @@ export const botDifficulties: Record<BotDifficulty, BotDifficultyConfig> = {
     nitroMistakeChance: 0.35,
     shortcutChance: 0.15,
     startBoostChance: 0,
+    itemReactionDelay: 1.5,
+    itemDefensiveChance: 0.5,
+    blindSteerNoise: 0.6,
+    blindLookaheadScale: 0.6,
+    panelaNeedsStraight: false,
   },
   normal: {
     speedFactor: 0.93,
@@ -62,6 +77,11 @@ export const botDifficulties: Record<BotDifficulty, BotDifficultyConfig> = {
     nitroMistakeChance: 0.1,
     shortcutChance: 0.5,
     startBoostChance: 0.5,
+    itemReactionDelay: 0.8,
+    itemDefensiveChance: 0.8,
+    blindSteerNoise: 0.4,
+    blindLookaheadScale: 0.75,
+    panelaNeedsStraight: true,
   },
   dificil: {
     speedFactor: 0.94,
@@ -76,6 +96,11 @@ export const botDifficulties: Record<BotDifficulty, BotDifficultyConfig> = {
     nitroMistakeChance: 0.05,
     shortcutChance: 0.85,
     startBoostChance: 0.9,
+    itemReactionDelay: 0.3,
+    itemDefensiveChance: 0.95,
+    blindSteerNoise: 0.25,
+    blindLookaheadScale: 0.85,
+    panelaNeedsStraight: true,
   },
 }
 
@@ -170,6 +195,28 @@ export interface BotBehaviorConfig {
   reverseTime: number
   /** The start boost is pressed when this many seconds or fewer remain (< 0.35 or it stalls). */
   startPressWindow: number
+  /** Items: a rival ahead within this distance (m) and cone is a target for coco and armadillo. */
+  itemCocoRange: number
+  /** Items: half-angle of the forward firing cone. */
+  itemConeAngle: number
+  /** Items: a rival behind within this distance (m) triggers traps, shield and backward coco. */
+  itemBackRange: number
+  /** Items: sideways half-width (m) of the zone behind that counts as "behind". */
+  itemBackWidth: number
+  /** Items: reach (m) of avispa and hormigas toward a rival ahead in the standings. */
+  itemHomingRange: number
+  /** Items: reach (m) of the sombrero toward a rival ahead. */
+  itemSombreroRange: number
+  /** Items: distance (m) to the leader above which rayo and colibri are worth using. */
+  itemLeaderGap: number
+  /** Items: seconds holding any power before it is used regardless of the situation. */
+  itemHoldTimeout: number
+  /** Items: seconds between presses when a power has several uses. */
+  itemUseGap: number
+  /** Items: seconds the armadillo shield is kept up before throwing it anyway. */
+  itemShieldHold: number
+  /** Items: upcoming turn (rad) under which the road counts as a straight. */
+  itemStraightTurn: number
 }
 
 export const botBehavior: BotBehaviorConfig = {
@@ -206,4 +253,15 @@ export const botBehavior: BotBehaviorConfig = {
   stuckTime: 1.5,
   reverseTime: 1,
   startPressWindow: 0.3,
+  itemCocoRange: 25,
+  itemConeAngle: (15 * Math.PI) / 180,
+  itemBackRange: 15,
+  itemBackWidth: 4,
+  itemHomingRange: 120,
+  itemSombreroRange: 30,
+  itemLeaderGap: 40,
+  itemHoldTimeout: 8,
+  itemUseGap: 0.4,
+  itemShieldHold: 3,
+  itemStraightTurn: 0.2,
 }

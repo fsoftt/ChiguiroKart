@@ -12,6 +12,7 @@ import { clamp, damp, forwardOf, headingOf, lerp, rightOf, wrapAngle, type Vec2 
 import type { Racer } from '../sim/racer'
 import type { Track } from '../sim/track'
 import { DriftControl } from './driftControl'
+import { ItemControl } from './itemControl'
 import { createRng, seedFor, type Rng } from './random'
 import { Route, type RouteCursor } from './route'
 
@@ -52,6 +53,8 @@ export class RacingBot implements BotInputProvider {
 
   private rng: Rng = createRng(0)
   private drift: DriftControl | null = null
+  private items: ItemControl | null = null
+  private itemRng: Rng = createRng(0)
   private route: Route | null = null
   private routeTrack: Track | null = null
   private cursor: RouteCursor | null = null
@@ -119,7 +122,10 @@ export class RacingBot implements BotInputProvider {
     this.updateOffsets(dt, ctx)
 
     // Aim at the line ahead, shifted sideways and pulled back toward the center near walls
-    const lookahead = this.skill.lookaheadBase + this.skill.lookaheadTime * Math.max(speed, 0)
+    const blind = self.items.status.blindTime > 0
+    const lookahead =
+      (this.skill.lookaheadBase + this.skill.lookaheadTime * Math.max(speed, 0)) *
+      (blind ? this.skill.blindLookaheadScale : 1)
     const ahead = route.walk(cursor, position, this.plannedBranch, lookahead)
     const projection = world.track.project(position.x, position.z)
     const edge = projection.distance / projection.halfWidth
@@ -138,10 +144,16 @@ export class RacingBot implements BotInputProvider {
     const course = headingOf(kart.velocity.x, kart.velocity.z)
     const slideShare = this.isDrifting && speed > 1 ? this.behavior.driftCourseWeight : 0
     const error = lerp(wrapAngle(wanted - kart.heading), wrapAngle(wanted - course), slideShare)
-    const pursuit = clamp(-error * this.behavior.steerGain, -1, 1)
+    // Mosquitos: the bot sees badly and weaves a little
+    const noise = blind ? (this.itemRng() * 2 - 1) * this.skill.blindSteerNoise : 0
+    const pursuit = clamp(-error * this.behavior.steerGain + noise, -1, 1)
     this.steer = damp(this.steer, pursuit, this.behavior.steerSmoothing, dt)
 
-    if (state.phase === 'racing' && this.updateStuck(dt, speed, kart.boost.level)) {
+    // A spin-out is not being stuck
+    const hit = self.items.status.hit !== null
+    if (hit) {
+      this.stuckTimer = 0
+    } else if (state.phase === 'racing' && this.updateStuck(dt, speed, kart.boost.level)) {
       // Reverse with the opposite steer: turning is inverted when backing up
       return { ...NEUTRAL_INPUT, brake: 1, steer: -this.steer }
     }
@@ -157,14 +169,16 @@ export class RacingBot implements BotInputProvider {
       wrapAngle(route.walk(cursor, position, this.plannedBranch, distance).heading - h0)
 
     const drift = this.drift
-    const command = drift?.update(dt, {
-      kart,
-      speed,
-      turnNear: turn(this.behavior.driftWindow),
-      turnFar: turn(this.behavior.driftWindow * 2),
-      turnEnd: turn(this.behavior.driftEndWindow),
-      wallDanger: () => this.hitsWallSoon(world.track, kart),
-    })
+    const command = hit
+      ? undefined
+      : drift?.update(dt, {
+          kart,
+          speed,
+          turnNear: turn(this.behavior.driftWindow),
+          turnFar: turn(this.behavior.driftWindow * 2),
+          turnEnd: turn(this.behavior.driftEndWindow),
+          wallDanger: () => this.hitsWallSoon(world.track, kart),
+        })
 
     const severity = clamp(
       Math.max(Math.abs(turn(horizon / 2)), Math.abs(turn(horizon))) / this.behavior.sharpTurnAngle,
@@ -173,8 +187,11 @@ export class RacingBot implements BotInputProvider {
     )
     const cornerFactor = lerp(1, this.skill.cornerSpeedFactor, severity)
     const over = speed - topSpeed * cornerFactor
+    const itemCommand = this.items?.update(dt, ctx, turn(this.behavior.turnHorizonMax))
     return {
       ...NEUTRAL_INPUT,
+      useItem: itemCommand?.useItem ?? false,
+      lookBack: itemCommand?.lookBack ?? false,
       throttle: over > 0 ? 0 : 1,
       brake: over > this.behavior.brakeMargin ? clamp(over / 10, 0.3, 1) : 0,
       steer: command?.forcedSteer ?? this.steer,
@@ -195,6 +212,9 @@ export class RacingBot implements BotInputProvider {
     this.seeded = true
     this.rng = createRng(seedFor(this.seed, ctx.self.slot))
     this.drift = new DriftControl(this.skill, this.behavior, this.driftRules, this.rng)
+    // Separate generator so item use never changes the driving random sequence
+    this.itemRng = createRng(seedFor(this.seed ^ 0x51ed270b, ctx.self.slot))
+    this.items = new ItemControl(this.skill, this.behavior, this.itemRng)
     this.cursor = {
       branch: -1,
       index: this.route.nearestMainIndex({
