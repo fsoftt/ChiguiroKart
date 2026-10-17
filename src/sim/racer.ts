@@ -1,3 +1,5 @@
+import type { CharacterId } from '../config/characters'
+import { characters, characterTuning } from '../config/characters'
 import { defaultGrid, type GridConfig } from '../config/grid'
 import type { DriftConfig } from '../config/drift'
 import type { KartPhysicsConfig } from '../config/kartPhysics'
@@ -12,6 +14,7 @@ import { statusModifiers } from './items/statusModifiers'
 import { RaceManager, type RaceManagerOptions } from './race/raceManager'
 import { getSurfaceProperties } from './race/surface'
 import { NEUTRAL_INPUT } from '../input/kartInput'
+import { characterPerks, characterPhysics, slipstream, surfaceFor } from './characters'
 import { clamp, forwardOf, rightOf } from './math'
 import type { Pose, Track } from './track'
 
@@ -21,6 +24,8 @@ export interface Racer {
   readonly race: RaceManager
   /** Starting grid slot (0 = pole position). */
   readonly slot: number
+  /** Who drives this kart: sets its stats and passive perk (see `config/characters`). */
+  character: CharacterId
   /**
    * Multiplies top speed and acceleration (1 = the kart's normal limits). The player keeps 1;
    * bots use it for their difficulty and the rubber band.
@@ -47,10 +52,16 @@ export function gridPose(track: Track, slot: number, grid: GridConfig = defaultG
   return { position: { x, y: track.groundHeight(x, z), z }, heading: start.heading }
 }
 
-export function createRacer(track: Track, raceOptions?: RaceManagerOptions, slot = 0): Racer {
+export function createRacer(
+  track: Track,
+  raceOptions?: RaceManagerOptions,
+  slot = 0,
+  character: CharacterId = 'chiguiro',
+): Racer {
   const { position, heading } = gridPose(track, slot)
   return {
     slot,
+    character,
     speedScale: 1,
     items: createRacerItems(),
     kart: createKartState(position, heading),
@@ -58,7 +69,7 @@ export function createRacer(track: Track, raceOptions?: RaceManagerOptions, slot
   }
 }
 
-/** Puts the racer back on its grid slot with a fresh race state. */
+/** Puts the racer back on its grid slot with a fresh race state (same character). */
 export function resetRacer(racer: Racer, track: Track): void {
   const { position, heading } = gridPose(track, racer.slot)
   racer.kart = createKartState(position, heading)
@@ -68,7 +79,8 @@ export function resetRacer(racer: Racer, track: Track): void {
 
 /**
  * Advances one racer by `dt`: race rules first, then physics on the surface under the kart.
- * Player and bots go through this same pipeline.
+ * Player and bots go through this same pipeline. `others` are the racers visible to this one
+ * (needed by position-based perks such as the Jaguar's slipstream).
  */
 export function stepRacer(
   racer: Racer,
@@ -78,6 +90,7 @@ export function stepRacer(
   drift: DriftConfig,
   dt: number,
   items: ItemsConfig = defaultItems,
+  others: readonly Racer[] = [],
 ): void {
   const { kart, race } = racer
   const groundHeight = (x: number, z: number): number => track.groundHeight(x, z)
@@ -94,16 +107,33 @@ export function stepRacer(
       ? { ...input, throttle: 0, brake: 0 }
       : { ...input, steer: clamp(input.steer + modifiers.steerOffset, -1, 1) }
 
-  const surfaceProps = getSurfaceProperties(track.surfaceAt(kart.position.x, kart.position.z))
+  const surface = track.surfaceAt(kart.position.x, kart.position.z)
+  const surfaceProps = surfaceFor(racer.character, surface, getSurfaceProperties(surface))
   const scale = racer.speedScale * modifiers.speedFactor
+  const slip = slipstream(racer, others)
+  const { depredador } = characterTuning.perks
+  const stats = characterPhysics(physics, characters[racer.character].stats)
   const effectivePhysics: KartPhysicsConfig = {
-    ...physics,
-    maxSpeed: physics.maxSpeed * surfaceProps.speedMultiplier * scale,
-    acceleration: physics.acceleration * surfaceProps.accelerationMultiplier * scale,
-    lateralGrip: physics.lateralGrip * surfaceProps.gripMultiplier * modifiers.gripFactor,
+    ...stats,
+    maxSpeed:
+      stats.maxSpeed * surfaceProps.speedMultiplier * scale * (1 + slip * depredador.speedBonus),
+    acceleration:
+      stats.acceleration *
+      surfaceProps.accelerationMultiplier *
+      scale *
+      (1 + slip * depredador.accelerationBonus),
+    lateralGrip: stats.lateralGrip * surfaceProps.gripMultiplier * modifiers.gripFactor,
   }
 
-  stepKart(kart, drivingInput, effectivePhysics, drift, groundHeight, dt)
+  stepKart(
+    kart,
+    drivingInput,
+    effectivePhysics,
+    drift,
+    groundHeight,
+    dt,
+    characterPerks(racer.character),
+  )
   resolveTrackCollision(kart, track, physics, dt)
 }
 

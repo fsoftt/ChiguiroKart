@@ -12,6 +12,8 @@ import type { DriftConfig } from '../config/drift'
 import type { KartState } from './kart/kartState'
 import type { RaceState } from './race/raceState'
 import { resolveKartCollisions } from './kart/kartCollision'
+import { characterIds, type CharacterId } from '../config/characters'
+import { characterMass } from './characters'
 import { createRacer, resetRacer, stepRacer, type Racer } from './racer'
 
 interface BotEntry {
@@ -47,12 +49,18 @@ export class BotManager {
   ) {
     this.rubberBand = options.rubberBand ?? defaultRubberBand
     this.metersPerProgress = world.track.loopLength / Math.max(world.track.checkpoints.length, 1)
+    world.rivals = () => this.allRacers()
   }
 
-  /** Add a new bot instance. */
-  addBot(provider: BotInputProvider) {
+  /**
+   * Add a new bot instance. Without a `character`, bots cycle through the roster by slot so
+   * they differ (the player's slot 0 is the first one).
+   */
+  addBot(provider: BotInputProvider, character?: CharacterId) {
     // Slot 0 is the player, bots take 1, 2, ... in order
-    const racer = createRacer(this.world.track, this.world.raceOptions, this.bots.length + 1)
+    const slot = this.bots.length + 1
+    const picked = character ?? characterIds[slot % characterIds.length] ?? 'chiguiro'
+    const racer = createRacer(this.world.track, this.world.raceOptions, slot, picked)
     racer.speedScale = provider.speedFactor ?? 1
     this.bots.push({ provider, racer, lastInput: { ...NEUTRAL_INPUT }, rubber: 1 })
   }
@@ -65,7 +73,16 @@ export class BotManager {
       this.updateSpeedScale(entry, playerProgress, dt)
       const input = entry.provider.nextInput(dt, { world: this.world, self: entry.racer, racers })
       entry.lastInput = input
-      stepRacer(entry.racer, input, this.world.track, this.physics, this.drift, dt)
+      stepRacer(
+        entry.racer,
+        input,
+        this.world.track,
+        this.physics,
+        this.drift,
+        dt,
+        undefined,
+        racers,
+      )
     }
   }
 
@@ -109,7 +126,8 @@ export class BotManager {
 
   /** Resolve collisions between the player and all bots. Call after everyone has stepped. */
   resolveCollisions() {
-    resolveKartCollisions(this.allKarts(), this.physics)
+    const masses = this.allRacers().map((racer) => characterMass(racer.character))
+    resolveKartCollisions(this.allKarts(), this.physics, masses)
   }
 
   /** Get the kart, race state and last input of each bot. */

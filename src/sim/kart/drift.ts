@@ -2,6 +2,7 @@ import type { DriftConfig } from '../../config/drift'
 import type { KartInput } from '../../input/kartInput'
 import { clamp, dotXZ, forwardOf } from '../math'
 import { addBoost } from './boost'
+import { NEUTRAL_KART_PERKS, type KartPerks } from './kartPerks'
 import { createDriftState, MAX_NITROS_PER_DRIFT, type NitroLevel } from './driftState'
 import type { KartState } from './kartState'
 
@@ -70,19 +71,20 @@ export function updateDrift(
   boostPressed: boolean,
   config: DriftConfig,
   dt: number,
+  perks: KartPerks = NEUTRAL_KART_PERKS,
 ): void {
   const drift = state.drift
   if (drift.direction === 0) return
-  if (boostPressed) pressBoost(state, config)
+  if (boostPressed) pressBoost(state, config, perks)
   if (drift.chainBroken || drift.nitrosInChain >= MAX_NITROS_PER_DRIFT) return
 
-  drift.charge = Math.min(drift.charge + config.chargeRate * dt, 1)
+  drift.charge = Math.min(drift.charge + config.chargeRate * perks.driftChargeFactor * dt, 1)
   if (drift.charge < 1) return
   drift.overchargeTime += dt
   if (drift.overchargeTime > config.overchargeGrace) drift.chainBroken = true
 }
 
-function pressBoost(state: KartState, config: DriftConfig): void {
+function pressBoost(state: KartState, config: DriftConfig, perks: KartPerks): void {
   const drift = state.drift
   if (drift.chainBroken || drift.nitrosInChain >= MAX_NITROS_PER_DRIFT) return
   if (drift.charge < config.redZoneStart) {
@@ -91,7 +93,9 @@ function pressBoost(state: KartState, config: DriftConfig): void {
   }
   const level = (drift.nitrosInChain + 1) as Exclude<NitroLevel, 0>
   const perfect = drift.charge - config.redZoneStart <= config.perfectWindow
-  addBoost(state, level, config.levels[level - 1]?.duration ?? 0, perfect, config)
+  const base = config.levels[level - 1]?.duration ?? 0
+  const factor = perks.nitroDurationFactor * (level === 3 ? perks.thirdNitroDurationFactor : 1)
+  addBoost(state, level, base * factor, perfect, config)
   drift.nitrosInChain++
   drift.charge = 0
   drift.overchargeTime = 0

@@ -4,6 +4,7 @@ import type { KartInput } from '../../input/kartInput'
 import { clamp, dotXZ, forwardOf, lerp, moveTowards, rightOf, wrapAngle } from '../math'
 import { applyLandingBoost, boostSpeedBonus, tickBoost } from './boost'
 import { checkDriftEnd, driftSteer, readEdges, tryHop, tryStartDrift, updateDrift } from './drift'
+import { NEUTRAL_KART_PERKS, type KartPerks } from './kartPerks'
 import type { KartState } from './kartState'
 
 /** Ground height lookup, so physics does not depend on a concrete track type. */
@@ -17,25 +18,27 @@ export function stepKart(
   driftConfig: DriftConfig,
   groundHeight: GroundHeight,
   dt: number,
+  perks: KartPerks = NEUTRAL_KART_PERKS,
 ): void {
   const edges = readEdges(state, input)
 
   if (state.onGround) {
     tryHop(state, edges.jumpPressed, driftConfig)
-    updateDrift(state, edges.boostPressed, driftConfig, dt)
+    updateDrift(state, edges.boostPressed, driftConfig, dt, perks)
     checkDriftEnd(state, input, driftConfig)
     drive(state, input, config, driftConfig, dt)
   } else {
     state.airTime += dt
+    steerInAir(state, input.steer, perks.airSteerRate, dt)
   }
 
-  applyGravity(state, config, dt)
+  applyGravity(state, config, dt, state.onGround ? 1 : perks.airGravityFactor)
   integrate(state, dt)
 
   const wasAirborne = !state.onGround
   landOnGround(state, groundHeight, config.groundSnapDistance)
   if (state.onGround && wasAirborne) {
-    applyLandingBoost(state, driftConfig)
+    applyLandingBoost(state, driftConfig, perks.landingBoostFactor)
     state.airTime = 0
     tryStartDrift(state, input, driftConfig)
   }
@@ -124,8 +127,26 @@ function applyPedals(
   return moveTowards(speed, 0, config.coastDeceleration * dt)
 }
 
-function applyGravity(state: KartState, config: KartPhysicsConfig, dt: number): void {
-  state.velocity.y -= config.gravity * dt
+function applyGravity(
+  state: KartState,
+  config: KartPhysicsConfig,
+  dt: number,
+  factor: number,
+): void {
+  state.velocity.y -= config.gravity * factor * dt
+}
+
+/** Turns the airborne kart (heading and horizontal velocity together); 0 rate = no air control. */
+function steerInAir(state: KartState, steer: number, rate: number, dt: number): void {
+  if (rate === 0 || steer === 0) return
+  // Positive steer turns right, which lowers the heading
+  const angle = -steer * rate * dt
+  state.heading = wrapAngle(state.heading + angle)
+  const cos = Math.cos(angle)
+  const sin = Math.sin(angle)
+  const { x, z } = state.velocity
+  state.velocity.x = x * cos + z * sin
+  state.velocity.z = -x * sin + z * cos
 }
 
 function integrate(state: KartState, dt: number): void {

@@ -5,6 +5,7 @@ import { NEUTRAL_INPUT, type KartInput } from '../../src/input/kartInput'
 import { ItemSystem } from '../../src/sim/items/itemSystem'
 import type { ItemEvent, PowerId } from '../../src/sim/items/itemTypes'
 import type { Vec2 } from '../../src/sim/math'
+import type { CharacterId } from '../../src/config/characters'
 import { createRacer, stepRacer, type Racer } from '../../src/sim/racer'
 import { Track, type TrackDefinition } from '../../src/sim/track'
 
@@ -37,6 +38,8 @@ export interface ItemWorldOptions {
   seed?: number
   boxes?: Vec2[]
   uchuvas?: Vec2[]
+  /** Character of every racer. Defaults to one without timer perks, so the base rules show. */
+  character?: CharacterId
 }
 
 export type Inputs = ReadonlyMap<Racer, Partial<KartInput>>
@@ -61,7 +64,7 @@ export function makeItemWorld(options: ItemWorldOptions = {}): ItemWorld {
   const config = options.config ?? defaultItems
   const track = new Track(straightDefinition(options.boxes ?? [], options.uchuvas ?? []))
   const racers = Array.from({ length: options.count ?? 4 }, (_, slot) =>
-    createRacer(track, { totalLaps: 3, countdownSeconds: 0 }, slot),
+    createRacer(track, { totalLaps: 3, countdownSeconds: 0 }, slot, options.character ?? 'condor'),
   )
   const system = new ItemSystem(track, config, options.seed ?? 1, defaultDrift)
   const log: ItemEvent[] = []

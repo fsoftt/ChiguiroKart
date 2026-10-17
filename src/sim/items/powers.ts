@@ -1,4 +1,5 @@
 import { addBoost } from '../kart/boost'
+import { powerDurationFactor } from '../characters'
 import { forwardOf, headingOf } from '../math'
 import type { Racer } from '../racer'
 import { dropShield, applyHit, hasShield, absorbedByProtection } from './hits'
@@ -87,7 +88,8 @@ const dropMango: PowerHandler = (use) => {
 
 const useMascara: PowerHandler = ({ ctx, user, charged }) => {
   const { mascara } = ctx.config.powers
-  user.items.status.maskTime = charged ? mascara.chargedDuration : mascara.duration
+  const duration = charged ? mascara.chargedDuration : mascara.duration
+  user.items.status.maskTime = duration * powerDurationFactor(user.character)
   return 'consumed'
 }
 
@@ -96,7 +98,7 @@ const usePanela: PowerHandler = ({ ctx, user, charged }) => {
   addBoost(
     user.kart,
     charged ? panela.chargedLevel : panela.level,
-    panela.duration,
+    panela.duration * powerDurationFactor(user.character),
     false,
     ctx.drift,
   )
@@ -118,7 +120,7 @@ const useArmadillo: PowerHandler = (use) => {
   }
   const status = user.items.status
   status.shieldHits = charged ? armadillo.chargedHits : armadillo.hits
-  status.shieldTime = armadillo.duration
+  status.shieldTime = armadillo.duration * powerDurationFactor(user.character)
   return 'kept'
 }
 
@@ -145,7 +147,8 @@ const useMosquitos: PowerHandler = ({ ctx, user, charged }) => {
       absorbedByProtection(ctx, racer)
       continue
     }
-    racer.items.status.blindTime = charged ? mosquitos.chargedDuration : mosquitos.duration
+    const duration = charged ? mosquitos.chargedDuration : mosquitos.duration
+    racer.items.status.blindTime = duration * powerDurationFactor(user.character)
     racer.items.status.zigzag = charged
   }
   return 'consumed'
@@ -181,7 +184,7 @@ const useAguacero: PowerHandler = ({ ctx, user, charged }) => {
   const { aguacero } = ctx.config.powers
   for (const racer of racersAhead(ctx, user)) {
     if (!isRacing(racer)) continue
-    racer.items.status.rainTime = aguacero.duration
+    racer.items.status.rainTime = aguacero.duration * powerDurationFactor(user.character)
     racer.items.status.slowed = charged
   }
   return 'consumed'

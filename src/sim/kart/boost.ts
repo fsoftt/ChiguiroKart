@@ -34,12 +34,11 @@ export function boostSpeedBonus(state: KartState, config: DriftConfig): number {
 }
 
 /** Gives a boost proportional to the airtime of the jump just finished. */
-export function applyLandingBoost(state: KartState, config: DriftConfig): void {
+export function applyLandingBoost(state: KartState, config: DriftConfig, durationFactor = 1): void {
   if (state.airTime < config.landingBoostMinAirTime) return
-  const duration = Math.min(
-    state.airTime * config.landingBoostPerAirSecond,
-    config.landingBoostMaxDuration,
-  )
+  const duration =
+    Math.min(state.airTime * config.landingBoostPerAirSecond, config.landingBoostMaxDuration) *
+    durationFactor
   // Never downgrade a stronger nitro that is still burning
   const level = Math.max(state.boost.level, 1) as Exclude<NitroLevel, 0>
   addBoost(state, level, duration, state.boost.perfect, config)

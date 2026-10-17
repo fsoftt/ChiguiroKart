@@ -4,6 +4,7 @@ import {
   type BotDifficulty,
   type RubberBandConfig,
 } from '../config/bots'
+import { characterIds, type CharacterId } from '../config/characters'
 
 export const DEFAULT_DIFFICULTY: BotDifficulty = 'normal'
 
@@ -11,6 +12,7 @@ export const DEFAULT_DIFFICULTY: BotDifficulty = 'normal'
 export const RACE_MODES = ['carrera', 'contrarreloj'] as const
 export type RaceMode = (typeof RACE_MODES)[number]
 export const DEFAULT_MODE: RaceMode = 'carrera'
+export const DEFAULT_CHARACTER: CharacterId = 'chiguiro'
 
 /** What the player picks in the quick race menu. */
 export interface RaceSettings {
@@ -18,20 +20,24 @@ export interface RaceSettings {
   difficulty: BotDifficulty
   /** "Ayuda de remontada": the rubber band that keeps bots close to the player. */
   rubberBandEnabled: boolean
+  /** The player's character. */
+  character: CharacterId
 }
 
 /**
- * Reads `?modo=carrera|contrarreloj`, `?dificultad=facil|normal|dificil` and `?remontada=0`
- * (turns the rubber band off).
+ * Reads `?modo=carrera|contrarreloj`, `?dificultad=facil|normal|dificil`, `?remontada=0`
+ * (turns the rubber band off) and `?personaje=<id>`.
  */
 export function parseRaceSettings(search: string): RaceSettings {
   const params = new URLSearchParams(search)
   const requested = params.get('dificultad')
   const requestedMode = params.get('modo')
+  const requestedCharacter = params.get('personaje')
   return {
     mode: RACE_MODES.find((mode) => mode === requestedMode) ?? DEFAULT_MODE,
     difficulty: BOT_DIFFICULTIES.find((level) => level === requested) ?? DEFAULT_DIFFICULTY,
     rubberBandEnabled: params.get('remontada') !== '0',
+    character: characterIds.find((id) => id === requestedCharacter) ?? DEFAULT_CHARACTER,
   }
 }
 
@@ -62,6 +68,19 @@ export function withDifficulty(settings: RaceSettings, difficulty: BotDifficulty
 /** Returns the settings with the rubber band turned on or off. */
 export function withRubberBand(settings: RaceSettings, enabled: boolean): RaceSettings {
   return { ...settings, rubberBandEnabled: enabled }
+}
+
+/** Returns the settings with a new character. */
+export function withCharacter(settings: RaceSettings, character: CharacterId): RaceSettings {
+  return { ...settings, character }
+}
+
+/** Moves the character selection by `step`, wrapping around the roster. */
+export function shiftCharacter(settings: RaceSettings, step: number): RaceSettings {
+  const count = characterIds.length
+  const index = characterIds.indexOf(settings.character)
+  const next = (((index + step) % count) + count) % count
+  return withCharacter(settings, characterIds[next] ?? settings.character)
 }
 
 /** The rubber band config that matches the player's choice. */

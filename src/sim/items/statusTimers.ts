@@ -1,12 +1,13 @@
 import type { HitConfig } from '../../config/items'
 import { clamp } from '../math'
+import { recoveryRate } from '../characters'
 import type { Racer } from '../racer'
 import { dropShield } from './hits'
 
 /** Advances every temporary effect of one racer by `dt`. */
 export function tickStatus(racer: Racer, hit: HitConfig, dt: number): void {
   const status = racer.items.status
-  tickHit(racer, hit, dt)
+  tickHit(racer, hit, dt * recoveryRate(racer.character))
 
   if (status.shieldTime > 0) {
     status.shieldTime -= dt

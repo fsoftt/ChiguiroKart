@@ -1,0 +1,67 @@
+:root {
+  color-scheme: dark;
+  font-family: system-ui, sans-serif;
+}
+
+body {
+  margin: 0;
+  overflow: hidden;
+  background: #1d2433;
+  color: #f4f1ea;
+}
+
+canvas {
+  display: block;
+  width: 100vw;
+  height: 100vh;
+}
+
+.panel {
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  width: 230px;
+  padding: 12px;
+  border-radius: 12px;
+  background: rgb(20 24 34 / 85%);
+}
+
+h1,
+h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+}
+
+h2 {
+  margin-top: 12px;
+}
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+button {
+  padding: 4px 8px;
+  border: 0;
+  border-radius: 6px;
+  background: #3a4560;
+  color: inherit;
+  cursor: pointer;
+}
+
+button.active {
+  background: #f2a03c;
+  color: #1d2433;
+}
+
+label {
+  display: block;
+  margin-top: 8px;
+}
+
+.info {
+  font-size: 13px;
+  line-height: 1.4;
+}

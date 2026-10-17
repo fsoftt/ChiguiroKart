@@ -11,6 +11,11 @@ export class RaceWorld {
   readonly track: Track
   /** The human-controlled racer. Bots keep their own racers (see `BotManager`). */
   readonly player: Racer
+  /**
+   * Racers the player can see (rivals), for perks such as the slipstream. `BotManager` sets it
+   * to everyone in the race; empty by default.
+   */
+  rivals: () => readonly Racer[] = () => []
 
   constructor(
     trackDefinition: TrackDefinition,
@@ -33,7 +38,16 @@ export class RaceWorld {
   }
 
   step(input: KartInput, dt: number): void {
-    stepRacer(this.player, input, this.track, this.physics, this.drift, dt)
+    stepRacer(
+      this.player,
+      input,
+      this.track,
+      this.physics,
+      this.drift,
+      dt,
+      undefined,
+      this.rivals(),
+    )
   }
 
   resetKart(): void {

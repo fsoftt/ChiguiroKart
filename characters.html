@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Galería de personajes</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/src/gallery/gallery.css" />
+  </head>
+  <body>
+    <canvas id="canvas"></canvas>
+    <aside class="panel">
+      <h1>Personajes</h1>
+      <div id="characters" class="buttons"></div>
+      <h2>Animación</h2>
+      <div id="clips" class="buttons"></div>
+      <label><input id="spin" type="checkbox" checked /> Girar</label>
+      <label><input id="all" type="checkbox" /> Ver los 8</label>
+      <p id="info" class="info"></p>
+    </aside>
+    <script type="module" src="/src/gallery/main.ts"></script>
+  </body>
+</html>
