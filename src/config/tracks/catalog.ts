@@ -1,7 +1,8 @@
 import type { TrackDefinition } from '../../sim/track'
 import { buildTrackDefinition, type TrackData } from '../../sim/trackData'
+import { cocoraTheme } from './cocoraTheme'
 import { cocoraTrack } from './cocoraTrack'
-import { DEFAULT_THEME, type TrackTheme } from './theme'
+import type { TrackTheme } from './theme'
 import { nevadoData, nevadoTheme } from './nevadoTrack'
 import { zipaquiraData, zipaquiraTheme } from './zipaquiraTrack'
 import { bogotaData, bogotaTheme } from './bogotaTrack'
@@ -56,7 +57,7 @@ export const tracks: Record<TrackId, TrackInfo> = {
     id: 'cocora',
     name: cocoraTrack.name,
     cup: 'andina',
-    theme: DEFAULT_THEME,
+    theme: cocoraTheme,
     build: () => cocoraTrack,
   },
   nevado: dataTrack('nevado', 'andina', nevadoData, nevadoTheme),

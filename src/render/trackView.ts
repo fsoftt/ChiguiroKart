@@ -1,20 +1,23 @@
 import * as THREE from 'three'
-import { headingOf, type Vec2 } from '../sim/math'
+import { headingOf } from '../sim/math'
 import type { Track, TrackBranch } from '../sim/track'
 import type { SurfaceType } from '../sim/race/surface'
 import { DEFAULT_THEME, type TrackTheme } from '../config/tracks/theme'
 import { createBoostPads } from './boostPads'
 import { createScenery } from './scenery/sceneryView'
 import { markShadows } from './shadows'
+import { EnvironmentView } from './environment/environmentView'
+import { surfaceColor } from './surfaceColor'
 import { tideSurface } from './tideLogic'
+import {
+  createBranchPath,
+  createMainPath,
+  offsetPath,
+  overGap,
+  segmentCount,
+  type Path,
+} from './trackPath'
 
-const WOOD_COLOR = '#8d5524'
-const MUD_COLOR = '#5c3a21'
-const DIRT_COLOR = '#a67c52'
-const GRASS_ROAD_COLOR = '#6aa84f'
-const ICE_COLOR = '#a9e3ef'
-const SAND_COLOR = '#e6cf8f'
-const WATER_COLOR = '#3b9ed8'
 /** Opacity of a flooded tidal branch and of the water plane. */
 const WATER_OPACITY = 0.78
 
@@ -30,33 +33,12 @@ const GROUND_DEFAULT_Y = -0.05
 const RAMP_HEIGHT = 0.6
 /** Rows the ramp wedge is cut into, so it follows a sloped road. */
 const RAMP_ROWS = 4
-/** Spacing (m) of the samples of a branch with a gap: the gap edges are cut to within half. */
-const GAP_SAMPLE_SPACING = 0.25
-/** Spacing (m) of the samples of a stepped branch: a riser is a near vertical quad. */
-const STEP_SAMPLE_SPACING = 0.1
 /** The ground sinks this far below the water level, so the water tints it. */
 const SEABED_DEPTH = 1.5
 
-/** Road color of a surface; asphalt takes the theme's road color. */
-export function surfaceColor(surface: SurfaceType, theme: TrackTheme): string {
-  switch (surface) {
-    case 'asphalt':
-      return theme.road
-    case 'wood':
-      return WOOD_COLOR
-    case 'mud':
-      return MUD_COLOR
-    case 'dirt':
-      return DIRT_COLOR
-    case 'grass':
-      return GRASS_ROAD_COLOR
-    case 'ice':
-      return ICE_COLOR
-    case 'sand':
-      return SAND_COLOR
-    case 'water':
-      return WATER_COLOR
-  }
+export interface TrackViewOptions {
+  /** Share of the environment's plants to grow, 0..1 (see the quality table). */
+  vegetationDensity?: number
 }
 
 interface TidalBranch {
@@ -74,47 +56,40 @@ interface TidalBranch {
 export class TrackView extends THREE.Group {
   private readonly tidal: TidalBranch[] = []
   private shownLow: boolean | null = null
+  /** Terrain, textured road, fence, plants and decoration, for themes that define them. */
+  readonly environment: EnvironmentView | null = null
 
   constructor(
     private readonly track: Track,
     readonly theme: TrackTheme = DEFAULT_THEME,
+    options: TrackViewOptions = {},
   ) {
     super()
     this.name = `track:${track.name}`
-    this.add(createGround(theme))
     const water = theme.water ? createWater(theme.water) : null
     if (water) this.add(water)
-    const main: Path = {
-      points: track.centerline,
-      closed: true,
-      halfWidth: track.halfWidth,
-      // A tidal branch overlapping the junction must not bake the tide into the main road
-      surfaceAt: (i) => {
-        const p = track.point(i)
-        const projection = track.project(p.x, p.z)
-        const tidal = track.branches[projection.branch]?.tide
-        return tidal ? 'asphalt' : track.surfaceAt(p.x, p.z)
-      },
-      // Leave the road open where a branch joins it
-      openAt: (p) => {
-        const projection = track.project(p.x, p.z)
-        return projection.branch >= 0 && projection.distance <= projection.halfWidth
-      },
+    if (theme.environment && !track.hasTide) {
+      // Rich environment: it replaces the flat ground, plain road, curbs and walls
+      this.environment = new EnvironmentView(
+        track,
+        theme,
+        theme.environment,
+        options.vegetationDensity ?? 1,
+      )
+      this.addFeatures(water)
+      this.add(this.environment)
+      this.update()
+      return
     }
+    this.add(createGround(theme))
+    const main = createMainPath(track)
     this.add(createRoadRibbon(track, theme, main, ROAD_LIFT))
     this.add(createCurbs(track, theme, main, main.halfWidth - CURB_WIDTH, main.halfWidth))
     this.add(createCurbs(track, theme, main, -main.halfWidth, -main.halfWidth + CURB_WIDTH))
     this.add(createWall(track, theme, main, main.halfWidth))
     this.add(createWall(track, theme, main, -main.halfWidth - WALL_THICKNESS))
     track.branches.forEach((branch, index) => {
-      const path: Path = {
-        points: branchSamples(track, branch, index),
-        closed: false,
-        halfWidth: branch.halfWidth,
-        surfaceAt: () => branch.surface,
-        // Leave the branch open where it meets the main road
-        openAt: (p) => track.mainProjection(p.x, p.z).distance <= track.halfWidth,
-      }
+      const path = createBranchPath(track, branch, index)
       if (branch.tide) {
         const ribbon = createTidalRibbon(track, path)
         this.tidal.push({ branch, material: ribbon.material })
@@ -125,18 +100,30 @@ export class TrackView extends THREE.Group {
       this.add(createWall(track, theme, path, path.halfWidth))
       this.add(createWall(track, theme, path, -path.halfWidth - WALL_THICKNESS))
     })
+    this.addFeatures(water)
+    this.add(createScenery(track, theme))
+    this.update()
+  }
+
+  /** Jump ramps, start line and boost pads; they receive shadows like the road. */
+  private addFeatures(water: THREE.Mesh | null): void {
+    const { track, theme } = this
     if (track.jumps.length > 0) this.add(createJumpRamps(track, theme))
     this.add(createStartLine(track))
     if (track.boostPads.length > 0) this.add(createBoostPads(track))
     // Ground, road, curbs, walls and ramps receive; scenery (added next) only casts
     markShadows(this, { receive: true })
     if (water) water.receiveShadow = false
-    this.add(createScenery(track, theme))
-    this.update()
+  }
+
+  /** Changes the share of plants that grow (quality); a no-op without an environment. */
+  setVegetationDensity(density: number): void {
+    this.environment?.setDensity(density)
   }
 
   /** Shows the tide of the moment: recolors tidal branches if `track.tideLow` changed. */
   update(): void {
+    this.environment?.update(performance.now() / 1000)
     const low = this.track.tideLow
     if (low === this.shownLow) return
     this.shownLow = low
@@ -156,8 +143,12 @@ export class TrackView extends THREE.Group {
  * Builds the 3D track for a theme. The result is a group (`TrackView`); call its `update()`
  * every frame so tidal branches follow `track.tideLow`.
  */
-export function createTrackView(track: Track, theme: TrackTheme = DEFAULT_THEME): TrackView {
-  return new TrackView(track, theme)
+export function createTrackView(
+  track: Track,
+  theme: TrackTheme = DEFAULT_THEME,
+  options: TrackViewOptions = {},
+): TrackView {
+  return new TrackView(track, theme, options)
 }
 
 function toon(color: string): THREE.MeshToonMaterial {
@@ -183,70 +174,6 @@ function createWater(water: { level: number; color: string }): THREE.Mesh {
   mesh.rotation.x = -Math.PI / 2
   mesh.position.y = water.level
   return mesh
-}
-
-/** A road piece (main loop or branch) that can be drawn as a ribbon with walls. */
-interface Path {
-  points: readonly Vec2[]
-  closed: boolean
-  halfWidth: number
-  surfaceAt: (segment: number) => SurfaceType
-  /** True where walls and curbs must be left out (junction openings). */
-  openAt: (point: Vec2) => boolean
-}
-
-/**
- * Points to draw a branch from. Its own polyline normally; resampled finely when it has stairs
- * (so each riser is a sharp step) or a gap (so the road ends where the ground does).
- */
-function branchSamples(track: Track, branch: TrackBranch, index: number): readonly Vec2[] {
-  const gapped = track.jumps.some((jump) => jump.gap?.branch === index)
-  const stepped = (branch.steps ?? 0) > 0
-  if (!gapped && !stepped) return branch.points
-  const spacing = stepped ? STEP_SAMPLE_SPACING : GAP_SAMPLE_SPACING
-  const samples: Vec2[] = []
-  for (let i = 0; i + 1 < branch.points.length; i++) {
-    const a = branch.points[i]
-    const b = branch.points[i + 1]
-    if (!a || !b) continue
-    const count = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / spacing))
-    for (let k = 0; k < count; k++) {
-      const t = k / count
-      samples.push({ x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t })
-    }
-  }
-  const last = branch.points[branch.points.length - 1]
-  if (last) samples.push({ x: last.x, z: last.z })
-  return samples
-}
-
-function pathPoint(path: Path, i: number): Vec2 {
-  const count = path.points.length
-  const index = path.closed ? ((i % count) + count) % count : Math.min(Math.max(i, 0), count - 1)
-  const point = path.points[index]
-  if (!point) throw new Error(`Missing path point ${i}`)
-  return point
-}
-
-function segmentCount(path: Path): number {
-  return path.closed ? path.points.length : path.points.length - 1
-}
-
-function sideAt(path: Path, i: number): Vec2 {
-  const before = pathPoint(path, i - 1)
-  const after = pathPoint(path, i + 1)
-  const dx = after.x - before.x
-  const dz = after.z - before.z
-  const length = Math.hypot(dx, dz) || 1
-  return { x: dz / length, z: -dx / length }
-}
-
-function offsetPath(path: Path, offset: number): Vec2[] {
-  return Array.from({ length: segmentCount(path) + 1 }, (_, i) => {
-    const point = pathPoint(path, i)
-    const side = sideAt(path, i)
-    return { x: point.x + side.x * offset, z: point.z + side.z * offset }
-  })
 }
 
 /** 3D strip between two sideways offsets, conforming to track elevation. */
@@ -315,13 +242,6 @@ function stripGeometry(
   if (colorAt) geometry.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3))
   geometry.computeVertexNormals()
   return geometry
-}
-
-/** True if the middle of segment `i` of the path lies over a jump gap. */
-function overGap(track: Track, path: Path, i: number): boolean {
-  const a = pathPoint(path, i)
-  const b = pathPoint(path, i + 1)
-  return track.inGap((a.x + b.x) / 2, (a.z + b.z) / 2)
 }
 
 function createRoadRibbon(track: Track, theme: TrackTheme, path: Path, lift: number): THREE.Mesh {

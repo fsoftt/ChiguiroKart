@@ -3,6 +3,8 @@
  * the simulation never sees it.
  */
 
+import type { TrackEnvironment } from './environment'
+
 /** Low-poly scenery pieces the renderer knows how to build and scatter around a track. */
 export type DecorationKind =
   | 'tree'
@@ -62,6 +64,11 @@ export interface TrackTheme {
   decorations: readonly DecorationSet[]
   /** Optional sea, lake or river plane at height `level` covering the whole map. */
   water?: { level: number; color: string }
+  /**
+   * Sculpted terrain, textured road, themed fence, instanced vegetation and decoration. Without
+   * it the track keeps the flat ground and plain road. `decorations` then add on top of it.
+   */
+  environment?: TrackEnvironment
   /** Underground track (Zipaquirá): dark sky and colored lights instead of a sun. */
   underground?: boolean
 }
