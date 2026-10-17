@@ -28,7 +28,8 @@ import { CharacterView } from '../render/characterView'
 import { ItemView } from '../render/items/itemView'
 import { hitPoseInto, type HitPose } from '../render/items/itemViewLogic'
 import { placeFinishCamera, placeShowroomCamera } from '../render/showcaseCamera'
-import { createTrackView } from '../render/trackView'
+import { HazardView } from '../render/hazardView'
+import { createTrackView, type TrackView } from '../render/trackView'
 import { FixedStep } from '../sim/fixedStep'
 import { forwardSpeed } from '../sim/kart/kartPhysics'
 import {
@@ -145,7 +146,10 @@ export class Game {
   private trackSource: TrackSource = this.trackOverride ?? tracks[this.initialSettings.track]
   private world = new RaceWorld(this.trackSource.build(), this.physics, this.driftConfig)
   /** Scenery of the loaded track: replaced (and disposed) whenever another track loads. */
-  private trackView: THREE.Group | null = null
+  private trackView: TrackView | null = null
+  private hazardView: HazardView | null = null
+  /** Seconds since the track was loaded; only drives hazard animations. */
+  private trackTime = 0
   private readonly fixedStep = new FixedStep(1 / SIMULATION_HZ)
   private readonly timer = new THREE.Timer()
 
@@ -155,7 +159,7 @@ export class Game {
   private readonly speedLines = new SpeedLines(SPEED_LINE_STREAKS, defaultEffects.speedLines.color)
   private readonly kartFeedback = new KartFeedback(defaultEffects.camera)
   private readonly chaseCamera: ChaseCamera
-  private items = new ItemSystem(this.world.track)
+  private items = this.createItems(true)
   private itemView = new ItemView()
   private readonly hitPose: HitPose = { yaw: 0, pitch: 0 }
   /** Player first, then the bots in grid order; rebuilt when a race starts. */
@@ -295,9 +299,7 @@ export class Game {
     const timeTrial = settings.mode === 'contrarreloj'
     this.hud.setTimeTrial(timeTrial)
     // The time trial track has no boxes or uchuvas
-    this.items = timeTrial
-      ? new ItemSystem(this.world.track, undefined, undefined, undefined, false)
-      : new ItemSystem(this.world.track)
+    this.items = this.createItems(!timeTrial)
     this.ghost = timeTrial ? loadGhost(this.world.track.name) : null
     this.racing = true
     if (timeTrial) {
@@ -369,7 +371,7 @@ export class Game {
     this.trackSource = source
     this.world = new RaceWorld(source.build(), this.physics, this.driftConfig)
     this.world.player.character = this.currentCharacter
-    this.items = new ItemSystem(this.world.track)
+    this.items = this.createItems(true)
     // The item view builds its pickup meshes from the first system it sees
     this.itemView = new ItemView()
     this.scene.scene.add(this.itemView.object)
@@ -381,39 +383,57 @@ export class Game {
     this.setupTrack()
   }
 
+  /**
+   * Boxes, uchuvas, powers and the track's hazards for the loaded world (`withPickups` false
+   * for the time trial). Bots see the hazards through `world.obstacles`.
+   */
+  private createItems(withPickups: boolean): ItemSystem {
+    const items = new ItemSystem(
+      this.world.track,
+      undefined,
+      undefined,
+      this.driftConfig,
+      withPickups,
+      this.physics,
+    )
+    this.world.obstacles = () => items.hazards.obstacles
+    return items
+  }
+
   // --- Per-track setup and teardown: the single place to wire what depends on the track ---
 
   /**
    * Builds everything that belongs to the loaded track (`this.world`, `this.trackSource`).
    * Runs once at start and after every track switch.
-   * TODO(stage 9): create the HazardView from the track's hazards and add it to the scene, pass
-   * `world.obstacles` to whatever needs them, and keep the hazard/tide views for `updateTrack`.
    */
   private setupTrack(): void {
     const view = createTrackView(this.world.track, this.trackSource.theme)
     this.trackView = view
     this.scene.scene.add(view)
+    this.hazardView = new HazardView(this.world.track)
+    this.scene.scene.add(this.hazardView.object)
+    this.trackTime = 0
     applySceneTheme(this.scene, this.trackSource.theme)
     this.hud.setTrack(this.world.track)
   }
 
   /**
    * Removes and disposes everything `setupTrack` created. Runs before another track loads.
-   * TODO(stage 9): dispose the HazardView here too.
    */
   private teardownTrack(): void {
     if (this.trackView) disposeObject(this.trackView)
+    if (this.hazardView) disposeObject(this.hazardView.object)
+    this.hazardView = null
     this.itemView.setKarts([])
     this.trackView = null
     disposeObject(this.itemView.object)
   }
 
-  /**
-   * Per-frame update of the track's own visuals (`dt` in seconds).
-   * TODO(stage 9): tide level on the track view, moving floats and the stampede in the HazardView.
-   */
+  /** Per-frame update of the track's own visuals (`dt` in seconds): tide and hazards. */
   private updateTrack(dt: number): void {
-    void dt
+    this.trackTime += dt
+    this.trackView?.update()
+    this.hazardView?.update(this.items.hazards.obstacles, this.trackTime)
   }
 
   private clearBots(): void {
