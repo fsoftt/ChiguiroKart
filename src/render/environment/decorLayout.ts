@@ -138,6 +138,19 @@ export const PROP_RADIUS: Record<PropKind, number> = {
   yipao: 3.2,
   cart: 3,
   sacks: 1.8,
+  grandstand: 9,
+  colonialHouse: 7,
+  chiva: 4,
+  boat: 3.5,
+  mountainHut: 6,
+  saltCross: 4,
+  cannon: 2,
+  beachHut: 4.5,
+  stoneTerrace: 8,
+  carnivalStage: 8,
+  maloca: 8,
+  corral: 7,
+  observatory: 7,
 }
 
 /**
