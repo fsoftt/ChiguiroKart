@@ -95,6 +95,7 @@ export class Game {
       this.startRace(chosen),
     )
     this.menu.show(this.settings)
+    this.hud.setVisible(false)
     this.hud.onRematch = () => this.startRace(this.settings)
     this.hud.onMenu = () => this.showMenu()
 
@@ -123,6 +124,7 @@ export class Game {
   startRace(settings: RaceSettings): void {
     this.settings = settings
     this.menu.hide()
+    this.hud.setVisible(true)
     this.clearBots()
     const manager = new BotManager(this.world, this.physics, this.driftConfig, {
       rubberBand: rubberBandFor(settings),
@@ -144,6 +146,7 @@ export class Game {
     this.world.resetKart()
     this.previousKart = cloneKartState(this.world.kart)
     this.chaseCamera.reset()
+    this.hud.setVisible(false)
     this.menu.show(this.settings)
   }
 

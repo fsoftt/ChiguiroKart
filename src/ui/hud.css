@@ -14,6 +14,10 @@
   user-select: none;
 }
 
+.hud.is-hidden {
+  display: none;
+}
+
 .hud * {
   box-sizing: border-box;
 }

@@ -150,6 +150,11 @@ export class Hud {
     return this.finished
   }
 
+  /** Shows or hides the whole HUD (race badges, minimap and results), e.g. behind the menu. */
+  setVisible(visible: boolean): void {
+    this.root.classList.toggle('is-hidden', !visible)
+  }
+
   setTrack(track: Track): void {
     this.minimap.setTrack(track)
   }
