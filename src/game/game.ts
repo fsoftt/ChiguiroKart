@@ -158,6 +158,7 @@ export class Game {
   private resetKart(): void {
     this.hasSavedRecord = false
     this.world.resetKart()
+    this.botManager.reset()
     this.previousKart = cloneKartState(this.world.kart)
     this.chaseCamera.reset()
   }

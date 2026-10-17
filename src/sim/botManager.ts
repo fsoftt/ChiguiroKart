@@ -5,24 +5,24 @@ import type { BotInputProvider } from '../input/botInput'
 import type { RaceWorld } from './world'
 import type { KartPhysicsConfig } from '../config/kartPhysics'
 import type { DriftConfig } from '../config/drift'
-import { stepKart } from './kart/kartPhysics'
-import { resolveTrackCollision } from './kart/trackCollision'
-import { getSurfaceProperties } from './race/surface'
-import { createKartState, type KartState } from './kart/kartState'
+import type { KartState } from './kart/kartState'
+import type { RaceState } from './race/raceState'
+import { createRacer, resetRacer, stepRacer, type Racer } from './racer'
+
+interface BotEntry {
+  provider: BotInputProvider
+  racer: Racer
+  lastInput: KartInput
+}
 
 /**
  * Manages a collection of AI‑controlled karts.
- * Each bot provides a {@link BotInputProvider} that computes the next {@link KartInput}.
- * The manager updates the bots each tick using the same physics pipeline as the
- * player kart. This keeps the implementation lightweight while still allowing
- * realistic behaviour.
+ * Each bot provides a {@link BotInputProvider} that computes the next {@link KartInput}
+ * and owns its own {@link Racer}, so laps, checkpoints and respawns are tracked per kart.
+ * Bots go through the same race rules and physics pipeline as the player kart.
  */
 export class BotManager {
-  private bots: {
-    provider: BotInputProvider
-    kart: KartState
-    lastInput: KartInput
-  }[] = []
+  private bots: BotEntry[] = []
 
   constructor(
     private world: RaceWorld,
@@ -32,51 +32,40 @@ export class BotManager {
 
   /** Add a new bot instance. */
   addBot(provider: BotInputProvider) {
-    const start = this.world.track.startPose()
-    const kart = createKartState(start.position, start.heading)
-    this.bots.push({ provider, kart, lastInput: { ...NEUTRAL_INPUT } })
+    const racer = createRacer(this.world.track, this.world.raceOptions)
+    this.bots.push({ provider, racer, lastInput: { ...NEUTRAL_INPUT } })
   }
 
   /** Update all bots for the elapsed time `dt`. */
   update(dt: number) {
     for (const entry of this.bots) {
-      const input: KartInput = entry.provider.nextInput(dt, this.world, entry.kart)
+      const { kart, race } = entry.racer
+      const input = entry.provider.nextInput(dt, this.world, kart, race.state)
       entry.lastInput = input
-      // Lock pedals during countdown so bots stay parked on the grid
-      const drivingInput =
-        this.world.raceManager.state.phase === 'countdown'
-          ? { ...input, throttle: 0, brake: 0 }
-          : input
+      stepRacer(entry.racer, input, this.world.track, this.physics, this.drift, dt)
+    }
+  }
 
-      const surfaceType = this.world.track.surfaceAt(entry.kart.position.x, entry.kart.position.z)
-      const surfaceProps = getSurfaceProperties(surfaceType)
-      const effectivePhysics = {
-        ...this.physics,
-        maxSpeed: this.physics.maxSpeed * surfaceProps.speedMultiplier,
-        acceleration: this.physics.acceleration * surfaceProps.accelerationMultiplier,
-        lateralGrip: this.physics.lateralGrip * surfaceProps.gripMultiplier,
-      }
-
-      stepKart(
-        entry.kart,
-        drivingInput,
-        effectivePhysics,
-        this.drift,
-        (x, z) => this.world.track.groundHeight(x, z),
-        dt,
-      )
-      resolveTrackCollision(entry.kart, this.world.track, this.physics, dt)
+  /** Put every bot back on the grid with a fresh race state. */
+  reset() {
+    for (const entry of this.bots) {
+      resetRacer(entry.racer, this.world.track)
+      entry.lastInput = { ...NEUTRAL_INPUT }
     }
   }
 
   /** Get the internal array of bot kart states (read‑only). */
   getBotKarts(): KartState[] {
-    return this.bots.map((b) => b.kart)
+    return this.bots.map((b) => b.racer.kart)
   }
 
-  /** Get the last input generated for each bot. */
-  getBotInfos(): { kart: KartState; input: KartInput }[] {
-    return this.bots.map((b) => ({ kart: b.kart, input: b.lastInput }))
+  /** Get the kart, race state and last input of each bot. */
+  getBotInfos(): { kart: KartState; race: RaceState; input: KartInput }[] {
+    return this.bots.map((b) => ({
+      kart: b.racer.kart,
+      race: b.racer.race.state,
+      input: b.lastInput,
+    }))
   }
 
   /** Get the number of bots managed. */

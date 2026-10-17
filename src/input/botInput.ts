@@ -3,6 +3,7 @@
 import { NEUTRAL_INPUT, type KartInput } from './kartInput'
 import type { RaceWorld } from '../sim/world'
 import type { KartState } from '../sim/kart/kartState'
+import type { RaceState } from '../sim/race/raceState'
 import { clamp, headingOf, wrapAngle, type Vec2 } from '../sim/math'
 
 /**
@@ -18,8 +19,9 @@ export interface BotInputProvider {
    * @param dt – time delta since the previous frame (seconds).
    * @param world – the current {@link RaceWorld} (contains track & race data).
    * @param kart – the bot's own {@link KartState}.
+   * @param race – the bot's own {@link RaceState} (laps, last checkpoint, phase).
    */
-  nextInput(dt: number, world: RaceWorld, kart: KartState): KartInput
+  nextInput(dt: number, world: RaceWorld, kart: KartState, race: RaceState): KartInput
 }
 
 /**
@@ -31,7 +33,12 @@ export class SimpleBot implements BotInputProvider {
   // Index of the next checkpoint the bot is aiming for.
   private targetIdx: number = 1 // start after the start/finish line (index 0)
 
-  nextInput(_dt: number, world: RaceWorld, kart: KartState): KartInput {
+  nextInput(_dt: number, world: RaceWorld, kart: KartState, race: RaceState): KartInput {
+    // Stay off the throttle on the grid: revving early stalls the engine at the green light.
+    if (race.phase === 'countdown') {
+      return { ...NEUTRAL_INPUT }
+    }
+
     // Guard against missing checkpoints.
     const checkpoints = world.raceManager.checkpoints
     if (!checkpoints.length) {
@@ -39,7 +46,7 @@ export class SimpleBot implements BotInputProvider {
     }
 
     // Find the next checkpoint that hasn't been passed yet.
-    const lastPassed = world.raceManager.state.lastPassedCheckpoint
+    const lastPassed = race.lastPassedCheckpoint
     this.targetIdx = (lastPassed + 1) % checkpoints.length
     const target = checkpoints[this.targetIdx]
     if (!target) {

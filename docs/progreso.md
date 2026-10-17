@@ -99,12 +99,14 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 ## Etapa 4 — Bots 🚧
 
 - 🚧 Infraestructura inicial: `BotInputProvider`, `SimpleBot` (apunta al siguiente checkpoint) y `BotManager`, que mueve los bots con la misma física que el jugador (`input/botInput.ts`, `sim/botManager.ts`).
-- ⬜ Estado de carrera por kart: hoy `RaceManager` solo sigue al jugador y el bot lee los checkpoints del jugador.
+- ✅ Estado de carrera por kart: cada kart es un `Racer` con su propio `RaceManager` (vueltas, checkpoints, reaparición, ahogo de motor). Jugador y bots pasan por el mismo `stepRacer`, y cada bot apunta con sus propios checkpoints (`sim/racer.ts`).
 - ⬜ Vista 3D de los bots (hoy no se dibujan) y choques entre karts.
 - ⬜ Línea de bots en la pista, derrape y nitros por dificultad, uso de atajos y ayuda de remontada.
 - ⬜ Posiciones en tiempo real, HUD de posición y modo Carrera rápida contra 7 bots.
-- ⬜ Pruebas de los bots.
+- 🚧 Pruebas de los bots: estado de carrera por kart, `BotManager` y `SimpleBot` (9 pruebas en `tests/racer.test.ts`, 143 en total).
 
 **Notas:**
 
 - La primera versión de los bots rompió el build y el arranque del juego (`require()` en el navegador y campos de `KartInput` equivocados). Se corrigió junto con los shaders de partículas, que habían perdido los `;` desde la etapa 2 y no compilaban, por lo que el humo y las llamas no se veían.
+- `SimpleBot` no acelera durante la cuenta regresiva: antes mantenía el acelerador y, con su propio estado de carrera, se habría ahogado en cada salida. El turbo de salida de los bots llegará con la dificultad.
+- `R` reinicia también a los bots.
