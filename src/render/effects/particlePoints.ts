@@ -19,6 +19,8 @@ export class ParticlePoints {
   constructor(
     private readonly ring: ParticleRing,
     additive: boolean,
+    /** Brightness multiplier; above 1 the particles are bright enough to bloom. */
+    gain = 1,
   ) {
     const capacity = ring.capacity
     const positions = new THREE.BufferAttribute(ring.offsets, 3)
@@ -35,6 +37,7 @@ export class ParticlePoints {
       defines: { POINT_SCALE: POINT_SCALE.toFixed(1) },
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
+      uniforms: { uGain: { value: gain } },
       transparent: true,
       depthWrite: false,
       blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
@@ -82,6 +85,7 @@ const VERTEX_SHADER = /* glsl */ `
 `
 
 const FRAGMENT_SHADER = /* glsl */ `
+  uniform float uGain;
   varying vec3 vColor;
   varying float vAlpha;
 
@@ -89,6 +93,8 @@ const FRAGMENT_SHADER = /* glsl */ `
     float distanceToCentre = length(gl_PointCoord - vec2(0.5));
     if (distanceToCentre > 0.5) discard;
     float softEdge = 1.0 - smoothstep(0.15, 0.5, distanceToCentre);
-    gl_FragColor = vec4(vColor, vAlpha * softEdge);
+    // Particle colors are authored in sRGB; lighting and bloom work in linear space
+    gl_FragColor = vec4(pow(vColor, vec3(2.2)) * uGain, vAlpha * softEdge);
+    #include <colorspace_fragment>
   }
 `

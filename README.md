@@ -4,7 +4,7 @@ Juego de karts en 3D estilo _Crash Team Racing_ con animales colombianos. Corre 
 
 **Jugar:** https://fsoftt.github.io/ChiguiroKart/
 
-> En desarrollo. Ya se puede correr una carrera completa de 3 vueltas en el Valle de Cocora con atajos y minimapa. Mira el [progreso](docs/progreso.md).
+> En desarrollo. Ya se puede correr una carrera completa de 3 vueltas en el Valle de Cocora contra 7 bots, con poderes y 8 personajes jugables. Mira el [progreso](docs/progreso.md).
 
 ## Estado actual
 
@@ -16,7 +16,8 @@ Juego de karts en 3D estilo _Crash Team Racing_ con animales colombianos. Corre 
 | 3 — Primera pista real: Valle de Cocora | ✅         |
 | 4 — Bots                                | En curso   |
 | 5 — Poderes y uchuvas                   | En curso   |
-| 6 a 11                                  | Pendientes |
+| 6 — Personajes y animaciones            | En curso   |
+| 7 a 11                                  | Pendientes |
 
 ## Controles
 
@@ -43,6 +44,12 @@ En desarrollo, o agregando `?debug` a la URL (por ejemplo `https://fsoftt.github
 
 Hay un editor de pistas en el navegador en [`editor.html`](https://fsoftt.github.io/ChiguiroKart/editor.html) (en desarrollo: `npm run dev` y abre `/ChiguiroKart/editor.html`). Permite mover y agregar puntos de control, ajustar altura y superficie, editar atajos, checkpoints y recogibles, importar y exportar JSON, y probar la pista con el botón "Probar en el juego" (`?pista=custom`).
 
+## Personajes
+
+Hay 8 pilotos, cada uno con 4 atributos (velocidad, aceleración, manejo y peso) y una habilidad pasiva; se eligen en el menú o con `?personaje=chiguiro|oso|titi|condor|jaguar|guacamaya|delfin|perezoso`. La [galería de personajes](https://fsoftt.github.io/ChiguiroKart/characters.html) muestra cada modelo con sus animaciones.
+
+Los modelos son archivos glTF en `public/models/`, generados con `npm run models` a partir de `src/render/characters/`. Cualquier modelo con los huesos y animaciones de `src/render/characters/rig.ts` (por ejemplo, uno hecho en Blender) puede reemplazarlos sin cambiar código.
+
 ## Desarrollo
 
 Requiere Node.js 22 o superior.
@@ -58,6 +65,7 @@ npm run check    # lint, formato, pruebas y build
 | `npm run dev`     | Servidor de desarrollo de Vite    |
 | `npm run build`   | Revisa tipos y compila a `dist/`  |
 | `npm run preview` | Sirve el build de `dist/`         |
+| `npm run models`  | Regenera los modelos `.glb`       |
 | `npm run test`    | Pruebas con Vitest                |
 | `npm run lint`    | ESLint                            |
 | `npm run format`  | Formatea con Prettier             |

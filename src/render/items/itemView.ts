@@ -20,6 +20,8 @@ const EFFECT_POOL = 8
 const EXPLOSION_LIFE = 0.5
 const BOLT_LIFE = 0.4
 const PUFF_LIFE = 0.5
+/** Explosions and lightning are brighter than white so the bloom pass picks them up. */
+const EFFECT_GLOW = 2.2
 const PUFFS_PER_HIT = 3
 
 /** A short-lived pooled effect mesh. */
@@ -36,6 +38,8 @@ function createPool(
   geometry: THREE.BufferGeometry,
   color: string,
   parent: THREE.Group,
+  /** Brightness multiplier; above 1 the effect is bright enough to bloom. */
+  glow = 1,
 ): Transient[] {
   const pool: Transient[] = []
   for (let i = 0; i < EFFECT_POOL; i++) {
@@ -45,6 +49,7 @@ function createPool(
       depthWrite: false,
       fog: false,
     })
+    material.color.multiplyScalar(glow)
     const mesh = new THREE.Mesh(geometry, material)
     mesh.visible = false
     parent.add(mesh)
@@ -92,8 +97,18 @@ export class ItemView {
   private readonly puffs: Transient[]
 
   constructor() {
-    this.explosions = createPool(new THREE.SphereGeometry(1, 16, 12), '#ff9a2e', this.object)
-    this.bolts = createPool(new THREE.BoxGeometry(0.4, BOLT_HEIGHT, 0.4), '#f4f8ff', this.object)
+    this.explosions = createPool(
+      new THREE.SphereGeometry(1, 16, 12),
+      '#ff9a2e',
+      this.object,
+      EFFECT_GLOW,
+    )
+    this.bolts = createPool(
+      new THREE.BoxGeometry(0.4, BOLT_HEIGHT, 0.4),
+      '#f4f8ff',
+      this.object,
+      EFFECT_GLOW,
+    )
     this.puffs = createPool(new THREE.OctahedronGeometry(0.35), '#ffe14a', this.object)
   }
 

@@ -24,11 +24,14 @@ const REAR_WHEELS: readonly Vec3[] = [
 
 /** Exhaust offsets in kart-local space (m). */
 const EXHAUSTS: readonly Vec3[] = [
-  { x: -0.35, y: 0.45, z: -1.1 },
-  { x: 0.35, y: 0.45, z: -1.1 },
+  { x: -0.22, y: 0.62, z: -1.5 },
+  { x: 0.22, y: 0.62, z: -1.5 },
 ]
 
 const ZERO: Rgb = { r: 0, g: 0, b: 0 }
+
+/** Flames are drawn brighter than white so the bloom pass picks them up. */
+const FLAME_GAIN = 2.5
 
 /**
  * Drift smoke and nitro flames for one kart. Reads the shared drift/boost state every frame
@@ -64,7 +67,7 @@ export class KartEffects {
     this.smokeRing = new ParticleRing(effects.smoke.maxParticles, effects.smoke.drag)
     this.flameRing = new ParticleRing(effects.flames.maxParticles, effects.flames.drag)
     this.smokeView = new ParticlePoints(this.smokeRing, false)
-    this.flameView = new ParticlePoints(this.flameRing, true)
+    this.flameView = new ParticlePoints(this.flameRing, true, FLAME_GAIN)
     this.object.add(this.smokeView.object, this.flameView.object)
   }
 

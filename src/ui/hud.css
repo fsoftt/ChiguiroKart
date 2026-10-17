@@ -130,19 +130,28 @@
   display: block;
 }
 
-/* Final Results Card Overlay */
+/* Final results card on the left, leaving the right free for the winner's dance */
 .hud-results {
   position: absolute;
   inset: 0;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   align-items: center;
-  background: rgba(12, 16, 28, 0.75);
-  backdrop-filter: blur(4px);
+  padding: 0 4vw;
+  background: linear-gradient(90deg, rgba(12, 16, 28, 0.7) 0%, rgba(12, 16, 28, 0) 60%);
   pointer-events: auto;
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.4s ease;
+}
+
+@media (max-width: 700px) {
+  .hud-results {
+    align-items: flex-end;
+    justify-content: center;
+    padding: 0 0 12px;
+    background: linear-gradient(0deg, rgba(12, 16, 28, 0.7) 0%, rgba(12, 16, 28, 0) 60%);
+  }
 }
 
 .hud-results.is-visible {

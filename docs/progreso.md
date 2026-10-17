@@ -14,7 +14,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | 3 — Primera pista real: Valle de Cocora | ✅     |
 | 4 — Bots                                | 🚧     |
 | 5 — Poderes y uchuvas                   | 🚧     |
-| 6 — Personajes y animaciones            | ⬜     |
+| 6 — Personajes y animaciones            | 🚧     |
 | 7 — Online: sala con código             | ⬜     |
 | 8 — Online robusto                      | ⬜     |
 | 9 — Contenido completo                  | ⬜     |
@@ -156,3 +156,33 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - La máscara toca a un kart a 2,6 m (más que la distancia de choque entre karts, 2,2 m), si no nunca llegaría a tocarlo.
 - Sin rival a su alcance, las hormigas no se gastan. Sin nadie adelante, la avispa sale recta y desaparece.
 - Comprobado en Chromium: la carrera arranca, los bots usan poderes y no hay errores de consola (solo el 404 de `favicon.ico`, que ya estaba).
+
+## Etapa 6 — Personajes y animaciones 🚧
+
+- ✅ Atributos y _perks_ de los 8 personajes en `config/characters.ts` (`characterTuning` con todos los números). Un punto de atributo sobre o bajo 3 cambia la velocidad máxima un 2,5 %, la aceleración un 8 %, el giro y el agarre un 6 % y la masa de choque un 25 %; el atributo 3 deja la física igual que antes. `Racer.character` y `characterPhysics` se aplican en `stepRacer` (`sim/characters.ts`, `sim/kart/kartPerks.ts`).
+  - Chigüiro (Tranquilo): los tiempos de golpe, giro, vuelta de campana y mareo corren ×1,3.
+  - Oso (Aplanadora): masa ×1,3 sobre su peso 5; empuja más y lo empujan menos (`resolveKartCollisions` con masas).
+  - Tití (Ágil): carga del derrape ×1,3.
+  - Cóndor (Planeo): gravedad ×0,75 en el aire, control en el aire (1,2 rad/s) y turbo de aterrizaje ×1,5.
+  - Jaguar (Depredador): rebufo con un rival a menos de 14 m en un cono de 14° delante: hasta +6 % de velocidad y +20 % de aceleración.
+  - Guacamaya (Coleccionista): máscara, panela, escudo, mosquitos y aguacero duran ×1,25.
+  - Delfín rosado (Anfibio): sin penalización en barro (y en agua, cuando exista).
+  - Perezoso (Calma total): nitros ×1,25; el tercero ×2.
+- ✅ Pipeline glTF: los modelos se arman con primitivas _low-poly_ en `render/characters/` (`modelKit.ts`, `kartModel.ts`, `characterModels.ts`, `characterClips.ts`) y `npm run models` (`scripts/buildModels.ts`, GLTFExporter en Node) los exporta a `public/models/<id>.glb`. El juego los carga con GLTFLoader (`characterAssets.ts`), valida el contrato de `rig.ts` (huesos y animaciones) y, si un archivo falla, construye el modelo en el momento. Cada kart con su piloto es una sola malla con esqueleto y colores por vértice: 1 _draw call_ más 1 del contorno.
+- ✅ Los 8 personajes con kart propio (colores y estilo: clásico, deportivo, con hojas o bote) y 11 animaciones: reposo con tic propio, giro izquierda y derecha, derrape, nitro, aire, golpeado, victoria (cumbia, champeta o joropo), derrota, lanzar adelante y lanzar atrás.
+- ✅ Mezcla de animaciones según giro, derrape, nitro, aire, golpes y resultado (`render/characterAnimLogic.ts`, lógica pura con pruebas) y gesto de lanzar al usar un poder (`CharacterView.playAction`).
+- ✅ Animación procedural del kart: suspensión con resorte, _squash & stretch_ al aterrizar, acelerar y frenar, inclinación en curvas y derrapes, rebote al chocar con paredes, ruedas que giran y se orientan (`render/kartSuspension.ts`).
+- ✅ Pantalla de selección de personaje: primer paso del menú, con los 8 pilotos, habilidad y barras de atributos (`ui/quickRaceMenu.ts`, `ui/characterSelectModel.ts`). Detrás se ve el kart elegido en reposo con una cámara de exhibición. También `?personaje=<id>`. Los bots llevan los otros 7 personajes.
+- ✅ Sombreado _toon_ de 3 tonos, contorno por casco invertido (`render/characters/toon.ts`) y _bloom_ suave en llamas, explosiones y rayos (`EffectComposer` + `UnrealBloomPass` con umbral alto; `?bloom=0` lo apaga).
+- ✅ Bailes de victoria (podio) y berrinche de derrota en la pantalla de resultados, con la cámara de frente al kart; la tarjeta de resultados pasó a la izquierda para que se vea el baile.
+- ✅ Galería de personajes (`characters.html`, publicada en `/ChiguiroKart/characters.html`).
+- ✅ Pruebas: atributos, cada _perk_, masas de choque, mezcla de animaciones, suspensión, contrato del rig, selección de personaje (413 pruebas en total).
+- 🚧 Falta el criterio de cierre: que apruebes el arte provisional y comprobar jugando que los personajes se sienten distintos al manejar.
+
+**Notas:**
+
+- Arte provisional hecho con código, no en Blender: es completo (esqueleto, 11 animaciones, kart propio) y se puede reemplazar archivo por archivo respetando `rig.ts`.
+- Cada `.glb` pesa 400–620 kB (unos 7000 vértices); los 8 suman ~3,7 MB, dentro del presupuesto de 15 MB de descarga inicial.
+- Con 8 karts en carrera se miden 46 _draw calls_ por cuadro (presupuesto: 150).
+- El bundle principal pasó a ~804 kB (214 kB gzip) por el _bloom_ y el cargador glTF; se subió el aviso de Vite a 900 kB.
+- Comprobado en Chromium: menú con vista previa, parrilla con 8 personajes distintos, carrera y pantalla de resultados sin errores de consola. Chromium sin GPU corre a ~2 FPS, así que la fluidez de las mezclas solo se revisó en capturas.

@@ -10,14 +10,16 @@ import { GamepadSource } from '../input/gamepad'
 import { combineInputs, NEUTRAL_INPUT, type InputSource, type KartInput } from '../input/kartInput'
 import { KeyboardSource } from '../input/keyboard'
 import { ChaseCamera } from '../render/chaseCamera'
-import { createScene, resizeToCanvas, type SceneContext } from '../render/createScene'
+import { createScene, renderScene, resizeToCanvas, type SceneContext } from '../render/createScene'
 import { speedLineTarget } from '../render/effects/effectsLogic'
 import { KartEffects } from '../render/effects/kartEffects'
 import { KartFeedback } from '../render/effects/kartFeedback'
 import { SpeedLines } from '../render/effects/speedLines'
-import { KartView } from '../render/kartView'
+import { throwActionFor } from '../render/characterAnimLogic'
+import { CharacterView } from '../render/characterView'
 import { ItemView } from '../render/items/itemView'
 import { hitPoseInto, type HitPose } from '../render/items/itemViewLogic'
+import { placeFinishCamera, placeShowroomCamera } from '../render/showcaseCamera'
 import { createTrackView } from '../render/trackView'
 import { FixedStep } from '../sim/fixedStep'
 import { forwardSpeed } from '../sim/kart/kartPhysics'
@@ -30,6 +32,7 @@ import {
 import type { Vec2 } from '../sim/math'
 import type { TrackDefinition } from '../sim/track'
 import { ItemSystem } from '../sim/items/itemSystem'
+import type { PowerId } from '../sim/items/itemTypes'
 import type { Racer } from '../sim/racer'
 import { RaceWorld } from '../sim/world'
 import {
@@ -49,6 +52,7 @@ import { buildHudModel, eventPopupText } from '../ui/hudModel'
 import { BotManager } from '../sim/botManager'
 import { RacingBot } from '../ai/racingBot'
 import { botDifficulties } from '../config/bots'
+import { characterIds, type CharacterId } from '../config/characters'
 import { QuickRaceMenu } from '../ui/quickRaceMenu'
 import { parseRaceSettings, rubberBandFor, type RaceSettings } from './raceSettings'
 
@@ -56,10 +60,11 @@ const SIMULATION_HZ = 60
 const RESET_KEY = 'KeyR'
 const MS_PER_KMH = 3.6
 const SPEED_LINE_STREAKS = 90
-const BOT_COLORS = ['#3c7be8', '#3cc15a', '#e8c53c', '#a43ce8', '#3ce0e0', '#e8883c', '#e83ca8']
 const BOT_COUNT = 7
 const GHOST_COLOR = '#8fd3ff'
 const GHOST_OPACITY = 0.4
+/** The player finishes in victory pose on the podium places, otherwise in defeat. */
+const PODIUM_PLACES = 3
 /** Base seed of the bots' random choices; each bot adds its grid slot. */
 const BOT_SEED = 1
 /** The player always takes grid slot 0. */
@@ -97,7 +102,7 @@ export class Game {
   private readonly timer = new THREE.Timer()
 
   private readonly scene: SceneContext
-  private readonly kartView = new KartView()
+  private readonly kartView: CharacterView
   private readonly kartEffects = new KartEffects(defaultEffects, this.driftConfig)
   private readonly speedLines = new SpeedLines(SPEED_LINE_STREAKS, defaultEffects.speedLines.color)
   private readonly kartFeedback = new KartFeedback(defaultEffects.camera)
@@ -118,13 +123,13 @@ export class Game {
   private readonly readout: DebugReadout = { speedKmh: 0, onGround: true }
 
   private previousKart: KartState
-  private botViews: KartView[] = []
+  private botViews: CharacterView[] = []
   private previousBotKarts: KartState[] = []
   private hasSavedRecord = false
   /** True from the start of a race or time trial until the menu is shown again. */
   private racing = false
   private readonly ghostRecorder = new GhostRecorder()
-  private readonly ghostView = new KartView(GHOST_COLOR)
+  private readonly ghostView: CharacterView
   private readonly ghostKart: KartState = createKartState({ x: 0, y: 0, z: 0 }, 0)
   /** Best saved ghost of the track, played back during a time trial. */
   private ghost: Ghost | null = null
@@ -132,8 +137,16 @@ export class Game {
   private ghostDeltaLaps = 0
   private newRecord = false
   private lastAlpha = 1
+  /** True once the player's finish pose and the front camera are on. */
+  private finishShown = false
+  private currentCharacter: CharacterId
 
   constructor(canvas: HTMLCanvasElement) {
+    this.settings = parseRaceSettings(typeof window === 'undefined' ? '' : window.location.search)
+    this.world.player.character = this.settings.character
+    this.currentCharacter = this.settings.character
+    this.kartView = new CharacterView(this.settings.character)
+    this.ghostView = new CharacterView(this.settings.character)
     this.scene = createScene(canvas)
     this.scene.scene.add(
       createTrackView(this.world.track),
@@ -144,14 +157,14 @@ export class Game {
     )
     this.chaseCamera = new ChaseCamera(this.scene.camera, this.cameraConfig)
     this.itemView.setKarts([this.kartView.object])
-    this.ghostView.makeGhost(GHOST_OPACITY)
+    this.ghostView.makeGhost(GHOST_OPACITY, GHOST_COLOR)
     this.ghostView.object.visible = false
     this.scene.scene.add(this.ghostView.object)
     this.previousKart = cloneKartState(this.world.kart)
-    this.settings = parseRaceSettings(typeof window === 'undefined' ? '' : window.location.search)
     this.menu = new QuickRaceMenu(this.settings, this.world.track.name, (chosen) =>
       this.startRace(chosen),
     )
+    this.menu.onCharacterChange = (id) => this.setPlayerCharacter(id)
     this.menu.show(this.settings)
     this.hud.setVisible(false)
     this.hud.onRematch = () => this.startRace(this.settings)
@@ -181,6 +194,7 @@ export class Game {
   /** Builds the bots for the chosen settings and puts everyone on the grid; the countdown begins. */
   startRace(settings: RaceSettings): void {
     this.settings = settings
+    this.setPlayerCharacter(settings.character)
     this.menu.hide()
     this.hud.setVisible(true)
     this.clearBots()
@@ -203,9 +217,14 @@ export class Game {
     const manager = new BotManager(this.world, this.physics, this.driftConfig, {
       rubberBand: rubberBandFor(settings),
     })
+    const botCharacters = botCharactersFor(settings.character)
     for (let i = 0; i < BOT_COUNT; i++) {
-      manager.addBot(new RacingBot({ skill: botDifficulties[settings.difficulty], seed: BOT_SEED }))
-      const view = new KartView(BOT_COLORS[i % BOT_COLORS.length])
+      const character = botCharacters[i % botCharacters.length] ?? settings.character
+      manager.addBot(
+        new RacingBot({ skill: botDifficulties[settings.difficulty], seed: BOT_SEED }),
+        character,
+      )
+      const view = new CharacterView(character)
       this.botViews.push(view)
       this.scene.scene.add(view.object)
     }
@@ -215,6 +234,16 @@ export class Game {
     for (const racer of this.racers) this.itemEntries.push({ racer, input: NEUTRAL_INPUT })
     this.itemView.setKarts([this.kartView.object, ...this.botViews.map((view) => view.object)])
     this.resetKart()
+  }
+
+  /** Changes who the player drives: the sim racer and the kart on screen. */
+  private setPlayerCharacter(id: CharacterId): void {
+    this.settings = { ...this.settings, character: id }
+    this.world.player.character = id
+    if (this.currentCharacter === id) return
+    this.currentCharacter = id
+    this.kartView.setCharacter(id)
+    this.ghostView.setCharacter(id)
   }
 
   /** Stops the race, removes the bots and shows the menu again. */
@@ -227,6 +256,7 @@ export class Game {
     this.world.resetKart()
     this.previousKart = cloneKartState(this.world.kart)
     this.chaseCamera.reset()
+    this.clearFinishShow()
     this.hud.setVisible(false)
     this.menu.show(this.settings)
   }
@@ -292,10 +322,18 @@ export class Game {
     if (events.length === 0) return
     this.itemView.handleEvents(events, this.racers)
     for (const event of events) {
+      if (event.type === 'powerUsed') this.playThrow(event.slot, event.power)
       const text = eventPopupText(event, PLAYER_SLOT)
       if (text) this.hud.showPopup(text)
       if (event.type === 'lightning' && event.slots.includes(PLAYER_SLOT)) this.hud.flash()
     }
+  }
+
+  /** The racer in grid slot `slot` makes its throwing gesture. */
+  private playThrow(slot: number, power: PowerId): void {
+    const view = slot === PLAYER_SLOT ? this.kartView : this.botViews[slot - 1]
+    const lookBack = this.itemEntries[slot]?.input.lookBack ?? false
+    view?.playAction(throwActionFor(power, lookBack))
   }
 
   private renderBots(alpha: number, dt: number): void {
@@ -366,7 +404,7 @@ export class Game {
     this.kartEffects.update(kart, speedRatio, dt)
 
     const feedback = this.kartFeedback.update(kart.boost, kart.drift, this.timer.getElapsed(), dt)
-    this.chaseCamera.update(kart.position, kart.heading, speedRatio, input.lookBack, dt, feedback)
+    this.updateCamera(kart, speedRatio, input, dt, feedback)
     this.speedLines.update(
       speedLineTarget(speedRatio, kart.boost.level, this.effectsConfig.speedLines),
       dt,
@@ -413,14 +451,46 @@ export class Game {
       )
     }
 
-    this.scene.renderer.render(this.scene.scene, this.scene.camera)
+    renderScene(this.scene)
 
     this.readout.speedKmh = Math.abs(speed) * MS_PER_KMH
     this.readout.onGround = kart.onGround
     this.fpsOverlay?.update(dt)
   }
 
+  /** Chase camera while racing, front view at the finish, showroom while the menu is up. */
+  private updateCamera(
+    kart: KartState,
+    speedRatio: number,
+    input: KartInput,
+    dt: number,
+    feedback: ReturnType<KartFeedback['update']>,
+  ): void {
+    const camera = this.scene.camera
+    if (!this.racing) {
+      placeShowroomCamera(camera, kart.position, kart.heading, this.timer.getElapsed())
+      return
+    }
+    const state = this.world.raceManager.state
+    if (state.phase === 'finished') {
+      if (!this.finishShown) {
+        this.finishShown = true
+        const rank = racePosition(this.world.player, this.racers)
+        this.kartView.setResult(rank <= PODIUM_PLACES ? 'victory' : 'defeat')
+      }
+      placeFinishCamera(camera, kart.position, kart.heading, dt)
+      return
+    }
+    this.chaseCamera.update(kart.position, kart.heading, speedRatio, input.lookBack, dt, feedback)
+  }
+
+  private clearFinishShow(): void {
+    this.finishShown = false
+    this.kartView.setResult(null)
+  }
+
   private resetKart(): void {
+    this.clearFinishShow()
     this.hasSavedRecord = false
     this.ghostRecorder.reset()
     this.ghostDelta = null
@@ -435,4 +505,9 @@ export class Game {
     this.items.drainEvents()
     this.itemView.reset()
   }
+}
+
+/** The 7 characters the player did not pick, in menu order: one per bot. */
+function botCharactersFor(player: CharacterId): CharacterId[] {
+  return characterIds.filter((id) => id !== player)
 }

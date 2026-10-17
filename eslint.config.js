@@ -15,4 +15,9 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  {
+    // Node-only build scripts (not part of the browser tsconfig)
+    files: ['scripts/**/*.ts'],
+    languageOptions: { globals: globals.node },
+  },
 )
