@@ -1,10 +1,78 @@
 import { SEAT } from './kartModel'
 import { addArms, addEyes, addLegs, addMouth } from './characterParts'
-import { gradient, loft, sphere, torus, tube, type ModelKit, type Vec3 } from './modelKit'
+import * as THREE from 'three'
+import { gradient, sphere, tube, type ModelKit, type Vec3 } from './modelKit'
 
 /** Pilots built to the "hero" art standard: smooth shapes, big expressive faces, big hands. */
 
 const BLACK = '#17151a'
+
+/** Head ellipsoid (model space) the spectacles are projected onto, grown a hair so they lie on top. */
+const HEAD = { center: [0, 1.67, -0.08], radii: [0.45, 0.42, 0.52] } as const
+
+/** Grid of (x, y) points projected onto the front of the head, as a thin conforming sheet. */
+function projectedSheet(
+  columns: number,
+  rows: number,
+  at: (u: number, v: number) => [number, number],
+): THREE.BufferGeometry {
+  const grow = 1.012
+  const [, cy, cz] = HEAD.center
+  const rx = HEAD.radii[0] * grow
+  const ry = HEAD.radii[1] * grow
+  const rz = HEAD.radii[2] * grow
+  const positions: number[] = []
+  const normals: number[] = []
+  const indices: number[] = []
+  for (let j = 0; j <= rows; j++) {
+    for (let i = 0; i <= columns; i++) {
+      const [x, y] = at(i / columns, j / rows)
+      const nx = x / rx
+      const ny = (y - cy) / ry
+      const nz = Math.sqrt(Math.max(1 - nx * nx - ny * ny, 0.01))
+      positions.push(x, y, cz + rz * nz)
+      const n = new THREE.Vector3(nx / rx, ny / ry, nz / rz).normalize()
+      normals.push(n.x, n.y, n.z)
+    }
+  }
+  for (let j = 0; j < rows; j++) {
+    for (let i = 0; i < columns; i++) {
+      const a = j * (columns + 1) + i
+      const b = a + 1
+      const c = a + columns + 1
+      const d = c + 1
+      indices.push(a, c, b, b, c, d)
+    }
+  }
+  const g = new THREE.BufferGeometry()
+  g.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3))
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3))
+  g.setIndex(indices)
+  return g
+}
+
+/** Smooth analytic spectacles: a ring around each eye and a bridge joining them. */
+function spectacles(eyeX: number, eyeY: number): THREE.BufferGeometry[] {
+  const inner = 0.1
+  const outer = 0.175
+  const sheets: THREE.BufferGeometry[] = []
+  for (const side of [1, -1] as const) {
+    sheets.push(
+      projectedSheet(48, 1, (u, v) => {
+        const angle = u * Math.PI * 2
+        const r = inner + (outer - inner) * v
+        return [side * eyeX + Math.cos(angle) * r, eyeY + (Math.sin(angle) * r) / 1.1]
+      }),
+    )
+  }
+  sheets.push(
+    projectedSheet(8, 1, (u, v) => [
+      -(eyeX - inner + 0.02) + u * 2 * (eyeX - inner + 0.02),
+      eyeY + 0.027 - v * 0.044,
+    ]),
+  )
+  return sheets
+}
 
 /** Spectacled bear: round head, cream spectacles, chunky body and a wide friendly grin. */
 export function osoDriver(kit: ModelKit): void {
@@ -38,44 +106,19 @@ export function osoDriver(kit: ModelKit): void {
     size: 1.4,
   })
 
-  // Round head with a short muzzle
-  kit.add(
-    'head',
-    loft(
-      [
-        { z: -0.46, w: 0.6, h: 0.6, y: 1.66 },
-        { z: -0.24, w: 0.9, h: 0.84, y: 1.68, n: 2.1 },
-        { z: 0.04, w: 0.9, h: 0.84, y: 1.67, n: 2.1 },
-        { z: 0.26, w: 0.74, h: 0.68, y: 1.62, n: 2.2 },
-      ],
-      22,
-      0.2,
-      0.2,
-    ),
-    gradient('y', 1.3, 2.0, furLight, fur),
-  )
-  // Muzzle, nose and spectacles
-  kit.add('head', sphere(1, 12), cream, { position: [0, 1.5, 0.34], scale: [0.25, 0.2, 0.22] })
-  kit.add('head', sphere(1, 12), BLACK, { position: [0, 1.58, 0.54], scale: [0.11, 0.075, 0.07] })
-  for (const side of [1, -1] as const) {
-    kit.frame({ position: [side * 0.25, 1.75, 0.3], rotation: [0.05, side * 0.5, 0] }, () => {
-      kit.add('head', torus(0.185, 0.045, 18, 6), cream)
-    })
-  }
-  kit.add(
-    'head',
-    tube(
-      [
-        [0.1, 1.76, 0.44],
-        [0, 1.8, 0.47],
-        [-0.1, 1.76, 0.44],
-      ],
-      [0.04],
-      8,
-      8,
-    ),
-    cream,
-  )
+  // One smooth round head with the cream spectacles as a thin decal shell lying on it
+  const eyeX = 0.23
+  const eyeY = 1.76
+  // The sphere's pole points at the face
+  kit.add('head', sphere(1, 24), gradient('y', 1.3, 2.0, furLight, fur), {
+    position: [0, 1.67, -0.08],
+    rotation: [Math.PI / 2, 0, 0],
+    scale: [0.45, 0.52, 0.42],
+  })
+  for (const sheet of spectacles(eyeX, eyeY)) kit.add('head', sheet, cream)
+  // One smooth cream muzzle blended into the head, and the nose
+  kit.add('head', sphere(1, 16), cream, { position: [0, 1.52, 0.3], scale: [0.25, 0.2, 0.25] })
+  kit.add('head', sphere(1, 12), BLACK, { position: [0, 1.59, 0.54], scale: [0.11, 0.075, 0.07] })
   addMouth(kit, {
     jawColor: cream,
     hinge: [0, 1.5, 0.0],
@@ -95,18 +138,18 @@ export function osoDriver(kit: ModelKit): void {
   }
   kit.add('head', tube(grin, [0.014], 6, 16), '#2a1418')
   addEyes(kit, {
-    center: [0.25, 1.78, 0.32],
-    radius: 0.14,
-    yaw: 0.35,
-    pitch: 0.0,
-    iris: '#5a3216',
-    irisSize: 0.58,
+    // Flush with the head: the eyeball is sunk so only its front barely breaks the surface
+    center: [0.19, 1.742, 0.295],
+    radius: 0.1,
+    yaw: 0.63,
+    pitch: -0.26,
+    iris: '#20150f',
+    irisSize: 0.66,
+    pupil: false,
+    highlights: 1,
+    cushion: false,
     lid: fur,
-    lidRest: -1.0,
-    browLift: 1.35,
-    browTilt: -0.18,
-    brow: tan,
-    browSize: 1.1,
+    lidRest: -1.75,
   })
   // Round ears
   for (const side of [1, -1] as const) {

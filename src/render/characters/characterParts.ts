@@ -28,6 +28,10 @@ export interface EyeOptions {
   browSize?: number
   /** Resting brow tilt (rad): negative raises the inner ends (a friendly, worried look). */
   browTilt?: number
+  /** Draw a separate black pupil on the iris (default true). */
+  pupil?: boolean
+  /** Number of white highlights, 1 or 2 (default 2). */
+  highlights?: 1 | 2
   /** Fur cushion under the eye (default true); off for eyes that sit on the skull. */
   cushion?: boolean
   /** Brow height over the eye (1 default). */
@@ -68,19 +72,23 @@ export function addEyes(kit: ModelKit, o: EyeOptions): void {
         position: [0, 0, r * 0.8],
         scale: [1, 1, 0.45],
       })
-      kit.add('head', sphere(r * irisSize * 0.55, 8), BLACK, {
-        position: [0, 0, r * 0.8 + r * irisSize * 0.12],
-        scale: [1, 1, 0.45],
-      })
+      if (o.pupil !== false) {
+        kit.add('head', sphere(r * irisSize * 0.55, 8), BLACK, {
+          position: [0, 0, r * 0.8 + r * irisSize * 0.12],
+          scale: [1, 1, 0.45],
+        })
+      }
       // Two specular highlights
       kit.add('head', sphere(r * 0.2, 6), WHITE, {
         position: [r * 0.24, r * 0.27, r * 1.0],
         scale: [1, 1, 0.5],
       })
-      kit.add('head', sphere(r * 0.1, 5), WHITE, {
-        position: [-r * 0.2, -r * 0.24, r * 1.02],
-        scale: [1, 1, 0.5],
-      })
+      if (o.highlights !== 1) {
+        kit.add('head', sphere(r * 0.1, 5), WHITE, {
+          position: [-r * 0.2, -r * 0.24, r * 1.02],
+          scale: [1, 1, 0.5],
+        })
+      }
       kit.add(lidBone, dome(r * 1.1, 1.75, 12), o.lid, { rotation: [o.lidRest, 0, 0] })
     })
     // Brow: a soft arch whose inner end is toward the nose

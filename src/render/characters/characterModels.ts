@@ -138,7 +138,7 @@ const oso: CharacterModelSpec = {
   kartStyle: 'heavy',
   dance: 'joropo',
   energy: 0.8,
-  lidTravel: 1.45,
+  lidTravel: 2.6,
   driver: osoDriver,
 }
 
