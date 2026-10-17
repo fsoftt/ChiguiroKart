@@ -259,12 +259,12 @@ describe('San Andrés tide', () => {
     expect(track.surfaceAt(middle.x, middle.z)).toBe('water')
   })
 
-  it('is still drivable at high tide, through the water', () => {
+  it('keeps bots on the road at high tide, even when they want the shortcut', () => {
     const run = cachedSolo('sanAndres', sanAndresData, ALL_SHORTCUTS)
     expect(run.finished).toBe(true)
     expect(run.respawns).toBe(0)
     expect(run.maxOutside).toBeLessThanOrEqual(0.05)
-    expect(run.branchSteps[tidal] ?? 0).toBeGreaterThan(60)
+    expect(run.branchSteps[tidal] ?? 0).toBe(0)
   })
 
   it('has a sea plane below the road and a road above it', () => {
