@@ -1,8 +1,9 @@
 // src/input/botInput.ts
 
-import type { KartInput } from './kartInput';
-import type { RaceWorld } from '../sim/world';
-import type { Vec2 } from '../sim/math';
+import { NEUTRAL_INPUT, type KartInput } from './kartInput'
+import type { RaceWorld } from '../sim/world'
+import type { KartState } from '../sim/kart/kartState'
+import { clamp, headingOf, wrapAngle, type Vec2 } from '../sim/math'
 
 /**
  * Provider of input for an AI‑controlled kart.
@@ -18,7 +19,7 @@ export interface BotInputProvider {
    * @param world – the current {@link RaceWorld} (contains track & race data).
    * @param kart – the bot's own {@link KartState}.
    */
-  nextInput(dt: number, world: RaceWorld, kart: any): KartInput;
+  nextInput(dt: number, world: RaceWorld, kart: KartState): KartInput
 }
 
 /**
@@ -28,47 +29,37 @@ export interface BotInputProvider {
  */
 export class SimpleBot implements BotInputProvider {
   // Index of the next checkpoint the bot is aiming for.
-  private targetIdx: number = 1; // start after the start/finish line (index 0)
+  private targetIdx: number = 1 // start after the start/finish line (index 0)
 
-  nextInput(dt: number, world: RaceWorld, kart: any): KartInput {
+  nextInput(_dt: number, world: RaceWorld, kart: KartState): KartInput {
     // Guard against missing checkpoints.
-    const checkpoints = world.raceManager.checkpoints;
+    const checkpoints = world.raceManager.checkpoints
     if (!checkpoints.length) {
-      return { steering: 0, throttle: 0.5, brake: 0, drift: false };
+      return { ...NEUTRAL_INPUT, throttle: 0.5 }
     }
 
     // Find the next checkpoint that hasn't been passed yet.
-    const lastPassed = world.raceManager.state.lastPassedCheckpoint;
-    this.targetIdx = (lastPassed + 1) % checkpoints.length;
-    const target = checkpoints[this.targetIdx];
+    const lastPassed = world.raceManager.state.lastPassedCheckpoint
+    this.targetIdx = (lastPassed + 1) % checkpoints.length
+    const target = checkpoints[this.targetIdx]
     if (!target) {
-      return { steering: 0, throttle: 0.5, brake: 0, drift: false };
+      return { ...NEUTRAL_INPUT, throttle: 0.5 }
     }
 
     // Vector from kart to target checkpoint centre.
     const dir: Vec2 = {
       x: target.position.x - kart.position.x,
       z: target.position.z - kart.position.z,
-    };
+    }
 
-    // Desired heading angle (radians) using atan2.
-    const desiredAngle = Math.atan2(dir.z, dir.x);
-    // Current kart heading (radians). kart.heading is stored as radians.
-    const currentAngle = kart.heading;
-    // Smallest angular difference.
-    let delta = desiredAngle - currentAngle;
-    // Normalize to [-π, π].
-    delta = ((delta + Math.PI) % (2 * Math.PI)) - Math.PI;
+    // Desired heading (0 faces +z, see headingOf) and smallest signed difference.
+    const desiredAngle = headingOf(dir.x, dir.z)
+    const delta = wrapAngle(desiredAngle - kart.heading)
 
-    // Simple proportional steering: max steering = 1.
-    const steering = Math.max(-1, Math.min(1, delta * 2)); // gain = 2
+    // Positive steer turns right, which lowers the heading, so steer against delta.
+    const steer = clamp(-delta * 2, -1, 1) // gain = 2
 
-    // Constant throttle, no brake, no drift.
-    return {
-      steering,
-      throttle: 0.8,
-      brake: 0,
-      drift: false,
-    };
+    // Constant throttle, no brake.
+    return { ...NEUTRAL_INPUT, throttle: 0.8, steer }
   }
 }

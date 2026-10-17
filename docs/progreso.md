@@ -12,7 +12,7 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 | 1 — Kart que se maneja bien             | ✅     |
 | 2 — Derrape, nitros y saltos            | ✅     |
 | 3 — Primera pista real: Valle de Cocora | ✅     |
-| 4 — Bots                                | ✅     |
+| 4 — Bots                                | 🚧     |
 | 5 — Poderes y uchuvas                   | ⬜     |
 | 6 — Personajes y animaciones            | ⬜     |
 | 7 — Online: sala con código             | ⬜     |
@@ -96,4 +96,15 @@ Leyenda: ✅ hecho · 🚧 en curso · ⬜ pendiente
 - Los atajos en Cocora (salto de cresta y trocha de barro) están rodeados de checkpoints obligatorios antes y después, lo que garantiza que tomar el atajo sea una maniobra válida sin que se pueda cortar camino arbitrariamente por el pasto.
 - El minimapa renderiza el circuito en un canvas fuera de pantalla y solo actualiza el marcador del jugador en cada fotograma.
 
-## Etapa 4 — Bots ⬜
+## Etapa 4 — Bots 🚧
+
+- 🚧 Infraestructura inicial: `BotInputProvider`, `SimpleBot` (apunta al siguiente checkpoint) y `BotManager`, que mueve los bots con la misma física que el jugador (`input/botInput.ts`, `sim/botManager.ts`).
+- ⬜ Estado de carrera por kart: hoy `RaceManager` solo sigue al jugador y el bot lee los checkpoints del jugador.
+- ⬜ Vista 3D de los bots (hoy no se dibujan) y choques entre karts.
+- ⬜ Línea de bots en la pista, derrape y nitros por dificultad, uso de atajos y ayuda de remontada.
+- ⬜ Posiciones en tiempo real, HUD de posición y modo Carrera rápida contra 7 bots.
+- ⬜ Pruebas de los bots.
+
+**Notas:**
+
+- La primera versión de los bots rompió el build y el arranque del juego (`require()` en el navegador y campos de `KartInput` equivocados). Se corrigió junto con los shaders de partículas, que habían perdido los `;` desde la etapa 2 y no compilaban, por lo que el humo y las llamas no se veían.

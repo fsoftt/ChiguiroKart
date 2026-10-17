@@ -66,29 +66,29 @@ export class ParticlePoints {
 }
 
 const VERTEX_SHADER = /* glsl */ `
-  attribute float aSize
-  attribute float aAlpha
-  attribute vec3 aColor
-  varying vec3 vColor
-  varying float vAlpha
+  attribute float aSize;
+  attribute float aAlpha;
+  attribute vec3 aColor;
+  varying vec3 vColor;
+  varying float vAlpha;
 
   void main() {
-    vColor = aColor
-    vAlpha = aAlpha
-    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0)
-    gl_PointSize = aSize * (POINT_SCALE / max(-mvPosition.z, 0.1))
-    gl_Position = projectionMatrix * mvPosition
+    vColor = aColor;
+    vAlpha = aAlpha;
+    vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+    gl_PointSize = aSize * (POINT_SCALE / max(-mvPosition.z, 0.1));
+    gl_Position = projectionMatrix * mvPosition;
   }
 `
 
 const FRAGMENT_SHADER = /* glsl */ `
-  varying vec3 vColor
-  varying float vAlpha
+  varying vec3 vColor;
+  varying float vAlpha;
 
   void main() {
-    float distanceToCentre = length(gl_PointCoord - vec2(0.5))
-    if (distanceToCentre > 0.5) discard
-    float softEdge = 1.0 - smoothstep(0.15, 0.5, distanceToCentre)
-    gl_FragColor = vec4(vColor, vAlpha * softEdge)
+    float distanceToCentre = length(gl_PointCoord - vec2(0.5));
+    if (distanceToCentre > 0.5) discard;
+    float softEdge = 1.0 - smoothstep(0.15, 0.5, distanceToCentre);
+    gl_FragColor = vec4(vColor, vAlpha * softEdge);
   }
 `

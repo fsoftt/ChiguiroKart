@@ -14,7 +14,8 @@ Juego de karts en 3D estilo _Crash Team Racing_ con animales colombianos. Corre 
 | 1 — Kart que se maneja bien             | ✅         |
 | 2 — Derrape, nitros y saltos            | ✅         |
 | 3 — Primera pista real: Valle de Cocora | ✅         |
-| 4 a 11                                  | Pendientes |
+| 4 — Bots                                | En curso   |
+| 5 a 11                                  | Pendientes |
 
 ## Controles
 
