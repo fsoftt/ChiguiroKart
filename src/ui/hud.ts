@@ -1,4 +1,5 @@
 import './hud.css'
+import './quickRaceMenu.css'
 import type { Vec2 } from '../sim/math'
 import type { Track } from '../sim/track'
 import type { FinalTimes, HudModel } from './hudModel'
@@ -86,6 +87,10 @@ export class Hud {
   private wrongWay = false
   private finished = false
 
+  /** Called by the results modal buttons. */
+  onRematch: (() => void) | null = null
+  onMenu: (() => void) | null = null
+
   constructor(parent: HTMLElement = document.body) {
     this.root.append(this.minimap.element)
 
@@ -107,7 +112,16 @@ export class Hud {
     this.resultsTable.className = 'hud-results-table'
     this.resultsCard.append(this.resultsTable)
     const restartPrompt = el('div', 'hud-results-restart', this.resultsCard)
-    restartPrompt.textContent = 'Presiona R para reiniciar la carrera'
+    restartPrompt.textContent = 'Enter: revancha · R: reiniciar'
+    const actions = el('div', 'hud-results-actions', this.resultsCard)
+    const rematch = el('button', 'hud-results-button', actions) as HTMLButtonElement
+    rematch.type = 'button'
+    rematch.textContent = 'Revancha'
+    rematch.addEventListener('click', () => this.onRematch?.())
+    const menu = el('button', 'hud-results-button is-secondary', actions) as HTMLButtonElement
+    menu.type = 'button'
+    menu.textContent = 'Menú'
+    menu.addEventListener('click', () => this.onMenu?.())
 
     // Speedometer
     const speed = el('div', 'hud-speed', this.root)
@@ -129,6 +143,11 @@ export class Hud {
     this.perfectPopup.textContent = PERFECT_TEXT
 
     parent.append(this.root)
+  }
+
+  /** Whether the results modal is showing. */
+  get isFinished(): boolean {
+    return this.finished
   }
 
   setTrack(track: Track): void {

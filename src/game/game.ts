@@ -29,13 +29,9 @@ import { racePosition } from '../sim/race/standings'
 import { buildHudModel } from '../ui/hudModel'
 import { BotManager } from '../sim/botManager'
 import { RacingBot } from '../ai/racingBot'
-import {
-  BOT_DIFFICULTIES,
-  botDifficulties,
-  defaultRubberBand,
-  type BotDifficulty,
-  type RubberBandConfig,
-} from '../config/bots'
+import { botDifficulties } from '../config/bots'
+import { QuickRaceMenu } from '../ui/quickRaceMenu'
+import { parseRaceSettings, rubberBandFor, type RaceSettings } from './raceSettings'
 
 const SIMULATION_HZ = 60
 const RESET_KEY = 'KeyR'
@@ -43,23 +39,8 @@ const MS_PER_KMH = 3.6
 const SPEED_LINE_STREAKS = 90
 const BOT_COLORS = ['#3c7be8', '#3cc15a', '#e8c53c', '#a43ce8', '#3ce0e0', '#e8883c', '#e83ca8']
 const BOT_COUNT = 7
-const DEFAULT_DIFFICULTY: BotDifficulty = 'normal'
 /** Base seed of the bots' random choices; each bot adds its grid slot. */
 const BOT_SEED = 1
-
-interface RaceSettings {
-  difficulty: BotDifficulty
-  rubberBand: RubberBandConfig
-}
-
-/** Reads `?dificultad=facil|normal|dificil` and `?remontada=0` (turns the rubber band off). */
-function readRaceSettings(): RaceSettings {
-  const params = new URLSearchParams(typeof window === 'undefined' ? '' : window.location.search)
-  const requested = params.get('dificultad')
-  const difficulty = BOT_DIFFICULTIES.find((level) => level === requested) ?? DEFAULT_DIFFICULTY
-  const rubberBand = { ...defaultRubberBand, enabled: params.get('remontada') !== '0' }
-  return { difficulty, rubberBand }
-}
 
 function selectTrack(): TrackDefinition {
   if (typeof window !== 'undefined') {
@@ -86,7 +67,9 @@ export class Game {
   private readonly speedLines = new SpeedLines(SPEED_LINE_STREAKS, defaultEffects.speedLines.color)
   private readonly kartFeedback = new KartFeedback(defaultEffects.camera)
   private readonly chaseCamera: ChaseCamera
-  private readonly botManager: BotManager
+  private botManager: BotManager | null = null
+  private readonly menu: QuickRaceMenu
+  private settings: RaceSettings
   private readonly inputSources: InputSource[] = [new KeyboardSource(), new GamepadSource()]
   private readonly fpsOverlay: FpsOverlay | null
   private readonly hud = new Hud()
@@ -107,19 +90,13 @@ export class Game {
     )
     this.chaseCamera = new ChaseCamera(this.scene.camera, this.cameraConfig)
     this.previousKart = cloneKartState(this.world.kart)
-    const settings = readRaceSettings()
-    this.botManager = new BotManager(this.world, this.physics, this.driftConfig, {
-      rubberBand: settings.rubberBand,
-    })
-    for (let i = 0; i < BOT_COUNT; i++) {
-      this.botManager.addBot(
-        new RacingBot({ skill: botDifficulties[settings.difficulty], seed: BOT_SEED }),
-      )
-      const view = new KartView(BOT_COLORS[i % BOT_COLORS.length])
-      this.botViews.push(view)
-      this.scene.scene.add(view.object)
-    }
-    this.previousBotKarts = this.botManager.getBotKarts().map(cloneKartState)
+    this.settings = parseRaceSettings(typeof window === 'undefined' ? '' : window.location.search)
+    this.menu = new QuickRaceMenu(this.settings, this.world.track.name, (chosen) =>
+      this.startRace(chosen),
+    )
+    this.menu.show(this.settings)
+    this.hud.onRematch = () => this.startRace(this.settings)
+    this.hud.onMenu = () => this.showMenu()
 
     this.hud.setTrack(this.world.track)
 
@@ -131,12 +108,50 @@ export class Game {
         drift: this.driftConfig,
         camera: this.cameraConfig,
         readout: this.readout,
-        onReset: () => this.resetKart(),
+        onReset: () => {
+          if (this.botManager) this.resetKart()
+        },
       })
     }
     window.addEventListener('keydown', (event) => {
-      if (event.code === RESET_KEY) this.resetKart()
+      if (event.code === RESET_KEY && this.botManager) this.resetKart()
+      if (event.code === 'Enter' && this.hud.isFinished) this.startRace(this.settings)
     })
+  }
+
+  /** Builds the bots for the chosen settings and puts everyone on the grid; the countdown begins. */
+  startRace(settings: RaceSettings): void {
+    this.settings = settings
+    this.menu.hide()
+    this.clearBots()
+    const manager = new BotManager(this.world, this.physics, this.driftConfig, {
+      rubberBand: rubberBandFor(settings),
+    })
+    for (let i = 0; i < BOT_COUNT; i++) {
+      manager.addBot(new RacingBot({ skill: botDifficulties[settings.difficulty], seed: BOT_SEED }))
+      const view = new KartView(BOT_COLORS[i % BOT_COLORS.length])
+      this.botViews.push(view)
+      this.scene.scene.add(view.object)
+    }
+    this.botManager = manager
+    this.resetKart()
+  }
+
+  /** Stops the race, removes the bots and shows the menu again. */
+  showMenu(): void {
+    this.clearBots()
+    this.hasSavedRecord = false
+    this.world.resetKart()
+    this.previousKart = cloneKartState(this.world.kart)
+    this.chaseCamera.reset()
+    this.menu.show(this.settings)
+  }
+
+  private clearBots(): void {
+    for (const view of this.botViews) this.scene.scene.remove(view.object)
+    this.botViews = []
+    this.previousBotKarts = []
+    this.botManager = null
   }
 
   start(): void {
@@ -148,20 +163,24 @@ export class Game {
     const dt = this.timer.getDelta()
     const input = combineInputs(this.inputSources.map((source) => source.read()))
 
-    const alpha = this.fixedStep.advance(dt, (stepSeconds) => {
-      this.previousKart = cloneKartState(this.world.kart)
-      this.world.step(input, stepSeconds)
-      this.previousBotKarts = this.botManager.getBotKarts().map(cloneKartState)
-      this.botManager.update(stepSeconds)
-      this.botManager.resolveCollisions()
-    })
+    const bots = this.botManager
+    // The simulation only runs during a race; the menu shows the idle grid
+    const alpha = bots
+      ? this.fixedStep.advance(dt, (stepSeconds) => {
+          this.previousKart = cloneKartState(this.world.kart)
+          this.world.step(input, stepSeconds)
+          this.previousBotKarts = bots.getBotKarts().map(cloneKartState)
+          bots.update(stepSeconds)
+          bots.resolveCollisions()
+        })
+      : 1
 
     this.renderBots(alpha, dt)
     this.render(interpolateKart(this.previousKart, this.world.kart, alpha), input, dt)
   }
 
   private renderBots(alpha: number, dt: number): void {
-    const infos = this.botManager.getBotInfos()
+    const infos = this.botManager?.getBotInfos() ?? []
     for (let i = 0; i < infos.length; i++) {
       const info = infos[i]
       const view = this.botViews[i]
@@ -187,7 +206,7 @@ export class Game {
       dt,
     )
 
-    const racers = [this.world.player, ...this.botManager.getBotRacers()]
+    const racers = [this.world.player, ...(this.botManager?.getBotRacers() ?? [])]
     const position = {
       rank: racePosition(this.world.player, racers),
       total: racers.length,
@@ -217,9 +236,9 @@ export class Game {
   private resetKart(): void {
     this.hasSavedRecord = false
     this.world.resetKart()
-    this.botManager.reset()
+    this.botManager?.reset()
     this.previousKart = cloneKartState(this.world.kart)
-    this.previousBotKarts = this.botManager.getBotKarts().map(cloneKartState)
+    this.previousBotKarts = this.botManager?.getBotKarts().map(cloneKartState) ?? []
     this.chaseCamera.reset()
   }
 }
