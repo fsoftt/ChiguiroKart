@@ -1,5 +1,7 @@
 import type { DriftConfig } from '../config/drift'
-import { defaultItems, POWER_NAMES } from '../config/items'
+import { defaultItems } from '../config/items'
+import { ordinal, t, tn } from '../i18n'
+import { powerName } from '../i18n/names'
 import type { ItemEvent, PowerId, RacerItems } from '../sim/items/itemTypes'
 import type { KartPhysicsConfig } from '../config/kartPhysics'
 import { forwardSpeed } from '../sim/kart/kartPhysics'
@@ -189,21 +191,21 @@ function computeCountdownLabel(race: RaceState): string {
     if (race.countdown > 2.0) return '3'
     if (race.countdown > 1.0) return '2'
     if (race.countdown > 0.0) return '1'
-    return '¡YA!'
+    return t('hud.go')
   }
-  if (race.totalRaceTime < 1.4) return '¡YA!'
+  if (race.totalRaceTime < 1.4) return t('hud.go')
   return ''
 }
 
-/** Spanish ordinal with masculine marker, e.g. "3.º". */
+/** Ordinal of a position in the current language, e.g. "3.º" or "3rd". */
 export function formatOrdinal(rank: number): string {
-  return `${rank}.º`
+  return ordinal(rank)
 }
 
 function computeLapText(race: RaceState): string {
-  if (race.phase === 'countdown') return `VUELTA 1/${race.totalLaps}`
-  if (race.currentLap === race.totalLaps) return `¡ÚLTIMA VUELTA!`
-  return `VUELTA ${race.currentLap}/${race.totalLaps}`
+  if (race.phase === 'countdown') return t('hud.lap', { lap: 1, total: race.totalLaps })
+  if (race.currentLap === race.totalLaps) return t('hud.lastLap')
+  return t('hud.lap', { lap: race.currentLap, total: race.totalLaps })
 }
 
 /** Item slot, uchuva counter and mosquito overlay for one racer. */
@@ -230,7 +232,7 @@ export function buildItemHudModel(
   return {
     hasPower: shown !== null,
     icon: shown ? POWER_ICONS[shown] : '',
-    name: shown ? POWER_NAMES[shown] : '',
+    name: shown ? powerName(shown) : '',
     usesText: !rolling && shown !== null && slot.uses > 1 ? `×${slot.uses}` : '',
     charged: !rolling && shown !== null && slot.charged,
     rolling,
@@ -241,20 +243,21 @@ export function buildItemHudModel(
 }
 
 function uchuvaCount(amount: number): string {
-  return `${amount} ${amount === 1 ? 'uchuva' : 'uchuvas'}`
+  return `${amount} ${tn('uchuva', amount)}`
 }
 
 /** Short popup for an event that concerns the player (grid slot `playerSlot`), or null. */
 export function eventPopupText(event: ItemEvent, playerSlot: number): string | null {
   switch (event.type) {
     case 'hit':
-      return event.slot === playerSlot ? '¡Golpeado!' : null
+      return event.slot === playerSlot ? t('events.hit') : null
     case 'blocked':
-      return event.slot === playerSlot ? '¡Bloqueado por el escudo!' : null
+      return event.slot === playerSlot ? t('events.blocked') : null
     case 'uchuvasStolen':
       if (event.amount <= 0) return null
-      if (event.from === playerSlot) return `¡Te robaron ${uchuvaCount(event.amount)}!`
-      if (event.to === playerSlot) return `¡Robaste ${uchuvaCount(event.amount)}!`
+      if (event.from === playerSlot)
+        return t('events.stolen', { amount: uchuvaCount(event.amount) })
+      if (event.to === playerSlot) return t('events.robbed', { amount: uchuvaCount(event.amount) })
       return null
     default:
       return null
@@ -292,13 +295,17 @@ export function buildHudModel(
     countdownLabel = computeCountdownLabel(race)
     lapText = computeLapText(race)
     timeText = formatTime(race.phase === 'finished' ? race.totalRaceTime : race.currentLapTime)
-    bestLapText = race.bestLapTime !== null ? `MEJOR: ${formatTime(race.bestLapTime)}` : ''
+    bestLapText =
+      race.bestLapTime !== null ? t('hud.best', { time: formatTime(race.bestLapTime) }) : ''
     wrongWay = race.wrongWay
     finished = race.phase === 'finished'
 
     if (finished) {
       if (position) {
-        finalPositionText = `Posición: ${formatOrdinal(position.rank)} de ${position.total}`
+        finalPositionText = t('hud.finalPosition', {
+          place: formatOrdinal(position.rank),
+          total: position.total,
+        })
       }
       finalTimes = {
         lap1: formatTime(race.lapTimes[0] ?? 0),
@@ -319,7 +326,7 @@ export function buildHudModel(
     barColor: chargeColor(kart.drift.charge, kart.drift.chainBroken, drift),
     chainBroken: kart.drift.chainBroken,
     pips: [pipAt(kart, drift, 0), pipAt(kart, drift, 1), pipAt(kart, drift, 2)],
-    nitroLabel: active ? `NITRO ${level}` : '',
+    nitroLabel: active ? t('hud.nitro', { level }) : '',
     nitroTier: active ? level : 0,
     nitroColor: active ? (drift.levels[level - 1]?.color ?? '') : '',
     nitroTimeFraction: active ? clamp01(kart.boost.timeLeft / drift.maxReserve) : 0,
@@ -336,7 +343,9 @@ export function buildHudModel(
     positionTotalText,
     finalPositionText,
     ghostDeltaText:
-      timeTrial?.ghostDelta != null ? `FANTASMA ${formatDelta(timeTrial.ghostDelta)}` : '',
+      timeTrial?.ghostDelta != null
+        ? t('hud.ghost', { delta: formatDelta(timeTrial.ghostDelta) })
+        : '',
     ghostAhead: timeTrial?.ghostDelta != null && timeTrial.ghostDelta < 0,
     newRecord: finished && (timeTrial?.newRecord ?? false),
     cupText,

@@ -1,16 +1,22 @@
+import { t, type TranslationKey } from '../i18n'
 import { defaultKeyBindings, type KeyBindings, type KeyboardAction } from '../config/controls'
 
-/** Actions in the order the options list them, with their Spanish labels. */
-export const REBIND_ACTIONS: readonly { action: KeyboardAction; label: string }[] = [
-  { action: 'throttle', label: 'Acelerar' },
-  { action: 'brake', label: 'Frenar' },
-  { action: 'left', label: 'Izquierda' },
-  { action: 'right', label: 'Derecha' },
-  { action: 'jump', label: 'Saltar/derrapar' },
-  { action: 'boost', label: 'Nitro' },
-  { action: 'useItem', label: 'Usar poder' },
-  { action: 'lookBack', label: 'Mirar atrás' },
+/** Actions in the order the options list them; their labels are `actions.<action>`. */
+export const REBIND_ACTIONS: readonly KeyboardAction[] = [
+  'throttle',
+  'brake',
+  'left',
+  'right',
+  'jump',
+  'boost',
+  'useItem',
+  'lookBack',
 ]
+
+/** Label of a control line in the current language. */
+export function actionLabel(action: KeyboardAction): string {
+  return t(`actions.${action}`)
+}
 
 /** Most keys one action can have: a primary and a secondary. */
 export const MAX_KEYS_PER_ACTION = 2
@@ -83,21 +89,24 @@ export function rebindKey(
 export function keyLabel(code: string): string {
   if (/^Key[A-Z]$/.test(code)) return code.slice(3)
   if (/^Digit\d$/.test(code)) return code.slice(5)
-  if (/^Numpad\d$/.test(code)) return `Num ${code.slice(6)}`
-  const named: Record<string, string> = {
+  if (/^Numpad\d$/.test(code)) return t('keys.numpad', { digit: code.slice(6) })
+  const arrows: Record<string, string> = {
     ArrowUp: '↑',
     ArrowDown: '↓',
     ArrowLeft: '←',
     ArrowRight: '→',
-    Space: 'Espacio',
-    ShiftLeft: 'Shift izq.',
-    ShiftRight: 'Shift der.',
-    ControlLeft: 'Ctrl izq.',
-    ControlRight: 'Ctrl der.',
-    AltLeft: 'Alt izq.',
-    AltRight: 'Alt der.',
   }
-  return named[code] ?? code
+  const translated: Record<string, TranslationKey> = {
+    Space: 'keys.space',
+    ShiftLeft: 'keys.shiftLeft',
+    ShiftRight: 'keys.shiftRight',
+    ControlLeft: 'keys.controlLeft',
+    ControlRight: 'keys.controlRight',
+    AltLeft: 'keys.altLeft',
+    AltRight: 'keys.altRight',
+  }
+  const key = translated[code]
+  return arrows[code] ?? (key ? t(key) : code)
 }
 
 const ACTIONS = Object.keys(defaultKeyBindings) as KeyboardAction[]

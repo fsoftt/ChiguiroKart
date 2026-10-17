@@ -7,6 +7,8 @@ import { defaultEffects } from '../config/effects'
 import { defaultKartPhysics } from '../config/kartPhysics'
 import { cocoraTrack } from '../config/tracks/cocoraTrack'
 import { cupInfo, tracks, type TrackId } from '../config/tracks/catalog'
+import { setLanguage } from '../i18n'
+import { cupName } from '../i18n/names'
 import { DEFAULT_THEME, type TrackTheme } from '../config/tracks/theme'
 import { testTrack } from '../config/tracks/testTrack'
 import { CUSTOM_TRACK_KEY, buildTrackDefinition, parseTrackDataText } from '../sim/trackData'
@@ -115,6 +117,14 @@ interface TrackSource {
   build(): TrackDefinition
 }
 
+/** Loads the saved options and keeps the UI language in step with them. */
+function createSettingsStore(): SettingsStore {
+  const store = new SettingsStore()
+  setLanguage(store.get().language)
+  store.subscribe((settings) => setLanguage(settings.language))
+  return store
+}
+
 function urlSearch(): string {
   return typeof window === 'undefined' ? '' : window.location.search
 }
@@ -179,7 +189,7 @@ export class Game {
   private settings: RaceSettings
   private readonly touchControls = new TouchControls()
   /** Player options (quality, volumes, accessibility, keys); saved on every change. */
-  private readonly settingsStore = new SettingsStore()
+  private readonly settingsStore = createSettingsStore()
   private readonly keyboard = new KeyboardSource(this.settingsStore.get().keyBindings)
   private readonly inputSources: InputSource[] = [
     this.keyboard,
@@ -221,7 +231,6 @@ export class Game {
   /** The cup in progress, or null in a quick race or time trial. */
   private cup: CupState | null = null
   /** HUD badge of the cup race, e.g. "Carrera 2/4 · Copa Andina"; empty outside a cup. */
-  private cupBadge = ''
 
   constructor(canvas: HTMLCanvasElement) {
     this.settings = this.initialSettings
@@ -402,7 +411,6 @@ export class Game {
     this.touchControls.setVisible(true)
     this.clearBots()
     this.loadTrack(this.currentTrackSource())
-    this.cupBadge = this.cup ? cupBadgeText(this.cup, cupInfo(this.cup.cupId).name) : ''
     const timeTrial = settings.mode === 'contrarreloj'
     this.hud.setTimeTrial(timeTrial)
     // The time trial track has no boxes or uchuvas
@@ -458,7 +466,6 @@ export class Game {
     this.ghostView.object.visible = false
     this.hasSavedRecord = false
     this.cup = null
-    this.cupBadge = ''
     this.hud.clearCupResults()
     this.world.resetKart()
     this.previousKart = cloneKartState(this.world.kart)
@@ -736,7 +743,7 @@ export class Game {
         position,
         this.world.player.items,
         timeTrial ? { ghostDelta: this.ghostDelta, newRecord: this.newRecord } : undefined,
-        this.cupBadge,
+        this.cup ? cupBadgeText(this.cup, cupName(this.cup.cupId)) : '',
       ),
       { x: kart.position.x, z: kart.position.z },
       kart.heading,
@@ -800,7 +807,7 @@ export class Game {
     if (!cup || isRaceRecorded(cup)) return
     const order = computeStandings(this.racers).map((racer) => racer.slot)
     this.cup = recordRace(cup, order)
-    this.hud.showCupResults(buildCupResultsView(this.cup, cupInfo(cup.cupId).name))
+    this.hud.showCupResults(buildCupResultsView(this.cup, cupName(cup.cupId)))
   }
 
   private clearFinishShow(): void {

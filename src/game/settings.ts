@@ -1,4 +1,5 @@
 import type { KeyBindings } from '../config/controls'
+import { detectLanguage, isLanguage, type Language } from '../i18n'
 import { QUALITY_LEVELS, type Quality } from '../config/quality'
 import { defaultBindings, parseKeyBindings } from './keyRebind'
 
@@ -16,6 +17,8 @@ export interface GameSettings {
   /** No camera shake and a gentler FOV kick. */
   reduceShake: boolean
   keyBindings: KeyBindings
+  /** Language of every menu and HUD text. */
+  language: Language
 }
 
 export interface StorageLike {
@@ -34,7 +37,10 @@ function isCoarsePointer(): boolean {
   }
 }
 
-export function defaultSettings(coarsePointer: boolean = isCoarsePointer()): GameSettings {
+export function defaultSettings(
+  coarsePointer: boolean = isCoarsePointer(),
+  language: Language = detectLanguage(),
+): GameSettings {
   return {
     quality: coarsePointer ? 'medium' : 'high',
     masterVolume: DEFAULT_VOLUME.master,
@@ -43,6 +49,7 @@ export function defaultSettings(coarsePointer: boolean = isCoarsePointer()): Gam
     colorblind: false,
     reduceShake: false,
     keyBindings: defaultBindings(),
+    language,
   }
 }
 
@@ -70,6 +77,7 @@ export function parseSettings(text: string | null, defaults = defaultSettings())
     colorblind: typeof data.colorblind === 'boolean' ? data.colorblind : defaults.colorblind,
     reduceShake: typeof data.reduceShake === 'boolean' ? data.reduceShake : defaults.reduceShake,
     keyBindings: 'keyBindings' in data ? parseKeyBindings(data.keyBindings) : defaults.keyBindings,
+    language: isLanguage(data.language) ? data.language : defaults.language,
   }
 }
 

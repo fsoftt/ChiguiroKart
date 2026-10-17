@@ -1,8 +1,11 @@
 import './quickRaceMenu.css'
 import './optionsMenu.css'
 import type { KeyboardAction } from '../config/controls'
-import { QUALITY_LABELS, QUALITY_LEVELS, type Quality } from '../config/quality'
+import { QUALITY_LEVELS, type Quality } from '../config/quality'
+import { LANGUAGES, onLanguageChange, t, type Language, type TranslationKey } from '../i18n'
+import { LiveLabels } from '../i18n/liveLabels'
 import {
+  actionLabel,
   defaultBindings,
   isBindableCode,
   keyLabel,
@@ -14,8 +17,6 @@ import type { SettingsStore } from '../game/settings'
 
 const VOLUME_STEP = 0.05
 const PERCENT = 100
-const LISTENING_TEXT = 'Pulsa una tecla…'
-const RESERVED_TEXT = 'Esa tecla está reservada'
 
 function el(tag: string, className: string, parent?: HTMLElement): HTMLElement {
   const node = document.createElement(tag)
@@ -43,10 +44,10 @@ interface Row {
 
 type VolumeField = 'masterVolume' | 'musicVolume' | 'sfxVolume'
 
-const VOLUME_ROWS: readonly { field: VolumeField; label: string }[] = [
-  { field: 'masterVolume', label: 'Volumen general' },
-  { field: 'musicVolume', label: 'Música' },
-  { field: 'sfxVolume', label: 'Efectos' },
+const VOLUME_ROWS: readonly { field: VolumeField; label: TranslationKey }[] = [
+  { field: 'masterVolume', label: 'options.master' },
+  { field: 'musicVolume', label: 'options.music' },
+  { field: 'sfxVolume', label: 'options.effects' },
 ]
 
 /**
@@ -56,6 +57,7 @@ const VOLUME_ROWS: readonly { field: VolumeField; label: string }[] = [
  */
 export class OptionsMenu {
   private readonly root = el('div', 'op-menu')
+  private readonly labels = new LiveLabels()
   private readonly card = el('div', 'qr-card op-card', this.root)
   private readonly rows: Row[] = []
   private readonly status: HTMLElement
@@ -72,29 +74,31 @@ export class OptionsMenu {
     parent: HTMLElement = document.body,
   ) {
     this.root.setAttribute('role', 'dialog')
-    this.root.setAttribute('aria-label', 'Opciones')
-    el('h1', 'qr-title', this.card).textContent = 'Opciones'
+    this.labels.attr(this.root, 'aria-label', () => t('options.title'))
+    this.labels.text(el('h1', 'qr-title', this.card), () => t('options.title'))
     const list = el('div', 'op-list', this.card)
+    this.buildLanguage(list)
     this.buildQuality(list)
     for (const { field, label } of VOLUME_ROWS) this.buildVolume(list, field, label)
-    this.buildToggle(list, 'colorblind', 'Modo daltonismo')
-    this.buildToggle(list, 'reduceShake', 'Reducir sacudidas')
-    el('div', 'op-section', list).textContent = 'Controles'
-    for (const { action, label } of REBIND_ACTIONS) this.buildControl(list, action, label)
-    this.buildAction(list, 'Restaurar teclas', () => {
+    this.buildToggle(list, 'colorblind', 'options.colorblind')
+    this.buildToggle(list, 'reduceShake', 'options.reduceShake')
+    this.labels.text(el('div', 'op-section', list), () => t('options.controls'))
+    for (const action of REBIND_ACTIONS) this.buildControl(list, action)
+    this.buildAction(list, 'options.restoreKeys', () => {
       this.store.update({ keyBindings: defaultBindings() })
     })
     this.status = el('div', 'op-status', this.card)
     this.status.setAttribute('aria-live', 'polite')
-    const back = button('qr-back op-back', 'Volver', this.card)
+    const back = button('qr-back op-back', '', this.card)
+    this.labels.text(back, () => t('common.back'))
     back.addEventListener('click', () => this.close())
     this.rows.push({ element: back, activate: () => this.close(), refresh: () => undefined })
-    el('div', 'qr-hint', this.card).textContent =
-      '↑ ↓: elegir · ← →: cambiar · Enter: aceptar · Esc: volver'
+    this.labels.text(el('div', 'qr-hint', this.card), () => t('options.hint'))
 
     // Capture phase on the window runs before the menus and the game see the key
     window.addEventListener('keydown', (event) => this.onKey(event), true)
     this.store.subscribe(() => this.refresh())
+    onLanguageChange(() => this.refresh())
     parent.append(this.root)
     this.refresh()
   }
@@ -134,13 +138,46 @@ export class OptionsMenu {
     this.rows.push(row)
   }
 
+  private buildLanguage(list: HTMLElement): void {
+    const element = el('div', 'op-line')
+    this.labels.text(el('span', 'op-label', element), () => t('language.name'))
+    const group = el('div', 'op-choices', element)
+    const buttons = new Map<Language, HTMLButtonElement>()
+    for (const language of LANGUAGES) {
+      const choice = button('qr-option', '', group)
+      this.labels.text(choice, () => t(`language.${language}`))
+      choice.lang = language
+      choice.addEventListener('click', () => this.store.update({ language }))
+      buttons.set(language, choice)
+    }
+    this.addRow(
+      {
+        element,
+        adjust: (direction) => {
+          const index = LANGUAGES.indexOf(this.store.get().language) + direction
+          const next = LANGUAGES[Math.min(Math.max(index, 0), LANGUAGES.length - 1)]
+          if (next) this.store.update({ language: next })
+        },
+        refresh: () => {
+          for (const [language, choice] of buttons) {
+            const selected = language === this.store.get().language
+            choice.classList.toggle('is-selected', selected)
+            choice.setAttribute('aria-pressed', String(selected))
+          }
+        },
+      },
+      list,
+    )
+  }
+
   private buildQuality(list: HTMLElement): void {
     const element = el('div', 'op-line')
-    el('span', 'op-label', element).textContent = 'Calidad gráfica'
+    this.labels.text(el('span', 'op-label', element), () => t('options.quality'))
     const group = el('div', 'op-choices', element)
     const buttons = new Map<Quality, HTMLButtonElement>()
     for (const level of QUALITY_LEVELS) {
-      const choice = button('qr-option', QUALITY_LABELS[level], group)
+      const choice = button('qr-option', '', group)
+      this.labels.text(choice, () => t(`options.qualityLevels.${level}`))
       choice.addEventListener('click', () => this.store.update({ quality: level }))
       buttons.set(level, choice)
     }
@@ -164,15 +201,15 @@ export class OptionsMenu {
     )
   }
 
-  private buildVolume(list: HTMLElement, field: VolumeField, label: string): void {
+  private buildVolume(list: HTMLElement, field: VolumeField, label: TranslationKey): void {
     const element = el('div', 'op-line')
-    el('span', 'op-label', element).textContent = label
+    this.labels.text(el('span', 'op-label', element), () => t(label))
     const slider = el('input', 'op-slider', element) as HTMLInputElement
     slider.type = 'range'
     slider.min = '0'
     slider.max = String(PERCENT)
     slider.step = String(VOLUME_STEP * PERCENT)
-    slider.setAttribute('aria-label', label)
+    this.labels.attr(slider, 'aria-label', () => t(label))
     slider.tabIndex = -1
     const value = el('span', 'op-value', element)
     slider.addEventListener('input', () => {
@@ -196,9 +233,13 @@ export class OptionsMenu {
     )
   }
 
-  private buildToggle(list: HTMLElement, field: 'colorblind' | 'reduceShake', label: string): void {
+  private buildToggle(
+    list: HTMLElement,
+    field: 'colorblind' | 'reduceShake',
+    label: TranslationKey,
+  ): void {
     const element = el('div', 'op-line')
-    el('span', 'op-label', element).textContent = label
+    this.labels.text(el('span', 'op-label', element), () => t(label))
     const toggle = button('qr-toggle op-toggle', '', element)
     const flip = (): void => this.store.update({ [field]: !this.store.get()[field] })
     toggle.addEventListener('click', flip)
@@ -211,23 +252,24 @@ export class OptionsMenu {
           const on = this.store.get()[field]
           toggle.classList.toggle('is-on', on)
           toggle.setAttribute('aria-pressed', String(on))
-          toggle.textContent = on ? 'Sí' : 'No'
+          toggle.textContent = t(on ? 'common.yes' : 'common.no')
         },
       },
       list,
     )
   }
 
-  private buildAction(list: HTMLElement, label: string, run: () => void): void {
+  private buildAction(list: HTMLElement, label: TranslationKey, run: () => void): void {
     const element = el('div', 'op-line op-line-button')
-    const control = button('qr-option op-action', label, element)
+    const control = button('qr-option op-action', '', element)
+    this.labels.text(control, () => t(label))
     control.addEventListener('click', run)
     this.addRow({ element, activate: run, refresh: () => undefined }, list)
   }
 
-  private buildControl(list: HTMLElement, action: KeyboardAction, label: string): void {
+  private buildControl(list: HTMLElement, action: KeyboardAction): void {
     const element = el('div', 'op-line')
-    el('span', 'op-label', element).textContent = label
+    this.labels.text(el('span', 'op-label', element), () => actionLabel(action))
     const group = el('div', 'op-keys', element)
     const slots: HTMLButtonElement[] = []
     for (let slot = 0; slot < MAX_KEYS_PER_ACTION; slot++) {
@@ -255,7 +297,7 @@ export class OptionsMenu {
           slots.forEach((key, slot) => {
             const waiting = this.listening?.action === action && this.listening.slot === slot
             const code = keys[slot]
-            key.textContent = waiting ? LISTENING_TEXT : code ? keyLabel(code) : '—'
+            key.textContent = waiting ? t('options.listening') : code ? keyLabel(code) : '—'
             key.classList.toggle('is-listening', waiting)
             key.classList.toggle('is-selected', selected === slot)
           })
@@ -269,7 +311,7 @@ export class OptionsMenu {
 
   private startListening(action: KeyboardAction, slot: number): void {
     this.listening = { action, slot }
-    this.status.textContent = 'Pulsa la tecla nueva · Esc cancela'
+    this.status.textContent = t('options.pressNew')
     this.refresh()
   }
 
@@ -349,7 +391,7 @@ export class OptionsMenu {
       return
     }
     if (!isBindableCode(code)) {
-      this.status.textContent = RESERVED_TEXT
+      this.status.textContent = t('options.reserved')
       return
     }
     const bindings = rebindKey(this.store.get().keyBindings, target.action, target.slot, code)

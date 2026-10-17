@@ -1,4 +1,5 @@
-import { characters } from '../config/characters'
+import { ordinal, t } from '../i18n'
+import { characterName } from '../i18n/names'
 import { cupPlaceOf, cupStandings, isCupFinished, type CupState } from '../game/cup'
 
 /** Podium size of the final cup screen. */
@@ -32,14 +33,9 @@ export interface CupResultsView {
   hint: string
 }
 
-/** Spanish ordinal of a position, e.g. "2.º". */
-function placeText(rank: number): string {
-  return `${rank}.º`
-}
-
 /**
  * Builds the modal that follows a cup race. `cup` already includes that race's results.
- * `cupName` is the display name of the cup (e.g. "Copa Andina").
+ * `cupName` is the display name of the cup in the current language (e.g. "Copa Andina").
  */
 export function buildCupResultsView(
   cup: CupState,
@@ -49,9 +45,9 @@ export function buildCupResultsView(
   const final = isCupFinished(cup)
   const rows: CupRowView[] = cupStandings(cup).map((entry, index) => ({
     rank: index + 1,
-    name: characters[entry.character].name,
+    name: characterName(entry.character),
     isPlayer: entry.slot === playerSlot,
-    racePlace: placeText(entry.lastPlace),
+    racePlace: ordinal(entry.lastPlace),
     gained: `+${entry.lastGain}`,
     total: entry.points,
   }))
@@ -59,28 +55,34 @@ export function buildCupResultsView(
   if (!final) {
     return {
       final,
-      title: `${cupName} · Carrera ${raceNumber}/${cup.raceCount}`,
-      headline: 'Tabla de la copa',
+      title: t('cup.raceTitle', { cup: cupName, n: raceNumber, total: cup.raceCount }),
+      headline: t('cup.table'),
       rows,
       podium: [],
-      primaryLabel: 'Siguiente carrera',
-      hint: 'Enter: siguiente carrera',
+      primaryLabel: t('cup.nextRace'),
+      hint: t('cup.nextRaceHint'),
     }
   }
   const place = cupPlaceOf(cup, playerSlot)
   return {
     final,
-    title: '¡Copa terminada!',
+    title: t('cup.finished'),
     headline:
-      place === 1 ? `¡Ganaste la ${cupName}!` : `Quedaste ${placeText(place)} en la ${cupName}`,
+      place === 1
+        ? t('cup.won', { cup: cupName })
+        : t('cup.placed', { place: ordinal(place), cup: cupName }),
     rows,
     podium: rows.slice(0, PODIUM_SIZE),
-    primaryLabel: 'Repetir copa',
-    hint: 'Enter: repetir copa',
+    primaryLabel: t('cup.repeat'),
+    hint: t('cup.repeatHint'),
   }
 }
 
-/** Badge shown during a cup race, e.g. "Carrera 2/4 · Copa Andina". */
+/** Badge shown during a cup race, e.g. "Carrera 2/4 · Copa Andina" or "Race 2/4 · Andean Cup". */
 export function cupBadgeText(cup: CupState, cupName: string): string {
-  return `Carrera ${Math.min(cup.raceIndex + 1, cup.raceCount)}/${cup.raceCount} · ${cupName}`
+  return t('cup.badge', {
+    n: Math.min(cup.raceIndex + 1, cup.raceCount),
+    total: cup.raceCount,
+    cup: cupName,
+  })
 }

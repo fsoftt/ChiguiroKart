@@ -1,7 +1,10 @@
 import './quickRaceMenu.css'
 import { BOT_DIFFICULTIES, type BotDifficulty } from '../config/bots'
-import { characterIds, characters, type CharacterId } from '../config/characters'
-import { tracks, type CupId, type TrackId } from '../config/tracks/catalog'
+import { characterIds, type CharacterId } from '../config/characters'
+import type { CupId, TrackId } from '../config/tracks/catalog'
+import { t } from '../i18n'
+import { LiveLabels } from '../i18n/liveLabels'
+import { characterName, cupName, perkDescription, perkName, trackName } from '../i18n/names'
 import { CHARACTER_COLORS, characterInitial, statRows } from './characterSelectModel'
 import { cupCards, moveTrackSelection, trackGroups, type GridDirection } from './trackSelectModel'
 import {
@@ -20,27 +23,10 @@ import {
   type RaceSettings,
 } from '../game/raceSettings'
 
-const MODE_LABELS: Record<RaceMode, string> = {
-  carrera: 'Carrera rápida',
-  copa: 'Copa',
-  contrarreloj: 'Contrarreloj',
-}
-const DIFFICULTY_LABELS: Record<BotDifficulty, string> = {
-  facil: 'Fácil',
-  normal: 'Normal',
-  dificil: 'Difícil',
-}
-
 /**
  * The four screens of the menu: game mode, track (or cup), character, then the race options.
  */
 export type MenuStep = 'mode' | 'track' | 'character' | 'race'
-
-const MODE_HINTS: Record<RaceMode, string> = {
-  carrera: 'Una pista contra 7 bots',
-  copa: 'Cuatro pistas seguidas con puntos',
-  contrarreloj: 'Tú solo contra tu mejor fantasma',
-}
 
 const KEY_DIRECTIONS: Record<string, GridDirection> = {
   ArrowLeft: 'left',
@@ -76,6 +62,7 @@ function el(tag: string, className: string, parent?: HTMLElement): HTMLElement {
  */
 export class QuickRaceMenu {
   private readonly root = el('div', 'qr-menu')
+  private readonly labels = new LiveLabels()
   private readonly title: HTMLElement
   private readonly modeCard: HTMLElement
   private readonly modeButtons = new Map<RaceMode, HTMLButtonElement>()
@@ -130,12 +117,12 @@ export class QuickRaceMenu {
     this.raceCharacter = el('div', 'qr-chosen', card)
 
     this.botOptions = el('div', 'qr-bot-options', card)
-    el('div', 'qr-label', this.botOptions).textContent = 'Dificultad de los bots'
+    this.labels.text(el('div', 'qr-label', this.botOptions), () => t('menu.botDifficulty'))
     const row = el('div', 'qr-difficulties', this.botOptions)
     for (const level of BOT_DIFFICULTIES) {
       const button = el('button', 'qr-option', row) as HTMLButtonElement
       button.type = 'button'
-      button.textContent = DIFFICULTY_LABELS[level]
+      this.labels.text(button, () => t(`difficulty.${level}`))
       button.addEventListener('click', () => {
         this.settings = withDifficulty(this.settings, level)
         this.refresh()
@@ -152,16 +139,16 @@ export class QuickRaceMenu {
 
     const start = el('button', 'qr-start', card) as HTMLButtonElement
     start.type = 'button'
-    start.textContent = '¡A correr!'
+    this.labels.text(start, () => t('menu.go'))
     start.addEventListener('click', () => this.start())
     const back = el('button', 'qr-back', card) as HTMLButtonElement
     back.type = 'button'
-    back.textContent = 'Volver'
+    this.labels.text(back, () => t('common.back'))
     back.addEventListener('click', () => this.goTo('character'))
-    el('div', 'qr-hint', card).textContent = 'Enter: empezar · Esc: volver · ← → o A/D: dificultad'
+    this.labels.text(el('div', 'qr-hint', card), () => t('menu.hintRace'))
 
     window.addEventListener('keydown', (event) => this.onKey(event))
-    this.refresh()
+    this.labels.run(() => this.refresh())
     parent.append(this.root)
   }
 
@@ -197,12 +184,12 @@ export class QuickRaceMenu {
   private buildModeCard(): HTMLElement {
     const card = this.modeCard
     el('h1', 'qr-title', card).textContent = 'ChiguiroKart'
-    el('div', 'qr-track', card).textContent = 'Elige el modo de juego'
+    this.labels.text(el('div', 'qr-track', card), () => t('menu.chooseMode'))
     const list = el('div', 'qr-modes', card)
     for (const mode of RACE_MODES) {
       const button = el('button', 'qr-option qr-mode', list) as HTMLButtonElement
       button.type = 'button'
-      button.textContent = MODE_LABELS[mode]
+      this.labels.text(button, () => t(`modes.${mode}`))
       button.addEventListener('click', () => {
         this.settings = withMode(this.settings, mode)
         this.refresh()
@@ -212,13 +199,13 @@ export class QuickRaceMenu {
     const hint = el('div', 'qr-chosen', card)
     const next = el('button', 'qr-start', card) as HTMLButtonElement
     next.type = 'button'
-    next.textContent = 'Siguiente'
+    this.labels.text(next, () => t('common.next'))
     next.addEventListener('click', () => this.goTo('track'))
     const options = el('button', 'qr-back', card) as HTMLButtonElement
     options.type = 'button'
-    options.textContent = 'Opciones'
+    this.labels.text(options, () => t('common.options'))
     options.addEventListener('click', () => this.onOptions?.())
-    el('div', 'qr-hint', card).textContent = 'Enter: siguiente · ↑ ↓: modo · O: opciones'
+    this.labels.text(el('div', 'qr-hint', card), () => t('menu.hintMode'))
     return hint
   }
 
@@ -226,12 +213,13 @@ export class QuickRaceMenu {
     const card = this.trackCard
     for (const group of trackGroups()) {
       const row = el('div', 'qr-track-row', this.trackGrid)
-      el('div', 'qr-cup-label', row).textContent = group.cupName
+      const cupLabel = el('div', 'qr-cup-label', row)
+      this.labels.text(cupLabel, () => cupName(group.cup))
       const buttons = el('div', 'qr-track-buttons', row)
       for (const track of group.tracks) {
         const button = el('button', 'qr-track-button', buttons) as HTMLButtonElement
         button.type = 'button'
-        button.textContent = track.name
+        this.labels.text(button, () => trackName(track.id))
         button.addEventListener('click', () => this.pickTrack(track.id))
         this.trackButtons.set(track.id, button)
       }
@@ -239,21 +227,23 @@ export class QuickRaceMenu {
     for (const cup of cupCards()) {
       const button = el('button', 'qr-cup-card', this.cupGrid) as HTMLButtonElement
       button.type = 'button'
-      el('span', 'qr-cup-name', button).textContent = cup.name
+      this.labels.text(el('span', 'qr-cup-name', button), () => cupName(cup.id))
       const list = el('ol', 'qr-cup-tracks', button)
-      for (const name of cup.trackNames) el('li', '', list).textContent = name
+      cup.trackIds.forEach((trackId) => {
+        this.labels.text(el('li', '', list), () => trackName(trackId))
+      })
       button.addEventListener('click', () => this.pickCup(cup.id))
       this.cupButtons.set(cup.id, button)
     }
     const next = el('button', 'qr-start', card) as HTMLButtonElement
     next.type = 'button'
-    next.textContent = 'Siguiente'
+    this.labels.text(next, () => t('common.next'))
     next.addEventListener('click', () => this.goTo('character'))
     const back = el('button', 'qr-back', card) as HTMLButtonElement
     back.type = 'button'
-    back.textContent = 'Volver'
+    this.labels.text(back, () => t('common.back'))
     back.addEventListener('click', () => this.goTo('mode'))
-    el('div', 'qr-hint', card).textContent = 'Enter: siguiente · Esc: volver · ← → ↑ ↓: elegir'
+    this.labels.text(el('div', 'qr-hint', card), () => t('menu.hintTrack'))
   }
 
   private pickTrack(id: TrackId): void {
@@ -271,7 +261,7 @@ export class QuickRaceMenu {
   }
 
   private buildPicker(): HTMLElement {
-    el('h1', 'qr-title', this.picker).textContent = 'Elige tu piloto'
+    this.labels.text(el('h1', 'qr-title', this.picker), () => t('menu.chooseDriver'))
     const grid = el('div', 'qr-characters', this.picker)
     for (const id of characterIds) {
       const button = el('button', 'qr-character', grid) as HTMLButtonElement
@@ -279,21 +269,20 @@ export class QuickRaceMenu {
       const dot = el('span', 'qr-dot', button)
       dot.style.background = CHARACTER_COLORS[id]
       dot.textContent = characterInitial(id)
-      el('span', 'qr-character-name', button).textContent = characters[id].name
+      this.labels.text(el('span', 'qr-character-name', button), () => characterName(id))
       button.addEventListener('click', () => this.setCharacter(id))
       this.characterButtons.set(id, button)
     }
     const detail = el('div', 'qr-detail', this.picker)
     const next = el('button', 'qr-start', this.picker) as HTMLButtonElement
     next.type = 'button'
-    next.textContent = 'Siguiente'
+    this.labels.text(next, () => t('common.next'))
     next.addEventListener('click', () => this.goTo('race'))
     const back = el('button', 'qr-back', this.picker) as HTMLButtonElement
     back.type = 'button'
-    back.textContent = 'Volver'
+    this.labels.text(back, () => t('common.back'))
     back.addEventListener('click', () => this.goTo('track'))
-    el('div', 'qr-hint', this.picker).textContent =
-      'Enter: siguiente · Esc: volver · ← → o A/D: cambiar piloto'
+    this.labels.text(el('div', 'qr-hint', this.picker), () => t('menu.hintDriver'))
     return detail
   }
 
@@ -408,18 +397,21 @@ export class QuickRaceMenu {
       button.classList.toggle('is-selected', selected)
       button.setAttribute('aria-pressed', String(selected))
     }
-    const character = characters[this.settings.character]
+    const id = this.settings.character
     this.detail.replaceChildren()
-    el('div', 'qr-detail-name', this.detail).textContent = character.name
+    el('div', 'qr-detail-name', this.detail).textContent = characterName(id)
     const perk = el('div', 'qr-perk', this.detail)
-    el('div', 'qr-perk-name', perk).textContent = `Habilidad: ${character.perk.name}`
-    el('div', 'qr-perk-text', perk).textContent = character.perk.description
+    el('div', 'qr-perk-name', perk).textContent = t('menu.perk', { name: perkName(id) })
+    el('div', 'qr-perk-text', perk).textContent = perkDescription(id)
     for (const row of statRows(this.settings.character)) {
       const line = el('div', 'qr-stat', this.detail)
       el('span', 'qr-stat-label', line).textContent = row.label
       const bar = el('span', 'qr-stat-bar', line)
       bar.setAttribute('role', 'img')
-      bar.setAttribute('aria-label', `${row.label}: ${row.value} de ${row.segments.length}`)
+      bar.setAttribute(
+        'aria-label',
+        `${row.label}: ${t('common.ratio', { value: row.value, max: row.segments.length })}`,
+      )
       for (const filled of row.segments) {
         el('span', filled ? 'qr-segment is-filled' : 'qr-segment', bar)
       }
@@ -428,7 +420,7 @@ export class QuickRaceMenu {
 
   private refreshTrackStep(): void {
     const cup = this.settings.mode === 'copa'
-    this.trackTitle.textContent = cup ? 'Elige la copa' : 'Elige la pista'
+    this.trackTitle.textContent = t(cup ? 'menu.chooseCup' : 'menu.chooseTrack')
     this.trackGrid.hidden = cup
     this.cupGrid.hidden = !cup
     for (const [id, button] of this.trackButtons) {
@@ -450,15 +442,17 @@ export class QuickRaceMenu {
     this.trackCard.hidden = this.currentStep !== 'track'
     this.picker.hidden = !picking
     this.card.hidden = this.currentStep !== 'race'
-    this.raceCharacter.textContent = `Piloto: ${characters[this.settings.character].name}`
+    this.raceCharacter.textContent = t('menu.driver', {
+      name: characterName(this.settings.character),
+    })
     this.raceTrack.textContent =
       this.settings.mode === 'copa'
-        ? (cupCards().find((cup) => cup.id === this.settings.cup)?.name ?? '')
-        : `Pista: ${this.trackOverrideName ?? tracks[this.settings.track].name}`
+        ? cupName(this.settings.cup)
+        : t('menu.track', { name: this.trackOverrideName ?? trackName(this.settings.track) })
     this.refreshPicker()
     this.refreshTrackStep()
-    this.title.textContent = MODE_LABELS[this.settings.mode]
-    this.modeHint.textContent = MODE_HINTS[this.settings.mode]
+    this.title.textContent = t(`modes.${this.settings.mode}`)
+    this.modeHint.textContent = t(`modeHints.${this.settings.mode}`)
     this.botOptions.hidden = this.settings.mode !== 'carrera'
     for (const [mode, button] of this.modeButtons) {
       const selected = mode === this.settings.mode
@@ -473,6 +467,8 @@ export class QuickRaceMenu {
     const on = this.settings.rubberBandEnabled
     this.rubberToggle.classList.toggle('is-on', on)
     this.rubberToggle.setAttribute('aria-pressed', String(on))
-    this.rubberToggle.textContent = `Ayuda de remontada: ${on ? 'Sí' : 'No'}`
+    this.rubberToggle.textContent = t('menu.rubberBand', {
+      value: t(on ? 'common.yes' : 'common.no'),
+    })
   }
 }
