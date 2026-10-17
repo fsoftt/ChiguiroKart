@@ -26,6 +26,12 @@ export interface TerrainSettings {
 
 export type FenceStyle = 'wood' | 'stone'
 
+/**
+ * Texture of the asphalt surface: road paving, colonial cobbles, or packed earth (trails,
+ * dirt roads). Other surfaces (wood, mud, ice, sand, water, grass) keep their own textures.
+ */
+export type RoadStyle = 'asphalt' | 'cobble' | 'dirt'
+
 export interface VegetationSettings {
   /** Counts at full quality; the quality table scales them. */
   grass: number
@@ -71,6 +77,8 @@ export interface TrackEnvironment {
   seed: number
   terrain: TerrainSettings
   fence: FenceStyle
+  /** Texture of the asphalt surface. Default 'asphalt'. */
+  road?: RoadStyle
   vegetation: VegetationSettings
   decor: DecorSettings
 }

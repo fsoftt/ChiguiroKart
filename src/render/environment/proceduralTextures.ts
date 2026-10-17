@@ -338,6 +338,615 @@ export function mudTexture(seed: number): {
   return { map: toTexture(canvas), roughness: toTexture(roughCanvas, false) }
 }
 
+/** Meters of road one cobble, dirt, ice, sand, water or grass tile covers along the road. */
+export const COBBLE_TILE = 18
+export const DIRT_TILE = 16
+export const ICE_TILE = 20
+export const SAND_TILE = 16
+export const WATER_TILE = 14
+export const GRASS_TILE = 18
+
+type Rgb = readonly [number, number, number]
+
+/** Parses '#rrggbb' (or '#rgb'); anything unreadable falls back to mid gray. */
+export function parseHex(hex: string): Rgb {
+  const clean = hex.trim().replace('#', '')
+  const full =
+    clean.length === 3 ? clean.replace(/./g, (c) => c + c) : clean.length === 6 ? clean : ''
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) return [128, 128, 128]
+  const n = parseInt(full, 16)
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+}
+
+/** Blends `a` toward `b` (t 0..1) and returns a CSS color; `alpha` below 1 makes it rgba. */
+export function mixColors(a: string, b: string, t: number, alpha = 1): string {
+  const ca = parseHex(a)
+  const cb = parseHex(b)
+  const channel = (i: 0 | 1 | 2): number => Math.round(ca[i] + (cb[i] - ca[i]) * t)
+  const rgb = `${channel(0)},${channel(1)},${channel(2)}`
+  return alpha >= 1 ? `rgb(${rgb})` : `rgba(${rgb},${alpha})`
+}
+
+/** Runs `draw` at the offsets that keep a shape of the given radius seamless across the tile. */
+function wrapped(
+  width: number,
+  height: number,
+  x: number,
+  y: number,
+  radius: number,
+  draw: (ox: number, oy: number) => void,
+): void {
+  for (const ox of [-width, 0, width]) {
+    for (const oy of [-height, 0, height]) {
+      if (x + ox + radius < 0 || x + ox - radius > width) continue
+      if (y + oy + radius < 0 || y + oy - radius > height) continue
+      draw(ox, oy)
+    }
+  }
+}
+
+function roundedRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  const radius = Math.min(r, w / 2, h / 2)
+  context.beginPath()
+  context.moveTo(x + radius, y)
+  context.arcTo(x + w, y, x + w, y + h, radius)
+  context.arcTo(x + w, y + h, x, y + h, radius)
+  context.arcTo(x, y + h, x, y, radius)
+  context.arcTo(x, y, x + w, y, radius)
+  context.closePath()
+}
+
+/** Random walk drawn at every wrap offset, so a crack can cross the tile edge. */
+function wrappedWalk(
+  context: CanvasRenderingContext2D,
+  width: number,
+  height: number,
+  random: Random,
+  start: readonly [number, number],
+  steps: number,
+  stride: number,
+): void {
+  const points: [number, number][] = [[start[0], start[1]]]
+  let angle = random() * Math.PI * 2
+  for (let s = 0; s < steps; s++) {
+    angle += (random() - 0.5) * 1.1
+    const last = points[points.length - 1] as [number, number]
+    points.push([
+      last[0] + Math.cos(angle) * stride * (0.6 + random() * 0.8),
+      last[1] + Math.sin(angle) * stride * (0.6 + random() * 0.8),
+    ])
+  }
+  for (const ox of [-width, 0, width]) {
+    for (const oy of [-height, 0, height]) {
+      context.beginPath()
+      points.forEach(([x, y], i) => {
+        if (i === 0) context.moveTo(x + ox, y + oy)
+        else context.lineTo(x + ox, y + oy)
+      })
+      context.stroke()
+    }
+  }
+}
+
+/**
+ * Colonial cobblestone: rounded stones in staggered courses over dark mortar, each stone a
+ * little different in tone, with a lit upper edge and a shaded lower one. Tinted from `baseColor`
+ * (the theme's road color). No painted lines.
+ */
+export function cobbleTexture(baseColor: string, seed: number): THREE.CanvasTexture {
+  const size = 512
+  const random = seededRandom(seed + 53)
+  const [canvas, context] = makeCanvas(size, size)
+  context.fillStyle = mixColors(baseColor, '#000000', 0.62)
+  context.fillRect(0, 0, size, size)
+  const rows = 11
+  const rowHeight = size / rows
+  const tints = ['#ffffff', '#c9a27a', '#8d96a0', '#6d5a4a', '#d8c9b0']
+  for (let r = 0; r < rows; r++) {
+    const count = 7 + Math.floor(random() * 3)
+    const weights = Array.from({ length: count }, () => 0.7 + random() * 0.6)
+    const total = weights.reduce((a, b) => a + b, 0)
+    const shift = random() * size
+    let cursor = 0
+    for (const weight of weights) {
+      const w = (weight / total) * size
+      const x = shift + cursor
+      cursor += w
+      const gap = 3 + random() * 2
+      const sx = x + gap / 2
+      const sy = r * rowHeight + gap / 2 + (random() - 0.5) * 3
+      const sw = w - gap
+      const sh = rowHeight - gap + (random() - 0.5) * 2
+      const tone = mixColors(
+        baseColor,
+        tints[Math.floor(random() * tints.length)] as string,
+        0.12 + random() * 0.3,
+      )
+      const lit = mixColors(tone, '#ffffff', 0.22)
+      const dark = mixColors(tone, '#000000', 0.38)
+      const corner = 12 + random() * 6
+      const chips = [0, 1, 2].map(() => [0.2 + random() * 0.6, 0.2 + random() * 0.6, random()])
+      wrapped(size, size, sx + sw / 2, sy + sh / 2, sw, (ox, oy) => {
+        const gradient = context.createLinearGradient(
+          sx + ox,
+          sy + oy,
+          sx + ox + sw * 0.4,
+          sy + oy + sh,
+        )
+        gradient.addColorStop(0, lit)
+        gradient.addColorStop(0.45, tone)
+        gradient.addColorStop(1, dark)
+        context.fillStyle = gradient
+        roundedRect(context, sx + ox, sy + oy, sw, sh, corner)
+        context.fill()
+        context.strokeStyle = 'rgba(0,0,0,0.28)'
+        context.lineWidth = 1.5
+        context.stroke()
+        // Chips and pits on the face of the stone
+        for (const [cx, cy, k] of chips) {
+          context.fillStyle = (k as number) < 0.5 ? 'rgba(0,0,0,0.14)' : 'rgba(255,255,255,0.1)'
+          context.beginPath()
+          context.arc(
+            sx + ox + sw * (cx as number),
+            sy + oy + sh * (cy as number),
+            1.5 + (k as number) * 3,
+            0,
+            Math.PI * 2,
+          )
+          context.fill()
+        }
+      })
+    }
+  }
+  // Moss and dirt packed in the mortar, and a few worn patches
+  for (let i = 0; i < 40; i++) {
+    wrappedBlotch(
+      context,
+      size,
+      size,
+      random() * size,
+      random() * size,
+      20 + random() * 50,
+      random() < 0.5 ? 'rgba(0,0,0,0.1)' : 'rgba(255,240,210,0.06)',
+    )
+  }
+  grain(context, size, size, random, 12)
+  grain(context, size, size, random, 6, 2)
+  return toTexture(canvas)
+}
+
+/**
+ * Packed earth trail: dusty blotches, two tire ruts with raised ridges, pebbles and a few
+ * hairline cracks. Tinted from `baseColor`. No painted lines.
+ */
+export function dirtTexture(baseColor: string, seed: number): THREE.CanvasTexture {
+  const size = 512
+  const random = seededRandom(seed + 67)
+  const [canvas, context] = makeCanvas(size, size)
+  context.fillStyle = baseColor
+  context.fillRect(0, 0, size, size)
+  for (let i = 0; i < 110; i++) {
+    wrappedBlotch(
+      context,
+      size,
+      size,
+      random() * size,
+      random() * size,
+      18 + random() * 70,
+      random() < 0.5
+        ? mixColors(baseColor, '#ffffff', 0.3, 0.2)
+        : mixColors(baseColor, '#000000', 0.4, 0.2),
+    )
+  }
+  // Tire ruts: wobbling dark furrows (two cycles per tile, so they tile) with lit ridges
+  for (const u of [0.3, 0.7]) {
+    const cx = u * size
+    const wobble = (y: number): number => Math.sin((y / size) * Math.PI * 4 + u * 9) * 7
+    const bands: readonly [number, number, string][] = [
+      [0, 26, mixColors(baseColor, '#000000', 0.45, 0.35)],
+      [0, 12, mixColors(baseColor, '#000000', 0.55, 0.4)],
+      [-34, 6, mixColors(baseColor, '#ffffff', 0.35, 0.28)],
+      [34, 6, mixColors(baseColor, '#ffffff', 0.35, 0.28)],
+    ]
+    for (const [dx, half, color] of bands) {
+      context.fillStyle = color
+      context.beginPath()
+      for (let y = 0; y <= size; y += 8) context.lineTo(cx + dx + wobble(y) - half, y)
+      for (let y = size; y >= 0; y -= 8) context.lineTo(cx + dx + wobble(y) + half, y)
+      context.closePath()
+      context.fill()
+    }
+    // Tread marks inside the rut
+    context.lineWidth = 1
+    for (let y = 0; y < size; y += 14) {
+      context.strokeStyle = mixColors(baseColor, '#000000', 0.6, 0.28)
+      context.beginPath()
+      context.moveTo(cx + wobble(y) - 14, y)
+      context.lineTo(cx + wobble(y) + 14, y + 6)
+      context.stroke()
+    }
+  }
+  // Pebbles with a small shadow
+  for (let i = 0; i < 160; i++) {
+    const x = random() * size
+    const y = random() * size
+    const r = 1.5 + random() * random() * 6
+    const tone = mixColors(baseColor, random() < 0.5 ? '#ffffff' : '#3a2a1c', 0.3 + random() * 0.4)
+    wrapped(size, size, x, y, r + 2, (ox, oy) => {
+      context.fillStyle = 'rgba(0,0,0,0.3)'
+      context.beginPath()
+      context.ellipse(x + ox + 1.2, y + oy + 1.2, r, r * 0.75, 0, 0, Math.PI * 2)
+      context.fill()
+      context.fillStyle = tone
+      context.beginPath()
+      context.ellipse(x + ox, y + oy, r, r * 0.75, 0.4, 0, Math.PI * 2)
+      context.fill()
+    })
+  }
+  context.lineCap = 'round'
+  context.lineWidth = 1
+  for (let i = 0; i < 10; i++) {
+    context.strokeStyle = mixColors(baseColor, '#000000', 0.65, 0.4)
+    wrappedWalk(context, size, size, random, [random() * size, random() * size], 7, 12)
+  }
+  grain(context, size, size, random, 14)
+  grain(context, size, size, random, 7, 2)
+  return toTexture(canvas)
+}
+
+/**
+ * Glossy ice: pale facets, deep blue veins, cracks and frost along the edges. The roughness map
+ * keeps the surface shiny except at the cracks and frost.
+ */
+export function iceTexture(
+  baseColor: string,
+  seed: number,
+): {
+  map: THREE.CanvasTexture
+  roughness: THREE.CanvasTexture
+} {
+  const size = 512
+  const random = seededRandom(seed + 83)
+  const [canvas, context] = makeCanvas(size, size)
+  const [roughCanvas, rough] = makeCanvas(size, size)
+  context.fillStyle = baseColor
+  context.fillRect(0, 0, size, size)
+  rough.fillStyle = '#1c1c1c'
+  rough.fillRect(0, 0, size, size)
+  for (let i = 0; i < 70; i++) {
+    wrappedBlotch(
+      context,
+      size,
+      size,
+      random() * size,
+      random() * size,
+      30 + random() * 90,
+      random() < 0.5
+        ? mixColors(baseColor, '#ffffff', 0.7, 0.35)
+        : mixColors(baseColor, '#1c63b8', 0.5, 0.3),
+    )
+  }
+  // Slabs of ice: faint polygons a shade off
+  for (let i = 0; i < 14; i++) {
+    const cx = random() * size
+    const cy = random() * size
+    const sides = 5 + Math.floor(random() * 3)
+    const radius = 50 + random() * 70
+    const offsets = Array.from({ length: sides }, () => 0.7 + random() * 0.5)
+    const fill = random() < 0.5 ? 'rgba(255,255,255,0.1)' : 'rgba(40,110,190,0.1)'
+    wrapped(size, size, cx, cy, radius * 1.2, (ox, oy) => {
+      context.beginPath()
+      offsets.forEach((k, s) => {
+        const a = (s / sides) * Math.PI * 2
+        const px = cx + ox + Math.cos(a) * radius * k
+        const py = cy + oy + Math.sin(a) * radius * k
+        if (s === 0) context.moveTo(px, py)
+        else context.lineTo(px, py)
+      })
+      context.closePath()
+      context.fillStyle = fill
+      context.fill()
+      context.strokeStyle = 'rgba(255,255,255,0.22)'
+      context.lineWidth = 1.5
+      context.stroke()
+    })
+  }
+  // Cracks: a white core over a blue halo, rough in the roughness map
+  context.lineCap = 'round'
+  context.lineJoin = 'round'
+  rough.lineCap = 'round'
+  for (let i = 0; i < 12; i++) {
+    const start: [number, number] = [random() * size, random() * size]
+    const steps = 6 + Math.floor(random() * 8)
+    const state = Math.floor(random() * 1e9)
+    const passes: readonly [CanvasRenderingContext2D, string, number][] = [
+      [context, 'rgba(20,80,160,0.35)', 4],
+      [context, 'rgba(255,255,255,0.8)', 1.2],
+      [rough, 'rgba(255,255,255,0.8)', 5],
+    ]
+    for (const [ctx, color, lw] of passes) {
+      ctx.strokeStyle = color
+      ctx.lineWidth = lw
+      wrappedWalk(ctx, size, size, seededRandom(state), start, steps, 22)
+    }
+  }
+  // Frost: soft white drifts toward both road edges plus sparkling flakes
+  for (const edge of [0, size]) {
+    for (let i = 0; i < 22; i++) {
+      const y = random() * size
+      const x = edge + (random() - 0.5) * 70
+      const radius = 24 + random() * 36
+      for (const [ctx, rgb, alpha] of [
+        [context, '255,255,255', 0.4],
+        [rough, '200,200,200', 0.7],
+      ] as const) {
+        wrapped(size, size, x, y, radius, (ox, oy) => {
+          // Fade to the same color at zero alpha, so no dark fringe appears
+          const gradient = ctx.createRadialGradient(x + ox, y + oy, 0, x + ox, y + oy, radius)
+          gradient.addColorStop(0, `rgba(${rgb},${alpha})`)
+          gradient.addColorStop(1, `rgba(${rgb},0)`)
+          ctx.fillStyle = gradient
+          ctx.fillRect(x + ox - radius, y + oy - radius, radius * 2, radius * 2)
+        })
+      }
+    }
+  }
+  for (let i = 0; i < 220; i++) {
+    const x = random() * size
+    const y = random() * size
+    context.fillStyle = `rgba(255,255,255,${0.4 + random() * 0.5})`
+    context.fillRect(x, y, 1 + random() * 2, 1 + random() * 2)
+  }
+  grain(context, size, size, random, 6)
+  return { map: toTexture(canvas), roughness: toTexture(roughCanvas, false) }
+}
+
+/** Beach sand: soft dunes, wind ripples, damp patches, pebbles and tiny shells. */
+export function sandTexture(baseColor: string, seed: number): THREE.CanvasTexture {
+  const size = 512
+  const random = seededRandom(seed + 97)
+  const [canvas, context] = makeCanvas(size, size)
+  context.fillStyle = baseColor
+  context.fillRect(0, 0, size, size)
+  for (let i = 0; i < 90; i++) {
+    wrappedBlotch(
+      context,
+      size,
+      size,
+      random() * size,
+      random() * size,
+      25 + random() * 80,
+      random() < 0.5
+        ? mixColors(baseColor, '#ffffff', 0.5, 0.2)
+        : mixColors(baseColor, '#8a6a3a', 0.5, 0.18),
+    )
+  }
+  // Damp darker patches
+  for (let i = 0; i < 8; i++) {
+    wrappedBlotch(
+      context,
+      size,
+      size,
+      random() * size,
+      random() * size,
+      40 + random() * 60,
+      mixColors(baseColor, '#6b4f2a', 0.6, 0.22),
+    )
+  }
+  // Ripples: whole sine cycles across the tile so it tiles; dark trough and lit crest
+  const ripples = 16
+  const spacing = size / ripples
+  for (let i = 0; i < ripples; i++) {
+    const phase = random() * Math.PI * 2
+    const cycles = 2 + Math.floor(random() * 2)
+    const amplitude = 6 + random() * 8
+    const y0 = i * spacing
+    const strokes: readonly [number, string, number][] = [
+      [0, mixColors(baseColor, '#000000', 0.3, 0.3), 2.4],
+      [-3, mixColors(baseColor, '#ffffff', 0.6, 0.45), 2],
+    ]
+    for (const [dy, color, lw] of strokes) {
+      context.strokeStyle = color
+      context.lineWidth = lw
+      context.beginPath()
+      for (let x = 0; x <= size; x += 8) {
+        const y = y0 + dy + Math.sin((x / size) * Math.PI * 2 * cycles + phase) * amplitude
+        if (x === 0) context.moveTo(x, y)
+        else context.lineTo(x, y)
+      }
+      context.stroke()
+    }
+  }
+  // Pebbles and shells
+  for (let i = 0; i < 55; i++) {
+    const x = random() * size
+    const y = random() * size
+    const r = 1.5 + random() * 3
+    const shell = random() < 0.55
+    const fill = shell
+      ? mixColors('#fff4e6', '#f2b6a8', random() * 0.6)
+      : mixColors(baseColor, '#5a4a3a', 0.4 + random() * 0.3)
+    const angle = random() * Math.PI
+    wrapped(size, size, x, y, r * 2 + 3, (ox, oy) => {
+      context.fillStyle = 'rgba(60,40,10,0.3)'
+      context.beginPath()
+      context.ellipse(x + ox + 1.2, y + oy + 1.2, r * 1.4, r, angle, 0, Math.PI * 2)
+      context.fill()
+      context.fillStyle = fill
+      context.beginPath()
+      context.ellipse(x + ox, y + oy, r * 1.4, r, angle, 0, Math.PI * 2)
+      context.fill()
+      if (shell) {
+        context.strokeStyle = 'rgba(150,90,70,0.55)'
+        context.lineWidth = 0.8
+        for (let k = -1; k <= 1; k++) {
+          context.beginPath()
+          context.moveTo(x + ox, y + oy + r * 0.9)
+          context.lineTo(x + ox + k * r * 0.9, y + oy - r * 0.6)
+          context.stroke()
+        }
+      }
+    })
+  }
+  grain(context, size, size, random, 16)
+  grain(context, size, size, random, 8, 2)
+  return toTexture(canvas)
+}
+
+/**
+ * Shallow ford: blue water with stones showing through, long light streaks along the flow (V)
+ * and ring ripples. It tiles, so `EnvironmentView.update` can scroll V to make the water run.
+ */
+export function waterTexture(baseColor: string, seed: number): THREE.CanvasTexture {
+  const size = 512
+  const random = seededRandom(seed + 113)
+  const [canvas, context] = makeCanvas(size, size)
+  context.fillStyle = baseColor
+  context.fillRect(0, 0, size, size)
+  for (let i = 0; i < 80; i++) {
+    wrappedBlotch(
+      context,
+      size,
+      size,
+      random() * size,
+      random() * size,
+      30 + random() * 80,
+      random() < 0.5
+        ? mixColors(baseColor, '#bfeaff', 0.5, 0.22)
+        : mixColors(baseColor, '#0b3a66', 0.5, 0.25),
+    )
+  }
+  // Stones on the bed, softened by the water above them
+  for (let i = 0; i < 38; i++) {
+    const x = random() * size
+    const y = random() * size
+    const rx = 14 + random() * 26
+    const ry = rx * (0.6 + random() * 0.3)
+    const angle = random() * Math.PI
+    const tone = mixColors(
+      baseColor,
+      random() < 0.5 ? '#6f7f78' : '#2a3d4a',
+      0.55 + random() * 0.2,
+      0.6,
+    )
+    wrapped(size, size, x, y, rx, (ox, oy) => {
+      context.fillStyle = tone
+      context.beginPath()
+      context.ellipse(x + ox, y + oy, rx, ry, angle, 0, Math.PI * 2)
+      context.fill()
+      context.strokeStyle = 'rgba(190,235,255,0.25)'
+      context.lineWidth = 2
+      context.stroke()
+    })
+  }
+  // Flow streaks along V
+  context.lineCap = 'round'
+  for (let i = 0; i < 46; i++) {
+    const x = random() * size
+    const y = random() * size
+    const length = 60 + random() * 150
+    const sway = (random() - 0.5) * 16
+    context.strokeStyle =
+      random() < 0.7
+        ? `rgba(235,250,255,${0.18 + random() * 0.3})`
+        : `rgba(10,50,90,${0.12 + random() * 0.18})`
+    context.lineWidth = 1 + random() * 2.4
+    wrapped(size, size, x, y + length / 2, length / 2 + 10, (ox, oy) => {
+      context.beginPath()
+      context.moveTo(x + ox, y + oy)
+      context.bezierCurveTo(
+        x + ox + sway,
+        y + oy + length * 0.3,
+        x + ox - sway,
+        y + oy + length * 0.7,
+        x + ox,
+        y + oy + length,
+      )
+      context.stroke()
+    })
+  }
+  // Ripple rings
+  for (let i = 0; i < 12; i++) {
+    const x = random() * size
+    const y = random() * size
+    const r = 10 + random() * 16
+    wrapped(size, size, x, y, r * 2.2, (ox, oy) => {
+      for (let k = 1; k <= 2; k++) {
+        context.strokeStyle = `rgba(240,252,255,${0.4 / k})`
+        context.lineWidth = 1.3
+        context.beginPath()
+        context.ellipse(x + ox, y + oy, r * k, r * k * 0.6, 0, 0, Math.PI * 2)
+        context.stroke()
+      }
+    })
+  }
+  grain(context, size, size, random, 7)
+  return toTexture(canvas)
+}
+
+/** Mowed grass track: alternating light and dark bands across the road, blades and clover. */
+export function grassRoadTexture(baseColor: string, seed: number): THREE.CanvasTexture {
+  const size = 512
+  const random = seededRandom(seed + 131)
+  const [canvas, context] = makeCanvas(size, size)
+  context.fillStyle = baseColor
+  context.fillRect(0, 0, size, size)
+  const bands = 8
+  const band = size / bands
+  for (let i = 0; i < bands; i += 2) {
+    context.fillStyle = mixColors(baseColor, '#000000', 0.16, 0.5)
+    context.fillRect(0, i * band, size, band)
+  }
+  for (let i = 0; i < 100; i++) {
+    wrappedBlotch(
+      context,
+      size,
+      size,
+      random() * size,
+      random() * size,
+      16 + random() * 50,
+      random() < 0.5
+        ? mixColors(baseColor, '#e8f5a0', 0.5, 0.2)
+        : mixColors(baseColor, '#0c3a14', 0.5, 0.22),
+    )
+  }
+  context.lineCap = 'round'
+  context.lineWidth = 1
+  for (let i = 0; i < 2600; i++) {
+    const x = random() * size
+    const y = random() * size
+    const lean = (random() - 0.5) * 5
+    const length = 3 + random() * 6
+    context.strokeStyle = mixColors(
+      baseColor,
+      random() < 0.5 ? '#f2ffb0' : '#0a2a10',
+      0.35 + random() * 0.35,
+      0.5,
+    )
+    wrapped(size, size, x, y, 10, (ox, oy) => {
+      context.beginPath()
+      context.moveTo(x + ox, y + oy)
+      context.lineTo(x + ox + lean, y + oy - length)
+      context.stroke()
+    })
+  }
+  for (let i = 0; i < 30; i++) {
+    context.fillStyle = random() < 0.6 ? 'rgba(255,255,255,0.8)' : 'rgba(255,225,80,0.8)'
+    context.beginPath()
+    context.arc(random() * size, random() * size, 1 + random() * 1.4, 0, Math.PI * 2)
+    context.fill()
+  }
+  grain(context, size, size, random, 10)
+  return toTexture(canvas)
+}
+
 /** Alternating curb blocks with a lit center, so the rounded profile reads. */
 export function curbTexture(colors: readonly [string, string]): THREE.CanvasTexture {
   const width = 32
