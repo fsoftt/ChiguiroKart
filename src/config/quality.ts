@@ -17,6 +17,8 @@ export interface QualityProfile {
   blobShadows: boolean
   /** Scale of the theme's fog distances, which also sets the camera far plane (draw distance). */
   fogScale: number
+  /** Share of the track's plants (grass, flowers, bushes, palms, trees) that are planted, 0..1. */
+  vegetationDensity: number
 }
 
 export const qualityProfiles: Record<Quality, QualityProfile> = {
@@ -28,6 +30,7 @@ export const qualityProfiles: Record<Quality, QualityProfile> = {
     shadowMapSize: 0,
     blobShadows: true,
     fogScale: 0.65,
+    vegetationDensity: 0.3,
   },
   medium: {
     maxPixelRatio: 1.5,
@@ -37,6 +40,7 @@ export const qualityProfiles: Record<Quality, QualityProfile> = {
     shadowMapSize: 1024,
     blobShadows: false,
     fogScale: 0.85,
+    vegetationDensity: 0.6,
   },
   high: {
     maxPixelRatio: 2,
@@ -46,6 +50,7 @@ export const qualityProfiles: Record<Quality, QualityProfile> = {
     shadowMapSize: 2048,
     blobShadows: false,
     fogScale: 1,
+    vegetationDensity: 1,
   },
 }
 
@@ -64,6 +69,7 @@ export interface ResolvedQuality {
   shadowMapSize: number
   blobShadows: boolean
   fogScale: number
+  vegetationDensity: number
 }
 
 /**
@@ -84,5 +90,6 @@ export function resolveQuality(
     shadowMapSize: profile.shadowMapSize,
     blobShadows: profile.blobShadows,
     fogScale: profile.fogScale,
+    vegetationDensity: profile.vegetationDensity,
   }
 }

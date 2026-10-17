@@ -167,6 +167,8 @@ export class Game {
   private world = new RaceWorld(this.trackSource.build(), this.physics, this.driftConfig)
   /** Scenery of the loaded track: replaced (and disposed) whenever another track loads. */
   private trackView: TrackView | null = null
+  /** Share of the track's plants that grow, from the graphics quality. */
+  private vegetationDensity = 1
   private hazardView: HazardView | null = null
   /** Seconds since the track was loaded; only drives hazard animations. */
   private trackTime = 0
@@ -311,6 +313,8 @@ export class Game {
   /** Applies the options to the running game; runs at start and after every change. */
   private applySettings(settings: GameSettings): void {
     const resolved = applyQuality(this.scene, settings.quality)
+    this.vegetationDensity = resolved.vegetationDensity
+    this.trackView?.setVegetationDensity(resolved.vegetationDensity)
     this.kartEffects.setParticleScale(resolved.particleScale)
     this.speedLinesEnabled = resolved.speedLines
     this.driftView = activeDriftPalette(this.driftConfig, settings.colorblind)
@@ -530,7 +534,9 @@ export class Game {
    * Runs once at start and after every track switch.
    */
   private setupTrack(): void {
-    const view = createTrackView(this.world.track, this.trackSource.theme)
+    const view = createTrackView(this.world.track, this.trackSource.theme, {
+      vegetationDensity: this.vegetationDensity,
+    })
     this.trackView = view
     this.scene.scene.add(view)
     this.hazardView = new HazardView(this.world.track)
