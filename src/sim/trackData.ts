@@ -1,15 +1,31 @@
-import { lineAlong, rowAcross } from '../config/tracks/pickupLayout'
-import type { Vec2 } from './math'
+import { lineAlong, rowAcross, spotAt } from '../config/tracks/pickupLayout'
+import { headingOf, type Vec2 } from './math'
 import type { Checkpoint } from './race/checkpoint'
 import type { SurfaceType } from './race/surface'
-import { Track, type TrackBranch, type TrackDefinition } from './track'
+import {
+  Track,
+  type BoostPad,
+  type HazardDefinition,
+  type TideRule,
+  type TrackBranch,
+  type TrackDefinition,
+} from './track'
 import { buildCenterline, createGroundHeight, nearestIndex, type ControlPoint } from './trackSpline'
 
 /** localStorage key where the editor leaves the track for `?pista=custom`. */
 export const CUSTOM_TRACK_KEY = 'chiguirokart.customTrack.v1'
 
 export const TRACK_DATA_VERSION = 1
-export const SURFACES: readonly SurfaceType[] = ['asphalt', 'dirt', 'grass', 'mud', 'wood']
+export const SURFACES: readonly SurfaceType[] = [
+  'asphalt',
+  'dirt',
+  'grass',
+  'mud',
+  'wood',
+  'ice',
+  'sand',
+  'water',
+]
 
 export const MIN_CONTROL_POINTS = 4
 const MAX_CONTROL_POINTS = 200
@@ -41,6 +57,17 @@ export interface TrackBranchData {
   points: Vec2[]
   halfWidth: number
   surface: SurfaceType
+  /** Optional tide rule (see `TideRule`); `surface` is ignored while it is set. */
+  tide?: TideRule
+}
+
+/** Turbo strip `at` (0..1 along the loop), `offset` m right of the centerline, along the road. */
+export interface BoostPadData {
+  at: number
+  offset: number
+  /** Defaults: 6 m long, 4 m wide. */
+  length?: number
+  width?: number
 }
 
 export interface TrackCheckpointsData {
@@ -75,6 +102,10 @@ export interface TrackData {
   checkpoints: TrackCheckpointsData
   itemBoxRows: ItemBoxRowData[]
   uchuvaLines: UchuvaLineData[]
+  /** Optional turbo strips on the main loop. */
+  boostPads?: BoostPadData[]
+  /** Optional obstacles, in world coordinates (see `HazardDefinition`). */
+  hazards?: HazardDefinition[]
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -258,12 +289,16 @@ export function buildTrackDefinition(data: TrackData): TrackDefinition {
     return control
   })
   const { points: centerline, heights } = buildCenterline(controls, data.samplesPerSegment)
-  const branches: TrackBranch[] = data.branches.map((b) => ({
-    name: b.name,
-    points: b.points.map((p) => ({ x: p.x, z: p.z })),
-    halfWidth: b.halfWidth,
-    surface: b.surface,
-  }))
+  const branches: TrackBranch[] = data.branches.map((b) => {
+    const branch: TrackBranch = {
+      name: b.name,
+      points: b.points.map((p) => ({ x: p.x, z: p.z })),
+      halfWidth: b.halfWidth,
+      surface: b.surface,
+    }
+    if (b.tide) branch.tide = { ...b.tide, lowLaps: [...b.tide.lowLaps] }
+    return branch
+  })
   const shape = new Track({ name: data.name, centerline, halfWidth: data.halfWidth, branches })
 
   const surfaceAt = (x: number, z: number): SurfaceType => {
@@ -292,6 +327,26 @@ export function buildTrackDefinition(data: TrackData): TrackDefinition {
     checkpoints: buildCheckpoints(data, centerline, data.halfWidth),
     itemBoxes,
     uchuvas,
+    boostPads: (data.boostPads ?? []).map((pad) => buildBoostPad(centerline, pad)),
+    hazards: (data.hazards ?? []).map((hazard) => ({
+      ...hazard,
+      path: hazard.path.map((p) => ({ x: p.x, z: p.z })),
+    })),
+  }
+}
+
+const DEFAULT_PAD_LENGTH = 6
+const DEFAULT_PAD_WIDTH = 4
+
+function buildBoostPad(centerline: readonly Vec2[], pad: BoostPadData): BoostPad {
+  const index = sampleIndexAt(pad.at, centerline.length)
+  const a = centerline[index]
+  const b = centerline[(index + 1) % centerline.length]
+  return {
+    position: spotAt(centerline, index, pad.offset),
+    heading: a && b ? headingOf(b.x - a.x, b.z - a.z) : 0,
+    length: pad.length ?? DEFAULT_PAD_LENGTH,
+    width: pad.width ?? DEFAULT_PAD_WIDTH,
   }
 }
 

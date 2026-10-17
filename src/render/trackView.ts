@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import { headingOf, type Vec2 } from '../sim/math'
 import type { Track } from '../sim/track'
 import type { SurfaceType } from '../sim/race/surface'
+import { DEFAULT_THEME, type TrackTheme } from '../config/tracks/theme'
 
 const ROAD_COLOR = '#5b5f66'
 const WOOD_COLOR = '#8d5524'
@@ -23,9 +24,11 @@ const TREE_SPREAD = 70
 const UP = new THREE.Vector3(0, 1, 0)
 
 /** Builds the 3D scenery for a track: ground, road, curbs, walls and foliage. */
-export function createTrackView(track: Track): THREE.Group {
+// TODO(stage 9): use the theme for colors and scenery
+export function createTrackView(track: Track, theme: TrackTheme = DEFAULT_THEME): THREE.Group {
   const group = new THREE.Group()
   group.name = `track:${track.name}`
+  group.userData.theme = theme
   group.add(createGround())
   const main: Path = {
     points: track.centerline,

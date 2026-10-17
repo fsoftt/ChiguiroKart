@@ -3,6 +3,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js'
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js'
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js'
+import type { TrackTheme } from '../config/tracks/theme'
 
 const SKY_COLOR = '#87ceeb'
 const FOG_NEAR = 80
@@ -68,6 +69,18 @@ function createComposer(
   )
   composer.addPass(new OutputPass())
   return composer
+}
+
+/**
+ * Sky, fog and lights of a track's theme. Call it whenever a new track is loaded.
+ * TODO(stage 9): sky gradient, underground lighting.
+ */
+export function applySceneTheme(context: SceneContext, theme: TrackTheme): void {
+  const { scene, camera } = context
+  scene.background = new THREE.Color(theme.horizon)
+  scene.fog = new THREE.Fog(theme.fog, theme.fogNear, theme.fogFar)
+  camera.far = theme.fogFar + 20
+  camera.updateProjectionMatrix()
 }
 
 /** Draws the frame, through the bloom composer when it is on. */

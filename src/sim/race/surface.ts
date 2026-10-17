@@ -1,4 +1,4 @@
-export type SurfaceType = 'asphalt' | 'dirt' | 'grass' | 'mud' | 'wood'
+export type SurfaceType = 'asphalt' | 'dirt' | 'grass' | 'mud' | 'wood' | 'ice' | 'sand' | 'water'
 
 export interface SurfaceProperties {
   readonly speedMultiplier: number
@@ -27,6 +27,23 @@ export const SURFACE_PROPERTIES: Record<SurfaceType, SurfaceProperties> = {
     speedMultiplier: 0.8,
     gripMultiplier: 0.7,
     accelerationMultiplier: 0.75,
+  },
+  ice: {
+    // Very little grip: the Nevado's frozen lake shortcut
+    speedMultiplier: 1.0,
+    gripMultiplier: 0.3,
+    accelerationMultiplier: 0.8,
+  },
+  sand: {
+    speedMultiplier: 0.9,
+    gripMultiplier: 0.8,
+    accelerationMultiplier: 0.85,
+  },
+  water: {
+    // Shallow water; the Delfín rosado ignores it
+    speedMultiplier: 0.7,
+    gripMultiplier: 0.65,
+    accelerationMultiplier: 0.7,
   },
   grass: {
     speedMultiplier: 0.5,

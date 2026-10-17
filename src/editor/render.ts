@@ -11,6 +11,9 @@ const SURFACE_COLORS: Record<SurfaceType, string> = {
   grass: '#3f7d45',
   mud: '#6e4a2b',
   wood: '#b78552',
+  ice: '#bfe6f5',
+  sand: '#e6cf8f',
+  water: '#3f8fc9',
 }
 const BACKGROUND = '#26361f'
 const GRID_MINOR = 'rgba(255,255,255,0.06)'

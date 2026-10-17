@@ -227,6 +227,9 @@ export function surfaceLabel(surface: SurfaceType): string {
     grass: 'Pasto',
     mud: 'Barro',
     wood: 'Madera',
+    ice: 'Hielo',
+    sand: 'Arena',
+    water: 'Agua',
   }
   return labels[surface]
 }

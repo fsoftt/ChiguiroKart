@@ -10,6 +10,57 @@ export interface TrackBranch {
   /** Distance from the branch polyline to each of its walls (m). */
   halfWidth: number
   surface: SurfaceType
+  /** If set, the surface changes with the tide instead of being `surface` (San Andrés). */
+  tide?: TideRule
+}
+
+/**
+ * A branch that floods and dries with the tide. The leader's current lap (1-based) decides:
+ * on `lowLaps` the tide is low and the branch is `lowSurface` (a fast sandbank), otherwise
+ * it is `highSurface` (slow water).
+ */
+export interface TideRule {
+  lowLaps: readonly number[]
+  lowSurface: SurfaceType
+  highSurface: SurfaceType
+}
+
+/** Turbo strip on the road: a kart that drives over it on the ground gets a short nitro. */
+export interface BoostPad {
+  /** Center of the strip (x, z). */
+  position: Vec2
+  /** Direction of travel the strip points to (rad, same convention as `headingOf`). */
+  heading: number
+  /** Size along the heading (m). */
+  length: number
+  /** Size across the heading (m). */
+  width: number
+}
+
+/**
+ * Obstacles that belong to a track (not to a power):
+ * - `herd`: cattle crossing the road (Llanos stampede); touching one spins the kart.
+ * - `float`: a big carnival float driving along the road (Barranquilla); bumps karts away.
+ * - `iceWall`: static wall closing a shortcut (Nevado ice tunnel); bumps karts away, but a
+ *   kart on a level 3 nitro breaks it and the shortcut stays open for a while.
+ * - `rock`: static boulder; bumps karts away.
+ */
+export type HazardKind = 'herd' | 'float' | 'iceWall' | 'rock'
+
+export interface HazardDefinition {
+  kind: HazardKind
+  /** Path the obstacles follow (x, z). A single point means a static obstacle. */
+  path: readonly Vec2[]
+  /** `loop`: around the closed path; `pingPong`: back and forth between its ends. */
+  motion: 'loop' | 'pingPong'
+  /** Speed along the path (m/s); 0 = static. */
+  speed: number
+  /** Number of obstacles, evenly spaced along the path. */
+  count: number
+  /** Contact radius of each obstacle (m). */
+  radius: number
+  /** Seconds the obstacles wait at each end of a `pingPong` path. */
+  pause?: number
 }
 
 export interface TrackDefinition {
@@ -30,6 +81,10 @@ export interface TrackDefinition {
   itemBoxes?: readonly Vec2[]
   /** Optional uchuva spots (x, z). */
   uchuvas?: readonly Vec2[]
+  /** Optional turbo strips. */
+  boostPads?: readonly BoostPad[]
+  /** Optional track obstacles (cattle, floats, ice walls, rocks). */
+  hazards?: readonly HazardDefinition[]
 }
 
 export interface TrackProjection {
@@ -66,6 +121,13 @@ export class Track {
   readonly itemBoxes: readonly Vec2[]
   /** Uchuva spots (x, z). */
   readonly uchuvas: readonly Vec2[]
+  readonly boostPads: readonly BoostPad[]
+  readonly hazards: readonly HazardDefinition[]
+  /**
+   * True while the tide is low (see `TideRule`). Race state, not geometry: the race code sets
+   * it every step with `setTideLow`, and `surfaceAt` reads it for tidal branches.
+   */
+  tideLow = false
   private readonly customGroundHeight?: ((x: number, z: number) => number) | undefined
   private readonly customSurfaceAt?: ((x: number, z: number) => SurfaceType) | undefined
 
@@ -80,6 +142,8 @@ export class Track {
     this.branches = definition.branches ?? []
     this.itemBoxes = definition.itemBoxes ?? []
     this.uchuvas = definition.uchuvas ?? []
+    this.boostPads = definition.boostPads ?? []
+    this.hazards = definition.hazards ?? []
     this.customGroundHeight = definition.groundHeight
     this.customSurfaceAt = definition.surfaceAt
 
@@ -102,8 +166,15 @@ export class Track {
     return 0
   }
 
-  /** Surface type at a position. */
+  /** Surface type at a position. Tidal branches follow `tideLow`, even with a custom lookup. */
   surfaceAt(x: number, z: number): SurfaceType {
+    if (this.hasTide) {
+      const proj = this.project(x, z)
+      const tide = this.branches[proj.branch]?.tide
+      if (tide && proj.distance <= proj.halfWidth) {
+        return this.tideLow ? tide.lowSurface : tide.highSurface
+      }
+    }
     if (this.customSurfaceAt) {
       return this.customSurfaceAt(x, z)
     }
@@ -111,6 +182,15 @@ export class Track {
     if (proj.distance > proj.halfWidth) return 'grass'
     const branch = this.branches[proj.branch]
     return branch ? branch.surface : 'asphalt'
+  }
+
+  /** True if any branch follows the tide. */
+  get hasTide(): boolean {
+    return this.branches.some((branch) => branch.tide !== undefined)
+  }
+
+  setTideLow(low: boolean): void {
+    this.tideLow = low
   }
 
   /** Where karts spawn: the first centerline point, facing along the road. */
