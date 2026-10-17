@@ -55,6 +55,8 @@ interface RoadMaterial {
   flow?: THREE.Texture
 }
 
+/** Repeats of the cobble texture across the road width. */
+const COBBLE_ACROSS = 3
 /** Texture-V units per second the ford water runs. */
 const WATER_FLOW_SPEED = 0.04
 
@@ -206,12 +208,19 @@ export class EnvironmentView extends THREE.Group {
             : style === 'dirt'
               ? dirtTexture(theme.road, seed)
               : asphaltTexture(theme.road, seed)
+        // Cobbles repeat across the road too, so stones stay small (u spans the whole width)
+        if (style === 'cobble') map.repeat.x = COBBLE_ACROSS
         entry = {
           material: new THREE.MeshStandardMaterial({
             map,
             roughness: style === 'cobble' ? 0.8 : style === 'dirt' ? 0.97 : 0.88,
           }),
-          tile: style === 'cobble' ? COBBLE_TILE : style === 'dirt' ? DIRT_TILE : ASPHALT_TILE,
+          tile:
+            style === 'cobble'
+              ? COBBLE_TILE / COBBLE_ACROSS
+              : style === 'dirt'
+                ? DIRT_TILE
+                : ASPHALT_TILE,
         }
         break
       }
