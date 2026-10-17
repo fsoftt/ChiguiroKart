@@ -1,4 +1,5 @@
-import { cups, tracks, type CupId, type TrackId } from '../config/tracks/catalog'
+import { cups, type CupId, type TrackId } from '../config/tracks/catalog'
+import { cupName, trackName } from '../i18n/names'
 
 /** Columns of the track grid: one row per cup, four tracks each. */
 export const TRACK_GRID_COLUMNS = 4
@@ -16,8 +17,8 @@ export interface TrackGroupView {
 export function trackGroups(): TrackGroupView[] {
   return cups.map((cup) => ({
     cup: cup.id,
-    cupName: cup.name,
-    tracks: cup.tracks.map((id) => ({ id, name: tracks[id].name })),
+    cupName: cupName(cup.id),
+    tracks: cup.tracks.map((id) => ({ id, name: trackName(id) })),
   }))
 }
 
@@ -43,10 +44,16 @@ export function moveTrackSelection(current: TrackId, direction: GridDirection): 
 }
 
 /** The cup (name and four track names) shown as a card when picking in the cup mode. */
-export function cupCards(): { id: CupId; name: string; trackNames: string[] }[] {
+export function cupCards(): {
+  id: CupId
+  name: string
+  trackIds: TrackId[]
+  trackNames: string[]
+}[] {
   return cups.map((cup) => ({
     id: cup.id,
-    name: cup.name,
-    trackNames: cup.tracks.map((id) => tracks[id].name),
+    name: cupName(cup.id),
+    trackIds: [...cup.tracks],
+    trackNames: cup.tracks.map((id) => trackName(id)),
   }))
 }

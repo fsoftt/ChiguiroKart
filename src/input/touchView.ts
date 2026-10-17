@@ -1,20 +1,21 @@
 import './touchControls.css'
+import { onLanguageChange, t, type TranslationKey } from '../i18n'
 import { shouldShowTouchControls, steerFromPadX, TouchSource, type TouchButton } from './touch'
 
 interface ButtonSpec {
   button: TouchButton
-  label: string
+  label: TranslationKey
   /** CSS modifier that places and sizes the button. */
   className: string
 }
 
 const BUTTONS: readonly ButtonSpec[] = [
-  { button: 'throttle', label: 'Acelerar', className: 'tc-throttle' },
-  { button: 'brake', label: 'Frenar', className: 'tc-brake' },
-  { button: 'jump', label: 'Saltar', className: 'tc-jump' },
-  { button: 'boost', label: 'Nitro', className: 'tc-boost' },
-  { button: 'useItem', label: 'Poder', className: 'tc-item' },
-  { button: 'lookBack', label: 'Atrás', className: 'tc-back' },
+  { button: 'throttle', label: 'touch.throttle', className: 'tc-throttle' },
+  { button: 'brake', label: 'touch.brake', className: 'tc-brake' },
+  { button: 'jump', label: 'touch.jump', className: 'tc-jump' },
+  { button: 'boost', label: 'touch.boost', className: 'tc-boost' },
+  { button: 'useItem', label: 'touch.useItem', className: 'tc-item' },
+  { button: 'lookBack', label: 'touch.lookBack', className: 'tc-back' },
 ]
 
 const ACTIVE_BODY_CLASS = 'has-touch-controls'
@@ -93,7 +94,11 @@ export class TouchControls {
   private bindButton(spec: ButtonSpec): void {
     const element = el('button', `tc-button ${spec.className}`, this.root) as HTMLButtonElement
     element.type = 'button'
-    element.textContent = spec.label
+    const label = (): void => {
+      element.textContent = t(spec.label)
+    }
+    label()
+    onLanguageChange(label)
     element.addEventListener('pointerdown', (event) => {
       event.preventDefault()
       element.setPointerCapture(event.pointerId)

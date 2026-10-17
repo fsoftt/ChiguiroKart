@@ -1,5 +1,7 @@
 import './quickRaceMenu.css'
 import './optionsMenu.css'
+import { t, type TranslationKey } from '../i18n'
+import { LiveLabels } from '../i18n/liveLabels'
 
 function el(tag: string, className: string, parent?: HTMLElement): HTMLElement {
   const node = document.createElement(tag)
@@ -9,7 +11,7 @@ function el(tag: string, className: string, parent?: HTMLElement): HTMLElement {
 }
 
 interface Entry {
-  label: string
+  label: TranslationKey
   run: () => void
 }
 
@@ -27,6 +29,7 @@ export class PauseMenu {
   onPauseRequest: (() => void) | null = null
 
   private readonly root = el('div', 'pm-menu')
+  private readonly labels = new LiveLabels()
   private readonly pauseButton = el('button', 'pm-button') as HTMLButtonElement
   private readonly buttons: HTMLButtonElement[] = []
   private readonly entries: Entry[]
@@ -36,29 +39,29 @@ export class PauseMenu {
 
   constructor(parent: HTMLElement = document.body) {
     this.root.setAttribute('role', 'dialog')
-    this.root.setAttribute('aria-label', 'Pausa')
+    this.labels.attr(this.root, 'aria-label', () => t('pause.title'))
     const card = el('div', 'qr-card pm-card', this.root)
-    el('h1', 'qr-title', card).textContent = 'Pausa'
+    this.labels.text(el('h1', 'qr-title', card), () => t('pause.title'))
     const list = el('div', 'pm-buttons', card)
     this.entries = [
-      { label: 'Continuar', run: () => this.onResume?.() },
-      { label: 'Reiniciar carrera', run: () => this.onRestart?.() },
-      { label: 'Opciones', run: () => this.onOptions?.() },
-      { label: 'Salir al menú', run: () => this.onQuit?.() },
+      { label: 'pause.resume', run: () => this.onResume?.() },
+      { label: 'pause.restart', run: () => this.onRestart?.() },
+      { label: 'common.options', run: () => this.onOptions?.() },
+      { label: 'pause.quit', run: () => this.onQuit?.() },
     ]
     this.entries.forEach((entry, index) => {
       const button = el('button', 'qr-start', list) as HTMLButtonElement
       button.type = 'button'
-      button.textContent = entry.label
+      this.labels.text(button, () => t(entry.label))
       button.addEventListener('click', entry.run)
       button.addEventListener('pointerenter', () => this.focus(index))
       this.buttons.push(button)
     })
-    el('div', 'qr-hint', card).textContent = '↑ ↓: elegir · Enter: aceptar · Esc o P: continuar'
+    this.labels.text(el('div', 'qr-hint', card), () => t('pause.hint'))
 
     this.pauseButton.type = 'button'
     this.pauseButton.textContent = '⏸'
-    this.pauseButton.setAttribute('aria-label', 'Pausa')
+    this.labels.attr(this.pauseButton, 'aria-label', () => t('pause.title'))
     this.pauseButton.addEventListener('click', () => this.onPauseRequest?.())
 
     window.addEventListener('keydown', (event) => this.onKey(event), true)

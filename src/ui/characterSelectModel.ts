@@ -1,14 +1,16 @@
+import { t, type TranslationKey } from '../i18n'
+import { characterName } from '../i18n/names'
 import { characters, type CharacterId, type CharacterStats } from '../config/characters'
 
 /** Number of segments of every stat bar. */
 export const STAT_SEGMENTS = 5
 
-/** Stats in display order, with their Spanish labels. */
-export const STAT_ROWS: readonly { key: keyof CharacterStats; label: string }[] = [
-  { key: 'speed', label: 'Velocidad' },
-  { key: 'acceleration', label: 'Aceleración' },
-  { key: 'handling', label: 'Manejo' },
-  { key: 'weight', label: 'Peso' },
+/** Stats in display order; the label is the `stats.<key>` translation. */
+export const STAT_ROWS: readonly { key: keyof CharacterStats; label: TranslationKey }[] = [
+  { key: 'speed', label: 'stats.speed' },
+  { key: 'acceleration', label: 'stats.acceleration' },
+  { key: 'handling', label: 'stats.handling' },
+  { key: 'weight', label: 'stats.weight' },
 ]
 
 /** Accent color of every character (menu dot and highlights). */
@@ -33,7 +35,7 @@ export function statSegments(value: number, total: number = STAT_SEGMENTS): bool
 export function statRows(id: CharacterId): { label: string; value: number; segments: boolean[] }[] {
   const { stats } = characters[id]
   return STAT_ROWS.map(({ key, label }) => ({
-    label,
+    label: t(label),
     value: stats[key],
     segments: statSegments(stats[key]),
   }))
@@ -41,5 +43,5 @@ export function statRows(id: CharacterId): { label: string; value: number; segme
 
 /** First letter of the character name, shown inside the menu button. */
 export function characterInitial(id: CharacterId): string {
-  return characters[id].name.charAt(0).toUpperCase()
+  return characterName(id).charAt(0).toUpperCase()
 }

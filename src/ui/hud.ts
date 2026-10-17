@@ -4,20 +4,16 @@ import type { Vec2 } from '../sim/math'
 import type { Track } from '../sim/track'
 import type { FinalTimes, HudModel, ItemHudModel } from './hudModel'
 import type { CupResultsView, CupRowView } from './cupResultsModel'
+import { ordinal, t } from '../i18n'
+import { LiveLabels } from '../i18n/liveLabels'
 import { Minimap } from './minimap'
 
 const PIP_COUNT = 3
-const PERFECT_TEXT = '¡Perfecto!'
-const SPEED_UNIT = 'km/h'
 const PERCENT = 100
 const MOSQUITO_BLOTCHES = 14
 const PERCENT_DECIMALS = 1
-const RACE_TITLE = '¡CARRERA TERMINADA!'
-const TIME_TRIAL_TITLE = '¡CONTRARRELOJ TERMINADA!'
 /** Podium steps left to right: 2nd, 1st, 3rd (indices into the top 3). */
 const PODIUM_ORDER = [1, 0, 2]
-const REMATCH_LABEL = 'Revancha'
-const REMATCH_HINT = 'Enter: revancha · R: reiniciar'
 
 function el(tag: string, className: string, parent?: HTMLElement): HTMLElement {
   const node = document.createElement(tag)
@@ -42,6 +38,7 @@ function replay(node: HTMLElement, className: string): void {
  */
 export class Hud {
   private readonly root = el('div', 'hud')
+  private readonly labels = new LiveLabels()
   readonly minimap = new Minimap()
 
   // Race UI
@@ -121,6 +118,10 @@ export class Hud {
   private countdownLabel = ''
   private wrongWay = false
   private finished = false
+  private timeTrial = false
+  /** Cup screen texts shown now, or null for the plain race results. */
+  private cupView: CupResultsView | null = null
+  private finalTimes: FinalTimes | null = null
 
   /** Called by the results modal buttons (the main one is «Siguiente carrera» in a cup). */
   onRematch: (() => void) | null = null
@@ -130,7 +131,7 @@ export class Hud {
     this.root.append(this.minimap.element)
 
     // Top race badges
-    this.lapBadge.textContent = 'VUELTA 1/3'
+    this.labels.text(this.lapBadge, () => t('hud.lap', { lap: 1, total: 3 }))
     this.positionValue = el('span', 'hud-position-value', this.positionBadge)
     this.positionTotal = el('span', 'hud-position-total', this.positionBadge)
     this.timerValue = el('span', 'hud-timer-value', this.timerContainer)
@@ -138,35 +139,37 @@ export class Hud {
     this.bestLapValue = el('span', 'hud-best-lap', this.timerContainer)
     this.ghostDeltaValue = el('span', 'hud-ghost-delta', this.timerContainer)
 
-    this.wrongWayBadge.textContent = '¡VÍA CONTRARIA!'
+    this.labels.text(this.wrongWayBadge, () => t('hud.wrongWay'))
 
     // Results modal
     this.resultsTitle = el('h2', 'hud-results-title', this.resultsCard)
-    this.resultsTitle.textContent = RACE_TITLE
+    this.labels.text(this.resultsTitle, () =>
+      t(this.timeTrial ? 'hud.timeTrialFinished' : 'hud.raceFinished'),
+    )
     this.resultsRecord = el('div', 'hud-results-record', this.resultsCard)
-    this.resultsRecord.textContent = '¡Nuevo récord!'
+    this.labels.text(this.resultsRecord, () => t('hud.newRecord'))
     this.resultsPosition = el('div', 'hud-results-position', this.resultsCard)
     this.resultsTable = document.createElement('table')
     this.resultsTable.className = 'hud-results-table'
     this.resultsCard.append(this.resultsTable)
     this.cupBlock = el('div', 'hud-cup', this.resultsCard)
     this.restartPrompt = el('div', 'hud-results-restart', this.resultsCard)
-    this.restartPrompt.textContent = REMATCH_HINT
+    this.labels.text(this.restartPrompt, () => this.cupView?.hint ?? t('hud.rematchHint'))
     const actions = el('div', 'hud-results-actions', this.resultsCard)
     this.rematchButton = el('button', 'hud-results-button', actions) as HTMLButtonElement
     this.rematchButton.type = 'button'
-    this.rematchButton.textContent = REMATCH_LABEL
+    this.labels.text(this.rematchButton, () => this.cupView?.primaryLabel ?? t('hud.rematch'))
     this.rematchButton.addEventListener('click', () => this.onRematch?.())
     const menu = el('button', 'hud-results-button is-secondary', actions) as HTMLButtonElement
     menu.type = 'button'
-    menu.textContent = 'Menú'
+    this.labels.text(menu, () => t('common.menu'))
     menu.addEventListener('click', () => this.onMenu?.())
 
     // Speedometer
     const speed = el('div', 'hud-speed', this.root)
     this.speedValue = el('span', 'hud-speed-value', speed)
     this.speedValue.textContent = '0'
-    el('span', 'hud-speed-unit', speed).textContent = SPEED_UNIT
+    this.labels.text(el('span', 'hud-speed-unit', speed), () => t('hud.speedUnit'))
 
     // Drift Bar
     const track = el('div', 'hud-drift-track', this.driftBar)
@@ -184,7 +187,7 @@ export class Hud {
     this.nitroLabel = el('div', 'hud-nitro-label', this.nitro)
     this.nitroTime = el('div', 'hud-nitro-time', el('div', 'hud-nitro-track', this.nitro))
     this.perfectPopup = el('div', 'hud-perfect', this.root)
-    this.perfectPopup.textContent = PERFECT_TEXT
+    this.labels.text(this.perfectPopup, () => t('hud.perfect'))
 
     // Item slot, uchuva counter and overlays
     this.itemIcon = el('span', 'hud-item-icon', this.itemSlot)
@@ -192,12 +195,16 @@ export class Hud {
     this.itemName = el('span', 'hud-item-name', itemText)
     this.itemUses = el('span', 'hud-item-uses', itemText)
     this.itemCharged = el('span', 'hud-item-charged', itemText)
-    this.itemCharged.textContent = 'BIEN CARGADO'
+    this.labels.text(this.itemCharged, () => t('hud.charged'))
     el('span', 'hud-uchuvas-icon', this.uchuvaBadge).textContent = '🟠'
     this.uchuvaValue = el('span', 'hud-uchuvas-value', this.uchuvaBadge)
     this.uchuvaFullTag = el('span', 'hud-uchuvas-full', this.uchuvaBadge)
-    this.uchuvaFullTag.textContent = '¡Bien Cargado!'
+    this.labels.text(this.uchuvaFullTag, () => t('hud.fullyCharged'))
     for (let i = 0; i < MOSQUITO_BLOTCHES; i++) el('span', 'hud-mosquito', this.mosquitoOverlay)
+
+    this.labels.run(() => {
+      if (this.finalTimes) this.renderResultsTable(this.finalTimes)
+    })
 
     parent.append(this.root)
   }
@@ -231,7 +238,8 @@ export class Hud {
   /** Time trial hides the position badge and the item widgets, which only make sense with bots. */
   setTimeTrial(enabled: boolean): void {
     this.root.classList.toggle('is-time-trial', enabled)
-    this.resultsTitle.textContent = enabled ? TIME_TRIAL_TITLE : RACE_TITLE
+    this.timeTrial = enabled
+    this.labels.refresh()
   }
 
   /**
@@ -241,8 +249,8 @@ export class Hud {
   showCupResults(view: CupResultsView): void {
     this.resultsCard.classList.add('is-cup')
     this.resultsCard.classList.toggle('is-cup-final', view.final)
-    this.rematchButton.textContent = view.primaryLabel
-    this.restartPrompt.textContent = view.hint
+    this.cupView = view
+    this.labels.refresh()
     this.cupBlock.replaceChildren()
     el('div', 'hud-cup-title', this.cupBlock).textContent = view.title
     el('div', 'hud-cup-headline', this.cupBlock).textContent = view.headline
@@ -253,8 +261,8 @@ export class Hud {
   /** Back to the plain race results (no cup). */
   clearCupResults(): void {
     this.resultsCard.classList.remove('is-cup', 'is-cup-final')
-    this.rematchButton.textContent = REMATCH_LABEL
-    this.restartPrompt.textContent = REMATCH_HINT
+    this.cupView = null
+    this.labels.refresh()
     this.cupBlock.replaceChildren()
   }
 
@@ -267,8 +275,8 @@ export class Hud {
       const step = el('div', `hud-podium-step is-place-${row.rank}`, podium)
       if (row.isPlayer) step.classList.add('is-player')
       el('div', 'hud-podium-name', step).textContent = row.name
-      el('div', 'hud-podium-block', step).textContent = `${row.rank}.º`
-      el('div', 'hud-podium-points', step).textContent = `${row.total} pts`
+      el('div', 'hud-podium-block', step).textContent = ordinal(row.rank)
+      el('div', 'hud-podium-points', step).textContent = t('common.points', { points: row.total })
     }
   }
 
@@ -277,14 +285,22 @@ export class Hud {
     table.className = 'hud-cup-table'
     this.cupBlock.append(table)
     const head = table.createTHead().insertRow()
-    for (const label of ['#', 'Piloto', 'Carrera', 'Puntos', 'Total']) {
-      el('th', '', head).textContent = label
-    }
+    const headers = [
+      '#',
+      t('cup.headerPilot'),
+      t('cup.headerRace'),
+      t('cup.headerPoints'),
+      t('cup.headerTotal'),
+    ]
+    for (const label of headers) el('th', '', head).textContent = label
     const body = table.createTBody()
     for (const row of rows) {
       const tr = body.insertRow()
       if (row.isPlayer) tr.className = 'is-player'
-      const cells = [String(row.rank), row.isPlayer ? `${row.name} (tú)` : row.name]
+      const cells = [
+        String(row.rank),
+        row.isPlayer ? `${row.name} ${t('common.youSuffix')}` : row.name,
+      ]
       cells.push(row.racePlace, row.gained, String(row.total))
       for (const text of cells) tr.insertCell().textContent = text
     }
@@ -407,6 +423,7 @@ export class Hud {
       this.finished = model.finished
       this.resultsOverlay.classList.toggle('is-visible', model.finished)
       if (model.finished && model.finalTimes) {
+        this.finalTimes = model.finalTimes
         this.renderResultsTable(model.finalTimes)
       }
     }
@@ -414,11 +431,11 @@ export class Hud {
 
   private renderResultsTable(times: FinalTimes): void {
     this.resultsTable.innerHTML = `
-      <tr><td>Vuelta 1:</td><td>${times.lap1}</td></tr>
-      <tr><td>Vuelta 2:</td><td>${times.lap2}</td></tr>
-      <tr><td>Vuelta 3:</td><td>${times.lap3}</td></tr>
-      <tr style="border-top: 2px solid rgba(255,255,255,0.2)"><td>Total:</td><td>${times.total}</td></tr>
-      <tr><td>Mejor Vuelta:</td><td style="color: #a8e6cf">${times.best}</td></tr>
+      <tr><td>${t('hud.lapRow', { n: 1 })}</td><td>${times.lap1}</td></tr>
+      <tr><td>${t('hud.lapRow', { n: 2 })}</td><td>${times.lap2}</td></tr>
+      <tr><td>${t('hud.lapRow', { n: 3 })}</td><td>${times.lap3}</td></tr>
+      <tr style="border-top: 2px solid rgba(255,255,255,0.2)"><td>${t('hud.total')}</td><td>${times.total}</td></tr>
+      <tr><td>${t('hud.bestLap')}</td><td style="color: #a8e6cf">${times.best}</td></tr>
     `
   }
 
