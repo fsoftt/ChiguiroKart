@@ -26,6 +26,15 @@ const GAP_SIDE_REACH = 40
 /** Spacing of the points that follow a gap span (m). */
 const GAP_SAMPLE = 1
 
+/** Grid cell of the regional height field (m); it is smooth, so it can be coarse. */
+const REGION_CELL = 12
+/** Standard deviation of the regional height average (m): a radius of about 120 m. */
+const REGION_SIGMA = 70
+/** Steepness of the embankment beside the road (m of height per m of distance): about 1:1. */
+const EMBANKMENT_SLOPE = 1
+/** Default `drop`: the land follows the regional base fully. */
+export const DEFAULT_DROP = 1
+
 /** A flat platform for a prop: the land is leveled to `y` within `radius`, then fades out. */
 export interface TerrainPad {
   x: number
@@ -86,9 +95,111 @@ function createLoopHeight(track: Track): (x: number, z: number) => number {
 }
 
 /**
+ * Smooth "regional" ground level: a Gaussian-weighted average of the road heights around each
+ * point (separable blur on a coarse grid, bilinear lookup). Where the road climbs above its
+ * surroundings this is below the road, and where it dips this is above it.
+ */
+function createRegionalHeight(
+  track: Track,
+  loopHeight: (x: number, z: number) => number,
+  x0: number,
+  z0: number,
+  width: number,
+  depth: number,
+): (x: number, z: number) => number {
+  const cell = REGION_CELL
+  const gx = Math.ceil(width / cell) + 2
+  const gz = Math.ceil(depth / cell) + 2
+  let sum: Float64Array = new Float64Array(gx * gz)
+  let weight: Float64Array = new Float64Array(gx * gz)
+  const splat = (x: number, z: number, h: number): void => {
+    const fx = Math.min(Math.max((x - x0) / cell, 0), gx - 1.001)
+    const fz = Math.min(Math.max((z - z0) / cell, 0), gz - 1.001)
+    const i = Math.floor(fx)
+    const j = Math.floor(fz)
+    const tx = fx - i
+    const tz = fz - j
+    for (let dj = 0; dj < 2; dj++) {
+      for (let di = 0; di < 2; di++) {
+        const w = (di ? tx : 1 - tx) * (dj ? tz : 1 - tz)
+        const k = (j + dj) * gx + i + di
+        sum[k] = (sum[k] as number) + h * w
+        weight[k] = (weight[k] as number) + w
+      }
+    }
+  }
+  // Samples are spaced at most half a cell apart, so the weight is even along the road
+  const pts = track.centerline
+  for (let i = 0; i < pts.length; i++) {
+    const a = pts[i] as Vec2
+    const b = pts[(i + 1) % pts.length] as Vec2
+    const ha = loopHeight(a.x, a.z)
+    const hb = loopHeight(b.x, b.z)
+    const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / (cell / 2)))
+    for (let k = 0; k < steps; k++) {
+      const t = k / steps
+      splat(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, ha + (hb - ha) * t)
+    }
+  }
+  const radius = Math.ceil((REGION_SIGMA * 3) / cell)
+  const kernel: number[] = []
+  for (let k = -radius; k <= radius; k++) {
+    kernel.push(Math.exp(-0.5 * ((k * cell) / REGION_SIGMA) ** 2))
+  }
+  const blur = (src: Float64Array, horizontal: boolean): Float64Array => {
+    const out = new Float64Array(src.length)
+    for (let j = 0; j < gz; j++) {
+      for (let i = 0; i < gx; i++) {
+        let acc = 0
+        for (let k = -radius; k <= radius; k++) {
+          const ii = horizontal ? i + k : i
+          const jj = horizontal ? j : j + k
+          if (ii < 0 || jj < 0 || ii >= gx || jj >= gz) continue
+          acc += (src[jj * gx + ii] as number) * (kernel[k + radius] as number)
+        }
+        out[j * gx + i] = acc
+      }
+    }
+    return out
+  }
+  sum = blur(blur(sum, true), false)
+  weight = blur(blur(weight, true), false)
+  let total = 0
+  let count = 0
+  for (const p of pts) {
+    total += loopHeight(p.x, p.z)
+    count++
+  }
+  const mean = total / Math.max(1, count)
+  let peak = 0
+  for (const w of weight) peak = Math.max(peak, w)
+  // A faint pull toward the mean keeps the far field defined where no road weight is left
+  const eps = peak * 0.002
+  const field = new Float32Array(gx * gz)
+  for (let k = 0; k < field.length; k++) {
+    field[k] = ((sum[k] as number) + mean * eps) / ((weight[k] as number) + eps)
+  }
+  return (x, z) => {
+    const fx = Math.min(Math.max((x - x0) / cell, 0), gx - 1.001)
+    const fz = Math.min(Math.max((z - z0) / cell, 0), gz - 1.001)
+    const i = Math.floor(fx)
+    const j = Math.floor(fz)
+    const tx = fx - i
+    const tz = fz - j
+    const a = field[j * gx + i] as number
+    const b = field[j * gx + i + 1] as number
+    const c = field[(j + 1) * gx + i] as number
+    const d = field[(j + 1) * gx + i + 1] as number
+    return a * (1 - tx) * (1 - tz) + b * tx * (1 - tz) + c * (1 - tx) * tz + d * tx * tz
+  }
+}
+
+/**
  * Builds the heightfield. Within `WALL_BAND + shoulder` of any road edge the land is the sim
  * road height minus `TERRAIN_SINK`, so it never rises above what the kart drives on; farther
- * out it eases into the smooth ground level and then climbs into rolling hills and steep valley
+ * out it eases into the nearest road height and then heads for the smooth regional ground level
+ * (falling away as an embankment beside an elevated road, rising as a wall beside a sunken
+ * one), and then climbs into rolling hills and steep valley
  * walls, shaped by seeded noise.
  */
 export function buildTerrainField(
@@ -114,6 +225,14 @@ export function buildTerrainField(
   const heights = new Float32Array(nx * nz)
   const edges = new Float32Array(nx * nz)
   const loopHeight = createLoopHeight(track)
+  const regionalHeight = createRegionalHeight(
+    track,
+    loopHeight,
+    x0,
+    z0,
+    (nx - 1) * cell,
+    (nz - 1) * cell,
+  )
   const flatEnd = WALL_BAND + settings.shoulder
 
   for (let j = 0; j < nz; j++) {
@@ -122,7 +241,17 @@ export function buildTerrainField(
       const z = z0 + j * cell
       const edge = edgeDistance(track, x, z)
       edges[j * nx + i] = edge
-      heights[j * nx + i] = rawHeight(track, settings, seed, loopHeight, x, z, edge, flatEnd)
+      heights[j * nx + i] = rawHeight(
+        track,
+        settings,
+        seed,
+        loopHeight,
+        regionalHeight,
+        x,
+        z,
+        edge,
+        flatEnd,
+      )
     }
   }
 
@@ -153,6 +282,7 @@ function rawHeight(
   settings: TerrainSettings,
   seed: number,
   loopHeight: (x: number, z: number) => number,
+  regionalHeight: (x: number, z: number) => number,
   x: number,
   z: number,
   edge: number,
@@ -161,11 +291,15 @@ function rawHeight(
   if (edge <= flatEnd) return lowRoadHeight(track, x, z) - TERRAIN_SINK
   const away = edge - flatEnd
   const t = smoothstep(0, BLEND, away)
-  const smoothBase = loopHeight(x, z)
-  const base =
-    t >= 1
-      ? smoothBase
-      : lowRoadHeight(track, x, z) * (1 - t) + smoothBase * t - TERRAIN_SINK * (1 - t)
+  const nearRoad = loopHeight(x, z)
+  const nearBase =
+    t >= 1 ? nearRoad : lowRoadHeight(track, x, z) * (1 - t) + nearRoad * t - TERRAIN_SINK * (1 - t)
+  // Head from the road height toward the regional level at a bounded slope: an embankment
+  // falling away beside an elevated road, a wall rising beside a sunken one
+  const gap = (regionalHeight(x, z) - nearRoad) * (settings.drop ?? DEFAULT_DROP)
+  // A wall waits one cell, so triangles that straddle the flat band never lift above the road
+  const reach = (gap > 0 ? Math.max(0, away - TERRAIN_CELL) : away) * EMBANKMENT_SLOPE
+  const base = nearBase + Math.sign(gap) * Math.min(Math.abs(gap), reach)
   // Hills: broad swells that grow with distance, plus a steeper climb far out (valley walls)
   const swell = fbm(x / 70, z / 70, seed, 3)
   const ridges = fbm(x / 34 + 11, z / 34 - 7, seed + 5, 3)

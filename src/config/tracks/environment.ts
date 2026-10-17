@@ -30,6 +30,12 @@ export interface TerrainSettings {
    * Without it the land has no lower bound. Never applies within the road and shoulder.
    */
   floor?: number
+  /**
+   * How strongly the land follows the smooth regional ground level instead of the road height
+   * beside it: 0 keeps the land level with the road, 1 (default) drops it away as a steep
+   * embankment beside an elevated road and raises it as a wall beside a sunken one.
+   */
+  drop?: number
   /** Depth (m) of the ravine carved under every jump gap, below the road. Default 14. */
   gapDepth?: number
 }

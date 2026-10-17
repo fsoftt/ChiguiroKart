@@ -212,6 +212,7 @@ export const ciudadPerdidaEnvironment: TrackEnvironment = {
     shoulder: 3,
     hillHeight: 14,
     valleySlope: 0.6,
+    drop: 2.5,
   },
   fence: 'wood',
   road: 'dirt',
