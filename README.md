@@ -39,6 +39,10 @@ Con un poder en la ranura, `E` (o el botón X del mando) lo usa; mantener `Q` (o
 
 En desarrollo, o agregando `?debug` a la URL (por ejemplo `https://fsoftt.github.io/ChiguiroKart/?debug`), aparece un panel para ajustar en vivo la física del kart y la cámara, con contador de FPS.
 
+## Editor de pistas
+
+Hay un editor de pistas en el navegador en [`editor.html`](https://fsoftt.github.io/ChiguiroKart/editor.html) (en desarrollo: `npm run dev` y abre `/ChiguiroKart/editor.html`). Permite mover y agregar puntos de control, ajustar altura y superficie, editar atajos, checkpoints y recogibles, importar y exportar JSON, y probar la pista con el botón "Probar en el juego" (`?pista=custom`).
+
 ## Desarrollo
 
 Requiere Node.js 22 o superior.

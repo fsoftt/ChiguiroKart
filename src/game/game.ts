@@ -5,6 +5,7 @@ import { defaultEffects } from '../config/effects'
 import { defaultKartPhysics } from '../config/kartPhysics'
 import { cocoraTrack } from '../config/tracks/cocoraTrack'
 import { testTrack } from '../config/tracks/testTrack'
+import { CUSTOM_TRACK_KEY, buildTrackDefinition, parseTrackDataText } from '../sim/trackData'
 import { GamepadSource } from '../input/gamepad'
 import { combineInputs, NEUTRAL_INPUT, type InputSource, type KartInput } from '../input/kartInput'
 import { KeyboardSource } from '../input/keyboard'
@@ -64,10 +65,22 @@ const BOT_SEED = 1
 /** The player always takes grid slot 0. */
 const PLAYER_SLOT = 0
 
+/** Track left by the editor in localStorage; null if missing or invalid. */
+function loadCustomTrack(): TrackDefinition | null {
+  try {
+    const data = parseTrackDataText(window.localStorage.getItem(CUSTOM_TRACK_KEY) ?? '')
+    return data ? buildTrackDefinition(data) : null
+  } catch {
+    return null
+  }
+}
+
 function selectTrack(): TrackDefinition {
   if (typeof window !== 'undefined') {
     const params = new URLSearchParams(window.location.search)
-    if (params.get('pista') === 'test') return testTrack
+    const choice = params.get('pista')
+    if (choice === 'test') return testTrack
+    if (choice === 'custom') return loadCustomTrack() ?? cocoraTrack
   }
   return cocoraTrack
 }

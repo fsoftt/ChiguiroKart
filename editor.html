@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Editor de pistas</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="stylesheet" href="/src/editor/editor.css" />
+  </head>
+  <body>
+    <main class="layout">
+      <div class="stage">
+        <canvas id="canvas" tabindex="0"></canvas>
+        <p class="hint">
+          Arrastra el fondo para mover, rueda para acercar. Clic en la carretera: agrega un punto.
+          Arrastra un punto para moverlo. Supr: borra el punto seleccionado. Ctrl+Z: deshacer.
+        </p>
+      </div>
+      <aside class="panel">
+        <h1>Editor de pistas</h1>
+        <section>
+          <h2>Pista</h2>
+          <label>Nombre <input id="name" type="text" maxlength="60" /></label>
+          <label
+            >Media carretera (m) <input id="halfWidth" type="number" min="2" max="40" step="0.5"
+          /></label>
+          <label
+            >Muestras por tramo <input id="samples" type="number" min="2" max="40" step="1"
+          /></label>
+          <div class="row">
+            <button id="preset-cocora" type="button">Cargar Cocora</button>
+            <button id="preset-test" type="button">Cargar Prueba</button>
+            <button id="fit" type="button">Encuadrar</button>
+          </div>
+        </section>
+        <section>
+          <h2>Punto seleccionado</h2>
+          <p id="selection-info" class="muted">Ninguno. Haz clic en un punto.</p>
+          <div id="selection-fields" hidden>
+            <label>X (m) <input id="pt-x" type="number" step="0.5" /></label>
+            <label>Z (m) <input id="pt-z" type="number" step="0.5" /></label>
+            <label id="pt-y-label">Altura Y (m) <input id="pt-y" type="number" step="0.1" /></label>
+            <label id="pt-surface-label"
+              >Superficie
+              <select id="pt-surface"></select
+            ></label>
+            <button id="pt-delete" type="button">Borrar punto</button>
+          </div>
+        </section>
+        <section>
+          <h2>Atajos</h2>
+          <div class="row">
+            <button id="branch-add" type="button">Agregar atajo</button>
+          </div>
+          <div id="branch-fields" hidden>
+            <label
+              >Atajo
+              <select id="branch-pick"></select
+            ></label>
+            <label>Nombre <input id="branch-name" type="text" maxlength="40" /></label>
+            <label
+              >Media carretera (m)
+              <input id="branch-width" type="number" min="2" max="40" step="0.5"
+            /></label>
+            <label
+              >Superficie
+              <select id="branch-surface"></select
+            ></label>
+            <button id="branch-delete" type="button">Borrar atajo</button>
+          </div>
+        </section>
+        <section>
+          <h2>Checkpoints y recogibles</h2>
+          <label
+            >Cantidad de checkpoints <input id="cp-count" type="number" min="1" max="64" step="1"
+          /></label>
+          <label>Opcionales (números, ej. 4,5) <input id="cp-optional" type="text" /></label>
+          <label
+            >Filas de cajas (posición 0-1, cantidad)
+            <textarea id="box-rows" rows="3" spellcheck="false"></textarea>
+          </label>
+          <label
+            >Líneas de uchuvas (posición 0-1, cantidad, desplazamiento)
+            <textarea id="uchuva-lines" rows="3" spellcheck="false"></textarea>
+          </label>
+        </section>
+        <section>
+          <h2>Validación</h2>
+          <ul id="messages"></ul>
+        </section>
+        <section>
+          <h2>Archivo</h2>
+          <div class="row">
+            <button id="play" type="button" class="primary">Probar en el juego</button>
+            <button id="download" type="button">Descargar JSON</button>
+          </div>
+          <label
+            >Abrir archivo JSON <input id="file" type="file" accept="application/json,.json"
+          /></label>
+          <textarea id="json" rows="5" spellcheck="false" placeholder="JSON de la pista"></textarea>
+          <div class="row">
+            <button id="json-show" type="button">Mostrar JSON</button>
+            <button id="json-load" type="button">Cargar desde texto</button>
+          </div>
+          <p id="status" class="muted" role="status"></p>
+        </section>
+      </aside>
+    </main>
+    <script type="module" src="/src/editor/main.ts"></script>
+  </body>
+</html>
