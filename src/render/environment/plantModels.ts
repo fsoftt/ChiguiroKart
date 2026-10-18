@@ -539,10 +539,11 @@ export function moricheGeometry(): THREE.BufferGeometry {
 /** Cardon: tall ribbed columnar cactus with upturned arms. */
 export function cardonGeometry(): THREE.BufferGeometry {
   const b = new MeshBuilder()
-  const crest = '#4d9a52'
-  const valley = '#26603a'
-  fluted(b, [0, 0, 0], 4.5, 0.62, 0.58, 7, 0.28, crest, valley, '#6dbb62')
-  fluted(b, [0, 4.5, 0], 4.2, 0.58, 0.5, 7, 0.28, crest, valley, '#7fc86c')
+  // Light yellow-greens: the purple dusk light multiplies them down, so they must start bright
+  const crest = '#78c95a'
+  const valley = '#3f9446'
+  fluted(b, [0, 0, 0], 4.5, 0.62, 0.58, 7, 0.28, crest, valley, '#a4e07a')
+  fluted(b, [0, 4.5, 0], 4.2, 0.58, 0.5, 7, 0.28, crest, valley, '#b4e885')
   const arms: readonly (readonly [number, number, number, number])[] = [
     [1.0, 3.0, 0, 3.2],
     [-0.9, 4.6, 0.5, 2.6],
@@ -551,9 +552,9 @@ export function cardonGeometry(): THREE.BufferGeometry {
   for (const [dx, y, dz, rise] of arms) {
     const start: V3 = [0, y, 0]
     const elbow: V3 = [dx * 1.5, y + 0.45, dz * 1.5]
-    limb(b, start, elbow, 0.34, 0.32, 8, '#2f7040', '#3f8a4a')
+    limb(b, start, elbow, 0.34, 0.32, 8, '#4a9a4c', '#66b85c')
     const root: V3 = [elbow[0], elbow[1] - 0.1, elbow[2]]
-    fluted(b, root, rise, 0.34, 0.28, 5, 0.26, crest, valley, '#7fc86c')
+    fluted(b, root, rise, 0.34, 0.28, 5, 0.26, crest, valley, '#b4e885')
   }
   return b.build()
 }

@@ -92,6 +92,9 @@ export class ItemView {
   private readonly statusViews: RacerStatusView[] = []
   private frame = 0
   private time = 0
+  /** Boxes and uchuvas farther than this from the player (m) are not drawn. */
+  private pickupDistance = Infinity
+  private viewer = { x: 0, z: 0 }
 
   private readonly explosions: Transient[]
   private readonly bolts: Transient[]
@@ -111,6 +114,11 @@ export class ItemView {
       EFFECT_GLOW,
     )
     this.puffs = createPool(new THREE.OctahedronGeometry(0.35), '#ffe14a', this.object)
+  }
+
+  /** Quality setting: how far from the player power boxes and uchuvas are drawn. */
+  setPickupDrawDistance(distance: number): void {
+    this.pickupDistance = distance
   }
 
   /** Karts to hang the status effects on, indexed by grid slot (the player is slot 0). */
@@ -137,6 +145,8 @@ export class ItemView {
   update(system: ItemSystem, racers: readonly Racer[], dt: number): void {
     this.time += dt
     this.frame++
+    const player = racers[0]?.kart.position
+    if (player) this.viewer = { x: player.x, z: player.z }
     this.updatePickups(system.boxes, system.uchuvas)
     this.updateEntities(system)
     for (let i = 0; i < this.statusViews.length; i++) {
@@ -209,8 +219,8 @@ export class ItemView {
       const view = this.boxViews[i]
       const pickup = boxes[i]
       if (!view || !pickup) continue
-      view.visible = pickup.active
-      if (!pickup.active) continue
+      view.visible = pickup.active && this.isNear(pickup)
+      if (!view.visible) continue
       view.position.y = pickup.position.y + BOX_LIFT + bobOffset(this.time, i, 0.2, 2.5)
       view.rotation.y = this.time * 1.4 + i
       view.rotation.x = 0.4
@@ -219,11 +229,19 @@ export class ItemView {
       const view = this.uchuvaViews[i]
       const pickup = uchuvas[i]
       if (!view || !pickup) continue
-      view.visible = pickup.active
-      if (!pickup.active) continue
+      view.visible = pickup.active && this.isNear(pickup)
+      if (!view.visible) continue
       view.position.y = pickup.position.y + UCHUVA_LIFT + bobOffset(this.time, i, 0.12, 3)
       view.rotation.y = this.time * 2.2 + i
     }
+  }
+
+  /** True when the pickup is within the quality's draw distance of the player. */
+  private isNear(pickup: Pickup): boolean {
+    return (
+      Math.hypot(pickup.position.x - this.viewer.x, pickup.position.z - this.viewer.z) <=
+      this.pickupDistance
+    )
   }
 
   private updateEntities(system: ItemSystem): void {

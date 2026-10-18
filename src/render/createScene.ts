@@ -98,6 +98,14 @@ function applyShadowQuality(context: SceneContext, resolved: ResolvedQuality): v
 }
 
 /**
+ * Sets the pixel ratio below the quality's own (dynamic resolution). The canvas is resized by
+ * the next `resizeToCanvas`. A quality change (`applyQuality`) starts from the preset's ratio.
+ */
+export function setPixelRatio(context: SceneContext, ratio: number): void {
+  context.renderer.setPixelRatio(ratio)
+}
+
+/**
  * Changes the graphics quality of a running scene: pixel ratio, bloom, shadows and draw
  * distance. The canvas size is refreshed by the next `resizeToCanvas`. Returns the resolved
  * values (particles, speed lines).

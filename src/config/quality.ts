@@ -21,6 +21,15 @@ export interface QualityProfile {
   fogScale: number
   /** Share of the track's plants (grass, flowers, bushes, palms, trees) that are planted, 0..1. */
   vegetationDensity: number
+  /**
+   * Scale of how far from the player each plant layer is drawn (see `LAYER_DRAW_DISTANCE`);
+   * Infinity draws all of them.
+   */
+  vegetationDrawScale: number
+  /** How far from the player (m) power boxes and uchuvas are drawn; Infinity: always. */
+  pickupDrawDistance: number
+  /** Ink outline on the bots (the player's kart always has it). */
+  botOutlines: boolean
 }
 
 export const qualityProfiles: Record<Quality, QualityProfile> = {
@@ -34,6 +43,9 @@ export const qualityProfiles: Record<Quality, QualityProfile> = {
     blobShadows: true,
     fogScale: 0.65,
     vegetationDensity: 0.3,
+    vegetationDrawScale: 0.7,
+    pickupDrawDistance: 110,
+    botOutlines: false,
   },
   medium: {
     maxPixelRatio: 1.5,
@@ -45,6 +57,9 @@ export const qualityProfiles: Record<Quality, QualityProfile> = {
     blobShadows: false,
     fogScale: 0.85,
     vegetationDensity: 0.6,
+    vegetationDrawScale: 1,
+    pickupDrawDistance: 170,
+    botOutlines: true,
   },
   high: {
     maxPixelRatio: 2,
@@ -56,6 +71,9 @@ export const qualityProfiles: Record<Quality, QualityProfile> = {
     blobShadows: false,
     fogScale: 1,
     vegetationDensity: 1,
+    vegetationDrawScale: Infinity,
+    pickupDrawDistance: Infinity,
+    botOutlines: true,
   },
 }
 
@@ -76,6 +94,9 @@ export interface ResolvedQuality {
   blobShadows: boolean
   fogScale: number
   vegetationDensity: number
+  vegetationDrawScale: number
+  pickupDrawDistance: number
+  botOutlines: boolean
 }
 
 /**
@@ -98,5 +119,8 @@ export function resolveQuality(
     blobShadows: profile.blobShadows,
     fogScale: profile.fogScale,
     vegetationDensity: profile.vegetationDensity,
+    vegetationDrawScale: profile.vegetationDrawScale,
+    pickupDrawDistance: profile.pickupDrawDistance,
+    botOutlines: profile.botOutlines,
   }
 }

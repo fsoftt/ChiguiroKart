@@ -2,6 +2,7 @@ import * as THREE from 'three'
 import type { PlantModel, VegetationSettings } from '../../config/tracks/environment'
 import { PLANT_GEOMETRIES } from './plantModels'
 import type { Plant, VegetationLayer, VegetationLayout } from './vegetationLayout'
+import { DrawDistanceSet, groupByCell } from './chunking'
 import { createWindMaterial, type WindOptions } from './windMaterial'
 
 interface ModelStyle {
@@ -101,7 +102,8 @@ const STYLES: Record<PlantModel, ModelStyle> = {
     dark: [0.85, 0.95, 0.9],
     bright: [1.15, 1.1, 0.88],
   },
-  cardon: { wind: still, cast: true, dark: [0.88, 0.92, 0.9], bright: [1.1, 1.08, 1.0] },
+  // Lifted tint: under Tatacoa's purple dusk the cardones read green instead of black
+  cardon: { wind: still, cast: true, dark: [1.15, 1.25, 1.05], bright: [1.45, 1.45, 1.1] },
   ceiba: {
     wind: { strength: 0.0012, power: 1.5 },
     cast: true,
@@ -174,17 +176,78 @@ export const DEFAULT_MODELS: Record<VegetationLayer, PlantModel> = {
   distant: 'distantTree',
 }
 
+/** Side (m) of the square cells each layer is split into, so cells off screen are culled. */
+export const CHUNK_SIZE: Record<VegetationLayer, number> = {
+  grass: 48,
+  flowers: 48,
+  bushes: 64,
+  ferns: 64,
+  palms: 96,
+  trees: 96,
+  cypress: 128,
+  distant: 160,
+}
+
 /**
- * Every plant layer as one instanced mesh with wind: a handful of draw calls for thousands of
- * plants. Each layer draws `settings.models[layer]` (Cocora's model by default). Flowers take their
- * petal color from `flowerColors` by the plant's shade.
+ * How far from the player (m) each layer is drawn when the quality's distance scale is 1.
+ * Small plants vanish first: they are lost in the fog anyway. The distant silhouettes always
+ * draw.
+ */
+export const LAYER_DRAW_DISTANCE: Record<VegetationLayer, number> = {
+  grass: 60,
+  flowers: 60,
+  ferns: 90,
+  bushes: 120,
+  palms: 200,
+  trees: 220,
+  cypress: 260,
+  distant: Infinity,
+}
+
+/** How far a layer draws at a quality's `vegetationDrawScale` (Infinity scale: unlimited). */
+export function layerDrawDistance(layer: VegetationLayer, scale: number): number {
+  return LAYER_DRAW_DISTANCE[layer] * scale
+}
+
+/**
+ * The plants of a track: every layer is split into square cells, one instanced mesh each, so
+ * the cells outside the camera cost nothing; `setFocus` also hides the cells too far from the
+ * player for the quality.
+ */
+export class Vegetation extends THREE.Group {
+  private readonly distances = new DrawDistanceSet()
+
+  constructor() {
+    super()
+    this.name = 'vegetation'
+  }
+
+  addChunk(mesh: THREE.InstancedMesh, layer: VegetationLayer): void {
+    this.distances.add(mesh, LAYER_DRAW_DISTANCE[layer])
+    this.add(mesh)
+  }
+
+  /** Number of instanced meshes (cells) the layers were split into. */
+  get chunkCount(): number {
+    return this.distances.size
+  }
+
+  /** Shows the cells within draw distance of `focus` (ground position) and hides the rest. */
+  setFocus(focus: { x: number; z: number }, drawScale: number): void {
+    this.distances.setFocus(focus, drawScale)
+  }
+}
+
+/**
+ * Every plant layer as instanced meshes with wind, split into cells: a handful of draw calls
+ * for thousands of plants. Each layer draws `settings.models[layer]` (Cocora's model by
+ * default). Flowers take their petal color from `flowerColors` by the plant's shade.
  */
 export function createVegetation(
   layout: VegetationLayout,
   settings: VegetationSettings,
-): THREE.Group {
-  const group = new THREE.Group()
-  group.name = 'vegetation'
+): Vegetation {
+  const group = new Vegetation()
   const matrix = new THREE.Matrix4()
   const position = new THREE.Vector3()
   const scale = new THREE.Vector3()
@@ -206,35 +269,39 @@ export function createVegetation(
       geometry = PLANT_GEOMETRIES[model]()
       geometries.set(model, geometry)
     }
-    const mesh = new THREE.InstancedMesh(geometry, createWindMaterial(style.wind), plants.length)
-    mesh.name = `plants:${layer}`
-    mesh.castShadow = style.cast
-    mesh.receiveShadow = true
-    plants.forEach((plant, i) => {
-      position.set(plant.x, plant.y, plant.z)
-      rotation.setFromAxisAngle(up, plant.yaw)
-      scale.setScalar(plant.scale)
-      mesh.setMatrixAt(i, matrix.compose(position, rotation, scale))
-      if (model === 'flowers' && petals.length > 0) {
-        color.copy(
-          petals[
-            Math.min(petals.length - 1, Math.floor(plant.shade * petals.length))
-          ] as THREE.Color,
-        )
-      } else {
-        const t = plant.shade
-        color.setRGB(
-          style.dark[0] + (style.bright[0] - style.dark[0]) * t,
-          style.dark[1] + (style.bright[1] - style.dark[1]) * t,
-          style.dark[2] + (style.bright[2] - style.dark[2]) * t,
-        )
-      }
-      mesh.setColorAt(i, color)
-    })
-    mesh.instanceMatrix.needsUpdate = true
-    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
-    mesh.computeBoundingSphere()
-    group.add(mesh)
+    // One material per layer, shared by its cells
+    const material = createWindMaterial(style.wind)
+    for (const cell of groupByCell(plants, CHUNK_SIZE[layer], (plant) => plant).values()) {
+      const mesh = new THREE.InstancedMesh(geometry, material, cell.length)
+      mesh.name = `plants:${layer}`
+      mesh.castShadow = style.cast
+      mesh.receiveShadow = true
+      cell.forEach((plant, i) => {
+        position.set(plant.x, plant.y, plant.z)
+        rotation.setFromAxisAngle(up, plant.yaw)
+        scale.setScalar(plant.scale)
+        mesh.setMatrixAt(i, matrix.compose(position, rotation, scale))
+        if (model === 'flowers' && petals.length > 0) {
+          color.copy(
+            petals[
+              Math.min(petals.length - 1, Math.floor(plant.shade * petals.length))
+            ] as THREE.Color,
+          )
+        } else {
+          const t = plant.shade
+          color.setRGB(
+            style.dark[0] + (style.bright[0] - style.dark[0]) * t,
+            style.dark[1] + (style.bright[1] - style.dark[1]) * t,
+            style.dark[2] + (style.bright[2] - style.dark[2]) * t,
+          )
+        }
+        mesh.setColorAt(i, color)
+      })
+      mesh.instanceMatrix.needsUpdate = true
+      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true
+      mesh.computeBoundingSphere()
+      group.addChunk(mesh, layer)
+    }
   }
   return group
 }

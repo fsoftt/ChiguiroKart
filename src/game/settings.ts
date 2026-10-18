@@ -1,5 +1,6 @@
 import type { KeyBindings } from '../config/controls'
 import { detectLanguage, isLanguage, type Language } from '../i18n'
+import { defaultQualityFor, readDeviceHints, type DeviceHints } from '../config/deviceQuality'
 import { QUALITY_LEVELS, type Quality } from '../config/quality'
 import { defaultBindings, parseKeyBindings } from './keyRebind'
 import { systemPrefersReducedMotion } from '../ui/motion'
@@ -10,6 +11,11 @@ export const SETTINGS_KEY = 'chiguirokart.settings.v1'
 /** Options the player changes in the Options screen; saved between sessions. */
 export interface GameSettings {
   quality: Quality
+  /**
+   * True once the player picked a quality. Until then the quality is the device's automatic
+   * default (see `defaultQualityFor`).
+   */
+  qualityChosen: boolean
   /** Volumes 0..1. Only stored for now; the audio module reads them through the store. */
   masterVolume: number
   musicVolume: number
@@ -45,9 +51,11 @@ export function defaultSettings(
   coarsePointer: boolean = isCoarsePointer(),
   language: Language = detectLanguage(),
   prefersReducedMotion: boolean = systemPrefersReducedMotion(),
+  hints: Omit<DeviceHints, 'coarsePointer'> = readDeviceHints(),
 ): GameSettings {
   return {
-    quality: coarsePointer ? 'medium' : 'high',
+    quality: defaultQualityFor({ coarsePointer, ...hints }),
+    qualityChosen: false,
     masterVolume: DEFAULT_VOLUME.master,
     musicVolume: DEFAULT_VOLUME.music,
     sfxVolume: DEFAULT_VOLUME.sfx,
@@ -75,8 +83,13 @@ export function parseSettings(text: string | null, defaults = defaultSettings())
   if (typeof raw !== 'object' || raw === null) return defaults
   const data = raw as Record<string, unknown>
   const quality = QUALITY_LEVELS.find((level) => level === data.quality)
+  // Settings saved before the flag existed keep their quality: it may have been picked. An
+  // unchosen quality is detected again, so it follows the device
+  const qualityChosen =
+    quality !== undefined && (typeof data.qualityChosen === 'boolean' ? data.qualityChosen : true)
   return {
-    quality: quality ?? defaults.quality,
+    quality: qualityChosen && quality ? quality : defaults.quality,
+    qualityChosen,
     masterVolume: volumeOr(data.masterVolume, defaults.masterVolume),
     musicVolume: volumeOr(data.musicVolume, defaults.musicVolume),
     sfxVolume: volumeOr(data.sfxVolume, defaults.sfxVolume),
@@ -133,7 +146,10 @@ export class SettingsStore {
   }
 
   update(partial: Partial<GameSettings>): void {
-    this.current = { ...this.current, ...partial }
+    // Picking a quality (in Options) turns the automatic default off for good
+    const chosen =
+      'quality' in partial && !('qualityChosen' in partial) ? { qualityChosen: true } : {}
+    this.current = { ...this.current, ...partial, ...chosen }
     this.persist(this.current)
     for (const listener of this.listeners) listener(this.current)
   }

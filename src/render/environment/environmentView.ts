@@ -6,6 +6,7 @@ import type { SurfaceType } from '../../sim/race/surface'
 import type { Track } from '../../sim/track'
 import { createBranchPath, createMainPath, resamplePolyline, type Path } from '../trackPath'
 import { surfaceColor } from '../surfaceColor'
+import { chunkMesh, DrawDistanceSet, groupByCell } from './chunking'
 import { DecorBuilder } from './decorBuilder'
 import { addChevrons, addPennants, addProps, addStartArch } from './decorView'
 import { layoutProps } from './decorLayout'
@@ -38,7 +39,7 @@ import { buildRibbon, curbProfile, flatProfile } from './ribbon'
 import { buildTerrainField, levelPads, type TerrainField } from './terrainField'
 import { createTerrainMesh } from './terrainMesh'
 import { layoutVegetation, type KeepClear } from './vegetationLayout'
-import { createVegetation } from './vegetationView'
+import { createVegetation, type Vegetation } from './vegetationView'
 import { windClock } from './windMaterial'
 
 const ROAD_LIFT = 0.01
@@ -54,6 +55,13 @@ interface RoadMaterial {
   /** Texture whose V offset is scrolled by `update` (running water). */
   flow?: THREE.Texture
 }
+
+/** Side (m) of the cells big static meshes (land, road, fence, decoration) are split into. */
+const STATIC_CHUNK = 160
+/** Distance (m) a fence post draws at when the quality's draw scale is 1. */
+const POST_DRAW_DISTANCE = 110
+/** Posts are many and small: their cells are smaller, so the distance cut is tight. */
+const POST_CHUNK = 56
 
 /** Repeats of the cobble texture across the road width. */
 const COBBLE_ACROSS = 3
@@ -73,7 +81,11 @@ export interface EnvironmentOptions {
 export class EnvironmentView extends THREE.Group {
   /** The land, so tests and tools can sample it exactly as drawn. */
   readonly field: TerrainField
-  private vegetation: THREE.Group | null = null
+  private vegetation: Vegetation | null = null
+  private drawScale = Infinity
+  /** Fence posts, small enough to vanish at a distance on low quality. */
+  private readonly posts = new DrawDistanceSet()
+  private lastFocus = { x: 0, z: 0 }
   /** Circles taken by props; decoration scenery stays out of them. */
   readonly keepClear: KeepClear[]
   private readonly roads = new Map<string, RoadMaterial>()
@@ -109,7 +121,7 @@ export class EnvironmentView extends THREE.Group {
       z: spot.z,
       radius: (props.pads[i]?.radius ?? 3) + 1.5,
     }))
-    this.add(createTerrainMesh(this.field, environment.terrain, seed))
+    this.add(chunkMesh(createTerrainMesh(this.field, environment.terrain, seed), STATIC_CHUNK))
 
     // Road pieces
     const main = createMainPath(track)
@@ -147,7 +159,7 @@ export class EnvironmentView extends THREE.Group {
       mesh.name = 'decor'
       mesh.castShadow = true
       mesh.receiveShadow = true
-      this.add(mesh)
+      this.add(chunkMesh(mesh, STATIC_CHUNK))
     }
 
     this.setDensity(density)
@@ -174,6 +186,18 @@ export class EnvironmentView extends THREE.Group {
     )
     this.vegetation = createVegetation(layout, vegetation)
     this.add(this.vegetation)
+    if (Number.isFinite(this.drawScale)) this.vegetation.setFocus(this.lastFocus, this.drawScale)
+  }
+
+  /**
+   * Sets how far plants draw from the player: the quality's `vegetationDrawScale` (Infinity
+   * draws every cell). Call it every frame with the player's ground position.
+   */
+  setFocus(focus: { x: number; z: number }, drawScale: number): void {
+    this.drawScale = drawScale
+    this.lastFocus = focus
+    this.vegetation?.setFocus(focus, drawScale)
+    this.posts.setFocus(focus, drawScale)
   }
 
   /** Advances the wind. */
@@ -331,7 +355,7 @@ export class EnvironmentView extends THREE.Group {
       const mesh = new THREE.Mesh(geometry, material)
       mesh.name = `road:${surface}`
       mesh.receiveShadow = true
-      this.add(mesh)
+      this.add(chunkMesh(mesh, STATIC_CHUNK))
     }
   }
 
@@ -357,7 +381,7 @@ export class EnvironmentView extends THREE.Group {
     )
     mesh.name = 'curbs'
     mesh.receiveShadow = true
-    this.add(mesh)
+    this.add(chunkMesh(mesh, STATIC_CHUNK))
   }
 
   private addFence(rails: THREE.BufferGeometry[], posts: THREE.Matrix4[]): void {
@@ -372,16 +396,23 @@ export class EnvironmentView extends THREE.Group {
       mesh.name = 'fence:rails'
       mesh.castShadow = true
       mesh.receiveShadow = true
-      this.add(mesh)
+      this.add(chunkMesh(mesh, STATIC_CHUNK))
     }
-    if (posts.length > 0) {
-      const instanced = new THREE.InstancedMesh(postGeometry(), material, posts.length)
-      posts.forEach((matrix, i) => instanced.setMatrixAt(i, matrix))
+    // Posts in cells too, so the ones off screen are culled
+    const geometry = postGeometry()
+    const cells = groupByCell(posts, POST_CHUNK, (m) => ({
+      x: m.elements[12] ?? 0,
+      z: m.elements[14] ?? 0,
+    }))
+    for (const cell of cells.values()) {
+      const instanced = new THREE.InstancedMesh(geometry, material, cell.length)
+      cell.forEach((matrix, i) => instanced.setMatrixAt(i, matrix))
       instanced.instanceMatrix.needsUpdate = true
       instanced.computeBoundingSphere()
       instanced.name = 'fence:posts'
       instanced.castShadow = true
       instanced.receiveShadow = true
+      this.posts.add(instanced, POST_DRAW_DISTANCE)
       this.add(instanced)
     }
   }

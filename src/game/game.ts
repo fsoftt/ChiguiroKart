@@ -8,6 +8,11 @@ import { defaultKartPhysics } from '../config/kartPhysics'
 import { cocoraTrack } from '../config/tracks/cocoraTrack'
 import { cupInfo, tracks, type TrackId } from '../config/tracks/catalog'
 import { setLanguage } from '../i18n'
+import type { Quality } from '../config/quality'
+import { frameBreakdown, type BreakdownRow } from '../render/perfBreakdown'
+import { cullRacers } from '../render/racerCulling'
+import { DynamicResolution } from '../render/dynamicResolution'
+import { gridOffset, stationPose, type PerfSample } from './perfProbe'
 import { cupName } from '../i18n/names'
 import { DEFAULT_THEME, type TrackTheme } from '../config/tracks/theme'
 import { testTrack } from '../config/tracks/testTrack'
@@ -24,6 +29,7 @@ import {
   renderScene,
   updateSceneFocus,
   resizeToCanvas,
+  setPixelRatio,
   type SceneContext,
 } from '../render/createScene'
 import { speedLineTarget } from '../render/effects/effectsLogic'
@@ -173,6 +179,9 @@ export class Game {
   private trackView: TrackView | null = null
   /** Share of the track's plants that grow, from the graphics quality. */
   private vegetationDensity = 1
+  private vegetationDrawScale = Infinity
+  private botOutlines = true
+  private pickupDrawDistance = Infinity
   private hazardView: HazardView | null = null
   /** Seconds since the track was loaded; only drives hazard animations. */
   private trackTime = 0
@@ -206,6 +215,9 @@ export class Game {
     this.touchControls.source,
   ]
   private readonly fpsOverlay: FpsOverlay | null
+  /** Lowers the pixel ratio while frames are too slow; never above the quality's ratio. */
+  private readonly dynamicResolution = new DynamicResolution(1)
+  private dynamicResolutionOn = new URLSearchParams(urlSearch()).get('dynres') !== '0'
   private readonly hud = new Hud()
   private readonly pauseState = new PauseState()
   private readonly pauseMenu = new PauseMenu()
@@ -302,6 +314,56 @@ export class Game {
     })
   }
 
+  /**
+   * Dev tool for `scripts/perfReport.mjs`: starts a quick race on `trackId` at `quality`
+   * (8 karts). Then call `perfSample` for each station.
+   */
+  perfStart(trackId: TrackId, quality: Quality): void {
+    this.settingsStore.update({ quality })
+    this.startRace({ ...this.settings, mode: 'carrera', track: trackId })
+  }
+
+  /**
+   * Dev tool: puts the player at `fraction` of the main loop with the 7 bots ahead of the
+   * camera, draws one frame and returns the renderer counters of that frame (shadow map pass
+   * and bloom included).
+   */
+  perfSample(fraction: number): PerfSample {
+    const { centerline } = this.world.track
+    const pose = stationPose(centerline, fraction)
+    const forward = { x: Math.sin(pose.heading), z: Math.cos(pose.heading) }
+    const place = (view: CharacterView, forwardBy: number, sideBy: number): void => {
+      const x = pose.x + forward.x * forwardBy + forward.z * sideBy
+      const z = pose.z + forward.z * forwardBy - forward.x * sideBy
+      view.object.position.set(x, this.world.track.roadHeight(x, z), z)
+      view.object.rotation.y = pose.heading
+    }
+    place(this.kartView, 0, 0)
+    this.botViews.forEach((view, i) => {
+      const { forward: ahead, side } = gridOffset(i)
+      place(view, ahead, side)
+    })
+    const camera = this.scene.camera
+    const baseY = this.kartView.object.position.y
+    camera.position.set(pose.x - forward.x * 6.5, baseY + 3.2, pose.z - forward.z * 6.5)
+    camera.lookAt(pose.x + forward.x * 8, baseY + 0.8, pose.z + forward.z * 8)
+    this.prepareFrame()
+    resizeToCanvas(this.scene)
+    renderScene(this.scene)
+    const { render, memory } = this.scene.renderer.info
+    return {
+      drawCalls: render.calls,
+      triangles: render.triangles,
+      geometries: memory.geometries,
+      textures: memory.textures,
+    }
+  }
+
+  /** Dev tool: the meshes in view of the last `perfSample`, costliest first. */
+  perfBreakdown(): BreakdownRow[] {
+    return frameBreakdown(this.scene.scene, this.scene.camera)
+  }
+
   /** Pause button of a gamepad (Start), and the touch button's visibility. */
   private pollPauseButton(): void {
     const held = gamepadStartHeld()
@@ -319,7 +381,13 @@ export class Game {
   /** Applies the options to the running game; runs at start and after every change. */
   private applySettings(settings: GameSettings): void {
     const resolved = applyQuality(this.scene, settings.quality)
+    this.dynamicResolution.setCeiling(resolved.pixelRatio)
     this.vegetationDensity = resolved.vegetationDensity
+    this.vegetationDrawScale = resolved.vegetationDrawScale
+    this.botOutlines = resolved.botOutlines
+    this.itemView.setPickupDrawDistance(resolved.pickupDrawDistance)
+    this.pickupDrawDistance = resolved.pickupDrawDistance
+    for (const view of this.botViews) view.setOutline(resolved.botOutlines)
     this.trackView?.setVegetationDensity(resolved.vegetationDensity)
     this.kartEffects.setParticleScale(resolved.particleScale)
     this.surfaceFx.setQuality(resolved.particleScale, resolved.skidMarkScale)
@@ -453,6 +521,7 @@ export class Game {
         character,
       )
       const view = new CharacterView(character)
+      view.setOutline(this.botOutlines)
       markShadows(view.object, { cast: true })
       this.botViews.push(view)
       this.scene.scene.add(view.object)
@@ -511,6 +580,7 @@ export class Game {
     this.items = this.createItems(true)
     // The item view builds its pickup meshes from the first system it sees
     this.itemView = new ItemView()
+    this.itemView.setPickupDrawDistance(this.pickupDrawDistance)
     this.scene.scene.add(this.itemView.object)
     this.itemView.setKarts([this.kartView.object])
     this.racers = [this.world.player]
@@ -806,14 +876,35 @@ export class Game {
       )
     }
 
-    updateSceneFocus(this.scene, this.kartView.object.position, (x, z) =>
-      this.world.track.roadHeight(x, z),
-    )
+    this.prepareFrame()
     renderScene(this.scene)
 
     this.readout.speedKmh = Math.abs(speed) * MS_PER_KMH
     this.readout.onGround = kart.onGround
     this.fpsOverlay?.update(dt)
+    this.adaptResolution(dt)
+  }
+
+  /**
+   * Last step before drawing: hides the bots outside the camera's view, the plants too far
+   * for the quality, and moves the shadow map and blob shadows to the player.
+   */
+  private prepareFrame(): void {
+    const { camera } = this.scene
+    cullRacers(camera, this.botViews, camera.far)
+    const { x, z } = this.kartView.object.position
+    this.trackView?.setFocus({ x, z }, this.vegetationDrawScale)
+    updateSceneFocus(this.scene, this.kartView.object.position, (px, pz) =>
+      this.world.track.roadHeight(px, pz),
+    )
+  }
+
+  /** Dynamic resolution: a slow stretch lowers the pixel ratio, headroom raises it back. */
+  private adaptResolution(dt: number): void {
+    if (!this.dynamicResolutionOn) return
+    // A paused game reports dt = 0, which the controller ignores
+    const ratio = this.dynamicResolution.update(dt)
+    if (ratio !== null) setPixelRatio(this.scene, ratio)
   }
 
   /** Chase camera while racing, front view at the finish, showroom while the menu is up. */

@@ -16,8 +16,8 @@ export default tseslint.config(
     },
   },
   {
-    // Node-only build scripts (not part of the browser tsconfig)
-    files: ['scripts/**/*.ts'],
+    // Node-only scripts (not part of the browser tsconfig)
+    files: ['scripts/**/*.ts', 'scripts/**/*.mjs'],
     languageOptions: { globals: globals.node },
   },
 )

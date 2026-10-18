@@ -24,9 +24,16 @@ function memoryStorage(initial: Record<string, string> = {}): StorageLike & {
 }
 
 describe('defaultSettings', () => {
-  it('uses medium quality on coarse pointers and high otherwise', () => {
-    expect(defaultSettings(true).quality).toBe('medium')
-    expect(defaultSettings(false).quality).toBe('high')
+  it('uses low quality on coarse pointers and high otherwise', () => {
+    expect(defaultSettings(true, 'es', false, {}).quality).toBe('low')
+    expect(defaultSettings(false, 'es', false, {}).quality).toBe('high')
+  })
+
+  it('picks the quality from the device hints until the player chooses', () => {
+    expect(defaultSettings(false, 'es', false, { deviceMemory: 2 }).quality).toBe('low')
+    expect(defaultSettings(false, 'es', false, { hardwareConcurrency: 4 }).quality).toBe('medium')
+    expect(defaultSettings(false, 'es', false, { deviceMemory: 8 }).quality).toBe('high')
+    expect(defaultSettings(true, 'es', false, {}).qualityChosen).toBe(false)
   })
 
   it('starts with accessibility off and the default keys', () => {
@@ -112,7 +119,12 @@ describe('parseSettings', () => {
 describe('load and save', () => {
   it('round-trips through storage', () => {
     const storage = memoryStorage()
-    const settings = { ...defaultSettings(false), quality: 'low' as const, colorblind: true }
+    const settings = {
+      ...defaultSettings(false),
+      quality: 'low' as const,
+      qualityChosen: true,
+      colorblind: true,
+    }
     saveSettings(settings, storage)
     expect(storage.data[SETTINGS_KEY]).toBeDefined()
     expect(loadSettings(storage)).toEqual(settings)
@@ -152,5 +164,32 @@ describe('SettingsStore', () => {
     unsubscribe()
     store.update({ colorblind: true })
     expect(listener).not.toHaveBeenCalled()
+  })
+})
+
+describe('automatic quality', () => {
+  const phone = defaultSettings(true, 'es', false, {})
+  const desktop = defaultSettings(false, 'es', false, {})
+
+  it('follows the device while the player has not chosen', () => {
+    const saved = JSON.stringify({ ...desktop, quality: 'low', qualityChosen: false })
+    expect(parseSettings(saved, desktop).quality).toBe('high')
+    expect(parseSettings(saved, phone).quality).toBe('low')
+  })
+
+  it('keeps a chosen quality, also from settings saved before the flag existed', () => {
+    const chosen = JSON.stringify({ quality: 'medium', qualityChosen: true })
+    expect(parseSettings(chosen, phone).quality).toBe('medium')
+    const old = parseSettings(JSON.stringify({ quality: 'high' }), phone)
+    expect(old.quality).toBe('high')
+    expect(old.qualityChosen).toBe(true)
+  })
+
+  it('marks the quality as chosen when the player picks one, and only then', () => {
+    const store = new SettingsStore(phone, () => undefined)
+    store.update({ masterVolume: 0.5 })
+    expect(store.get().qualityChosen).toBe(false)
+    store.update({ quality: 'high' })
+    expect(store.get()).toMatchObject({ quality: 'high', qualityChosen: true })
   })
 })

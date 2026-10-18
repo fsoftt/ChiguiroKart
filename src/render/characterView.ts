@@ -44,6 +44,7 @@ export class CharacterView {
   private airSeconds = 0
   private result: RaceResult | null = null
   private ghost: { opacity: number; color: string } | null = null
+  private outlineOn = true
   private readonly phase = (instances++ * PHASE_STEP) % 1.3
 
   constructor(character: CharacterId) {
@@ -59,6 +60,7 @@ export class CharacterView {
     this.model = model
     this.object.add(model.object)
     for (const mesh of [model.mesh, model.outline]) mesh.frustumCulled = false
+    model.outline.visible = this.outlineOn
 
     this.bones = {}
     for (const name of [
@@ -98,6 +100,12 @@ export class CharacterView {
     }
     mixer.update(this.phase)
     if (this.ghost) this.applyGhost(this.ghost.opacity, this.ghost.color)
+  }
+
+  /** Shows or hides the ink outline (a second pass over the whole model; costly on phones). */
+  setOutline(on: boolean): void {
+    this.outlineOn = on
+    if (this.model && !this.ghost) this.model.outline.visible = on
   }
 
   /** Plays a one-shot over the loops: throw a power forward or backward. */

@@ -4,7 +4,7 @@ import type { Track, TrackBranch } from '../sim/track'
 import type { SurfaceType } from '../sim/race/surface'
 import { DEFAULT_THEME, type TrackTheme } from '../config/tracks/theme'
 import { createBoostPads } from './boostPads'
-import { createScenery } from './scenery/sceneryView'
+import { createScenery, type Scenery } from './scenery/sceneryView'
 import { markShadows } from './shadows'
 import { EnvironmentView } from './environment/environmentView'
 import { surfaceColor } from './surfaceColor'
@@ -60,6 +60,7 @@ export class TrackView extends THREE.Group {
   private shownLow: boolean | null = null
   /** Terrain, textured road, fence, plants and decoration, for themes that define them. */
   readonly environment: EnvironmentView | null = null
+  private scenery: Scenery | null = null
 
   constructor(
     private readonly track: Track,
@@ -90,12 +91,11 @@ export class TrackView extends THREE.Group {
       this.addFeatures(water)
       this.add(environment)
       if (theme.decorations.length > 0) {
-        this.add(
-          createScenery(track, theme, {
-            heightAt: environment.field.heightAt,
-            keepClear: environment.keepClear,
-          }),
-        )
+        this.scenery = createScenery(track, theme, {
+          heightAt: environment.field.heightAt,
+          keepClear: environment.keepClear,
+        })
+        this.add(this.scenery)
       }
       this.update()
       return
@@ -120,7 +120,8 @@ export class TrackView extends THREE.Group {
       this.add(createWall(track, theme, path, -path.halfWidth - WALL_THICKNESS))
     })
     this.addFeatures(water)
-    this.add(createScenery(track, theme))
+    this.scenery = createScenery(track, theme)
+    this.add(this.scenery)
     this.update()
   }
 
@@ -138,6 +139,12 @@ export class TrackView extends THREE.Group {
   /** Changes the share of plants that grow (quality); a no-op without an environment. */
   setVegetationDensity(density: number): void {
     this.environment?.setDensity(density)
+  }
+
+  /** Hides plants too far from the player for the quality (`drawScale`; Infinity: none). */
+  setFocus(focus: { x: number; z: number }, drawScale: number): void {
+    this.environment?.setFocus(focus, drawScale)
+    this.scenery?.setFocus(focus, drawScale)
   }
 
   /** Shows the tide of the moment: recolors tidal branches if `track.tideLow` changed. */
