@@ -5,6 +5,8 @@ import { generatePortraits, getPortrait } from '../render/characterPortraits'
 import type { CupId, TrackId } from '../config/tracks/catalog'
 import { t } from '../i18n'
 import { LiveLabels } from '../i18n/liveLabels'
+import { setStagger } from './motion'
+import { stepDirection } from './motionModel'
 import { characterName, cupName, perkDescription, perkName, trackName } from '../i18n/names'
 import { CHARACTER_COLORS, characterInitial, statRows } from './characterSelectModel'
 import { cupCards, moveTrackSelection, trackGroups, type GridDirection } from './trackSelectModel'
@@ -129,6 +131,7 @@ export class QuickRaceMenu {
         this.settings = withDifficulty(this.settings, level)
         this.refresh()
       })
+      setStagger(button, this.difficultyButtons.size)
       this.difficultyButtons.set(level, button)
     }
 
@@ -173,6 +176,7 @@ export class QuickRaceMenu {
     this.settings = settings
     this.visible = true
     this.currentStep = 'mode'
+    this.root.dataset.dir = 'enter'
     this.root.classList.add('is-visible')
     this.refresh()
     this.onCharacterChange?.(this.settings.character)
@@ -208,6 +212,7 @@ export class QuickRaceMenu {
         this.settings = withMode(this.settings, mode)
         this.refresh()
       })
+      setStagger(button, this.modeButtons.size)
       this.modeButtons.set(mode, button)
     }
     const hint = el('div', 'qr-chosen', card)
@@ -235,6 +240,7 @@ export class QuickRaceMenu {
         button.type = 'button'
         this.labels.text(button, () => trackName(track.id))
         button.addEventListener('click', () => this.pickTrack(track.id))
+        setStagger(button, this.trackButtons.size)
         this.trackButtons.set(track.id, button)
       }
     }
@@ -247,6 +253,7 @@ export class QuickRaceMenu {
         this.labels.text(el('li', '', list), () => trackName(trackId))
       })
       button.addEventListener('click', () => this.pickCup(cup.id))
+      setStagger(button, this.cupButtons.size)
       this.cupButtons.set(cup.id, button)
     }
     const next = el('button', 'qr-start', card) as HTMLButtonElement
@@ -286,6 +293,7 @@ export class QuickRaceMenu {
       this.characterDots.set(id, dot)
       this.labels.text(el('span', 'qr-character-name', button), () => characterName(id))
       button.addEventListener('click', () => this.setCharacter(id))
+      setStagger(button, this.characterButtons.size)
       this.characterButtons.set(id, button)
     }
     const detail = el('div', 'qr-detail', this.picker)
@@ -302,6 +310,7 @@ export class QuickRaceMenu {
   }
 
   private goTo(step: MenuStep): void {
+    this.root.dataset.dir = stepDirection(this.currentStep, step)
     this.currentStep = step
     this.refresh()
   }

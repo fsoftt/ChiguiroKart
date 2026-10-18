@@ -82,6 +82,7 @@ export class OptionsMenu {
     for (const { field, label } of VOLUME_ROWS) this.buildVolume(list, field, label)
     this.buildToggle(list, 'colorblind', 'options.colorblind')
     this.buildToggle(list, 'reduceShake', 'options.reduceShake')
+    this.buildToggle(list, 'reduceMotion', 'options.reduceMotion')
     this.labels.text(el('div', 'op-section', list), () => t('options.controls'))
     for (const action of REBIND_ACTIONS) this.buildControl(list, action)
     this.buildAction(list, 'options.restoreKeys', () => {
@@ -235,7 +236,7 @@ export class OptionsMenu {
 
   private buildToggle(
     list: HTMLElement,
-    field: 'colorblind' | 'reduceShake',
+    field: 'colorblind' | 'reduceShake' | 'reduceMotion',
     label: TranslationKey,
   ): void {
     const element = el('div', 'op-line')

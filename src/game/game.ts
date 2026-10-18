@@ -74,6 +74,7 @@ import { characterIds, type CharacterId } from '../config/characters'
 import { OptionsMenu } from '../ui/optionsMenu'
 import { PauseMenu } from '../ui/pauseMenu'
 import { QuickRaceMenu } from '../ui/quickRaceMenu'
+import { applyReducedMotion, playScreenFade } from '../ui/motion'
 import {
   advanceCup,
   createCup,
@@ -86,6 +87,8 @@ import { disposeObject } from './disposeObject'
 import { canPause, PauseState, risingEdge } from './pause'
 import { SettingsStore, type GameSettings } from './settings'
 import { parseRaceSettings, rubberBandFor, type RaceSettings } from './raceSettings'
+// Loaded last so its motion rules refine the menu and HUD styles above
+import '../ui/motion.css'
 
 const SIMULATION_HZ = 60
 const RESET_KEY = 'KeyR'
@@ -321,6 +324,7 @@ export class Game {
     this.kartEffects.setDrift(this.driftView)
     this.hud.setColorblind(settings.colorblind)
     this.kartFeedback.setScales(feedbackScales(settings.reduceShake))
+    applyReducedMotion(settings.reduceMotion)
     this.keyboard.setBindings(settings.keyBindings)
     this.audio.setVolumes({
       master: settings.masterVolume,
@@ -373,6 +377,7 @@ export class Game {
     this.settings = settings
     this.setPlayerCharacter(settings.character)
     this.menu.hide()
+    playScreenFade()
     if (settings.mode === 'copa') {
       // Same player and the same 7 bot characters for the four races
       const characters = [settings.character, ...botCharactersFor(settings.character)]
@@ -485,6 +490,7 @@ export class Game {
     this.hud.setVisible(false)
     this.touchControls.setVisible(false)
     this.menu.show(this.settings)
+    playScreenFade()
   }
 
   /**

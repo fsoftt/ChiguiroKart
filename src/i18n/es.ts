@@ -200,6 +200,7 @@ export const es = {
     effects: 'Efectos',
     colorblind: 'Modo daltonismo',
     reduceShake: 'Reducir sacudidas',
+    reduceMotion: 'Reducir animaciones',
     controls: 'Controles',
     restoreKeys: 'Restaurar teclas',
     listening: 'Pulsa una tecla…',

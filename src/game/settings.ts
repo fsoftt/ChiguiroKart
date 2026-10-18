@@ -2,6 +2,8 @@ import type { KeyBindings } from '../config/controls'
 import { detectLanguage, isLanguage, type Language } from '../i18n'
 import { QUALITY_LEVELS, type Quality } from '../config/quality'
 import { defaultBindings, parseKeyBindings } from './keyRebind'
+import { systemPrefersReducedMotion } from '../ui/motion'
+import { resolveReduceMotion } from '../ui/motionModel'
 
 export const SETTINGS_KEY = 'chiguirokart.settings.v1'
 
@@ -16,6 +18,8 @@ export interface GameSettings {
   colorblind: boolean
   /** No camera shake and a gentler FOV kick. */
   reduceShake: boolean
+  /** Fade-only menu and race transitions. Follows `prefers-reduced-motion` until the player picks. */
+  reduceMotion: boolean
   keyBindings: KeyBindings
   /** Language of every menu and HUD text. */
   language: Language
@@ -40,6 +44,7 @@ function isCoarsePointer(): boolean {
 export function defaultSettings(
   coarsePointer: boolean = isCoarsePointer(),
   language: Language = detectLanguage(),
+  prefersReducedMotion: boolean = systemPrefersReducedMotion(),
 ): GameSettings {
   return {
     quality: coarsePointer ? 'medium' : 'high',
@@ -48,6 +53,7 @@ export function defaultSettings(
     sfxVolume: DEFAULT_VOLUME.sfx,
     colorblind: false,
     reduceShake: false,
+    reduceMotion: resolveReduceMotion(undefined, prefersReducedMotion),
     keyBindings: defaultBindings(),
     language,
   }
@@ -76,6 +82,7 @@ export function parseSettings(text: string | null, defaults = defaultSettings())
     sfxVolume: volumeOr(data.sfxVolume, defaults.sfxVolume),
     colorblind: typeof data.colorblind === 'boolean' ? data.colorblind : defaults.colorblind,
     reduceShake: typeof data.reduceShake === 'boolean' ? data.reduceShake : defaults.reduceShake,
+    reduceMotion: resolveReduceMotion(data.reduceMotion, defaults.reduceMotion),
     keyBindings: 'keyBindings' in data ? parseKeyBindings(data.keyBindings) : defaults.keyBindings,
     language: isLanguage(data.language) ? data.language : defaults.language,
   }

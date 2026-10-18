@@ -412,6 +412,8 @@ export class Hud {
       this.countdownLabel = model.countdownLabel
       this.countdownBadge.textContent = model.countdownLabel
       this.countdownBadge.classList.toggle('is-active', model.countdownLabel !== '')
+      this.countdownBadge.classList.toggle('is-go', model.countdownLabel === t('hud.go'))
+      if (model.countdownLabel !== '') replay(this.countdownBadge, 'is-popping')
     }
 
     if (model.wrongWay !== this.wrongWay) {

@@ -37,6 +37,20 @@ describe('defaultSettings', () => {
   })
 })
 
+describe('reduceMotion', () => {
+  it('defaults to the system prefers-reduced-motion preference', () => {
+    expect(defaultSettings(false, 'es', true).reduceMotion).toBe(true)
+    expect(defaultSettings(false, 'es', false).reduceMotion).toBe(false)
+  })
+
+  it('keeps a saved choice over the system preference and falls back for bad values', () => {
+    const reduced = defaultSettings(false, 'es', true)
+    expect(parseSettings(JSON.stringify({ reduceMotion: false }), reduced).reduceMotion).toBe(false)
+    expect(parseSettings(JSON.stringify({}), reduced).reduceMotion).toBe(true)
+    expect(parseSettings(JSON.stringify({ reduceMotion: 'x' }), reduced).reduceMotion).toBe(true)
+  })
+})
+
 describe('parseSettings', () => {
   const defaults = defaultSettings(false)
 

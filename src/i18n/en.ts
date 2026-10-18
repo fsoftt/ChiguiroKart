@@ -199,6 +199,7 @@ export const en: Dictionary = {
     effects: 'Effects',
     colorblind: 'Color-blind mode',
     reduceShake: 'Reduce shake',
+    reduceMotion: 'Reduce animations',
     controls: 'Controls',
     restoreKeys: 'Restore keys',
     listening: 'Press a key…',
