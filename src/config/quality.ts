@@ -11,6 +11,8 @@ export interface QualityProfile {
   particleScale: number
   /** Speed lines on. */
   speedLines: boolean
+  /** Share of the tire mark ring buffer and lifetime used, 0..1; 0 turns the marks off. */
+  skidMarkScale: number
   /** Side of the sun's shadow map in texels; 0 turns real-time shadows off. */
   shadowMapSize: number
   /** Cheap dark circle under each kart (used where the shadow map is off). */
@@ -27,6 +29,7 @@ export const qualityProfiles: Record<Quality, QualityProfile> = {
     bloom: false,
     particleScale: 0.5,
     speedLines: false,
+    skidMarkScale: 0.3,
     shadowMapSize: 0,
     blobShadows: true,
     fogScale: 0.65,
@@ -37,6 +40,7 @@ export const qualityProfiles: Record<Quality, QualityProfile> = {
     bloom: true,
     particleScale: 0.75,
     speedLines: true,
+    skidMarkScale: 0.7,
     shadowMapSize: 1024,
     blobShadows: false,
     fogScale: 0.85,
@@ -47,6 +51,7 @@ export const qualityProfiles: Record<Quality, QualityProfile> = {
     bloom: true,
     particleScale: 1,
     speedLines: true,
+    skidMarkScale: 1,
     shadowMapSize: 2048,
     blobShadows: false,
     fogScale: 1,
@@ -66,6 +71,7 @@ export interface ResolvedQuality {
   bloom: boolean
   particleScale: number
   speedLines: boolean
+  skidMarkScale: number
   shadowMapSize: number
   blobShadows: boolean
   fogScale: number
@@ -87,6 +93,7 @@ export function resolveQuality(
     bloom: profile.bloom && !bloomForcedOff,
     particleScale: profile.particleScale,
     speedLines: profile.speedLines,
+    skidMarkScale: profile.skidMarkScale,
     shadowMapSize: profile.shadowMapSize,
     blobShadows: profile.blobShadows,
     fogScale: profile.fogScale,

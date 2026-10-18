@@ -28,6 +28,7 @@ import {
 } from '../render/createScene'
 import { speedLineTarget } from '../render/effects/effectsLogic'
 import { KartEffects } from '../render/effects/kartEffects'
+import { SurfaceFx } from '../render/effects/surfaceFx'
 import { KartFeedback } from '../render/effects/kartFeedback'
 import { SpeedLines } from '../render/effects/speedLines'
 import { throwActionFor } from '../render/characterAnimLogic'
@@ -178,6 +179,7 @@ export class Game {
   private readonly scene: SceneContext
   private readonly kartView: CharacterView
   private readonly kartEffects = new KartEffects(defaultEffects, this.driftConfig)
+  private readonly surfaceFx = new SurfaceFx(defaultEffects)
   private readonly speedLines = new SpeedLines(SPEED_LINE_STREAKS, defaultEffects.speedLines.color)
   private readonly kartFeedback = new KartFeedback(defaultEffects.camera)
   private readonly chaseCamera: ChaseCamera
@@ -250,6 +252,7 @@ export class Game {
       this.kartView.object,
       this.itemView.object,
       this.kartEffects.object,
+      this.surfaceFx.object,
       this.speedLines.object,
     )
     this.chaseCamera = new ChaseCamera(this.scene.camera, this.cameraConfig)
@@ -316,6 +319,7 @@ export class Game {
     this.vegetationDensity = resolved.vegetationDensity
     this.trackView?.setVegetationDensity(resolved.vegetationDensity)
     this.kartEffects.setParticleScale(resolved.particleScale)
+    this.surfaceFx.setQuality(resolved.particleScale, resolved.skidMarkScale)
     this.speedLinesEnabled = resolved.speedLines
     this.driftView = activeDriftPalette(this.driftConfig, settings.colorblind)
     this.kartEffects.setDrift(this.driftView)
@@ -553,6 +557,7 @@ export class Game {
     if (this.trackView) disposeObject(this.trackView)
     if (this.hazardView) disposeObject(this.hazardView.object)
     this.hazardView = null
+    this.surfaceFx.reset()
     this.itemView.setKarts([])
     this.trackView = null
     disposeObject(this.itemView.object)
@@ -660,6 +665,14 @@ export class Game {
       const status = this.racers[i + 1]?.items.status
       const pose = status ? hitPoseInto(status, this.hitPose) : undefined
       view.update(kart, info.input.steer, speed, speed / this.physics.maxSpeed, dt, pose)
+      this.surfaceFx.updateKart(
+        i + 1,
+        kart,
+        speed / this.physics.maxSpeed,
+        { steer: Math.abs(info.input.steer), braking: info.input.brake > 0.5 },
+        this.world.track,
+        dt,
+      )
     }
   }
 
@@ -715,6 +728,15 @@ export class Game {
     this.handleItemEvents()
     this.itemView.update(this.items, this.racers, dt)
     this.kartEffects.update(kart, speedRatio, dt)
+    this.surfaceFx.updateKart(
+      0,
+      kart,
+      speedRatio,
+      { steer: Math.abs(input.steer), braking: input.brake > 0.5 },
+      this.world.track,
+      dt,
+    )
+    this.surfaceFx.update(dt)
 
     const feedback = this.kartFeedback.update(kart.boost, kart.drift, this.gameTime, dt)
     this.updateCamera(kart, speedRatio, input, dt, feedback)
@@ -840,6 +862,7 @@ export class Game {
     this.ghostDeltaLaps = 0
     this.newRecord = false
     this.world.resetKart()
+    this.surfaceFx.reset()
     this.botManager?.reset()
     this.previousKart = cloneKartState(this.world.kart)
     this.previousBotKarts = this.botManager?.getBotKarts().map(cloneKartState) ?? []
