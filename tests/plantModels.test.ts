@@ -15,6 +15,12 @@ const BUDGET: Record<VegetationLayerName, number> = {
   distant: 40,
 }
 
+/**
+ * Models allowed more than their layer's budget: a few big hero plants (the ceiba is at most 55
+ * per track) and the macarenia's soft cluster of blobs.
+ */
+const MODEL_BUDGET: Partial<Record<PlantModel, number>> = { ceiba: 800, macarenia: 260 }
+
 const models = Object.keys(PLANT_GEOMETRIES) as PlantModel[]
 
 describe('plant models', () => {
@@ -31,7 +37,9 @@ describe('plant models', () => {
       expect(position.count % 3).toBe(0)
       expect(geometry.getAttribute('color').count).toBe(position.count)
       expect(geometry.getAttribute('tint').count).toBe(position.count)
-      expect(position.count / 3).toBeLessThanOrEqual(BUDGET[PLANT_LAYER[model]])
+      expect(position.count / 3).toBeLessThanOrEqual(
+        MODEL_BUDGET[model] ?? BUDGET[PLANT_LAYER[model]],
+      )
 
       geometry.computeBoundingBox()
       const box = geometry.boundingBox as THREE.Box3
