@@ -8,6 +8,10 @@
   - **Opus (sesión principal):** diseño, arquitectura y revisión del diff antes de subir.
 - No hagas tú una tarea que un subagente más barato puede hacer, salvo que delegarla cueste más que hacerla.
 
+## Comunicación
+
+- No le recomiendes al usuario hacer pruebas de juego: probará más adelante, cuando él decida. Los criterios de cierre que dependen de jugar quedan anotados en `docs/progreso.md`, sin insistir.
+
 ## Ramas
 
 - La rama principal es `main`. Los cambios terminados se suben a `main` (cada push publica en GitHub Pages).
