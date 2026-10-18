@@ -36,7 +36,7 @@ const outDir = new URL('public/models/', `file://${process.cwd()}/`)
 await mkdir(outDir, { recursive: true })
 
 if (process.env.KART_STATS) {
-  for (const id of ['chiguiro', 'oso'] as const) {
+  for (const id of characterIds) {
     const kit = new ModelKit()
     addKart(kit, characterModels[id].kart, characterModels[id].kartStyle)
     console.log(`${id} kart only: ${kit.triangles} triangles`)
