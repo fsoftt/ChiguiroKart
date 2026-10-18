@@ -27,6 +27,8 @@ const WALL_THICKNESS = 0.5
 const ROAD_LIFT = 0.01
 /** Branches sit a hair above the main road so overlapping junctions do not flicker. */
 const BRANCH_LIFT = 0.015
+/** Tidal ribbons sit just under the main road (see `createTidalRibbon`). */
+const TIDAL_LIFT = 0.004
 const UP = new THREE.Vector3(0, 1, 0)
 const GROUND_DEFAULT_Y = -0.05
 /** Height of a jump ramp wedge at its lip edge (m). */
@@ -283,8 +285,15 @@ function createTidalRibbon(
   track: Track,
   path: Path,
 ): { mesh: THREE.Mesh; material: THREE.MeshToonMaterial } {
-  const geometry = stripGeometry(track, path, -path.halfWidth, path.halfWidth, BRANCH_LIFT)
-  const material = new THREE.MeshToonMaterial({ side: THREE.DoubleSide })
+  // Where the ribbon overlaps the main road (the junction) the asphalt must win: lower than the
+  // road, and pushed back in depth so far-away frames do not flicker
+  const geometry = stripGeometry(track, path, -path.halfWidth, path.halfWidth, TIDAL_LIFT)
+  const material = new THREE.MeshToonMaterial({
+    side: THREE.DoubleSide,
+    polygonOffset: true,
+    polygonOffsetFactor: 2,
+    polygonOffsetUnits: 4,
+  })
   return { mesh: new THREE.Mesh(geometry, material), material }
 }
 

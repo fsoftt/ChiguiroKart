@@ -375,28 +375,79 @@ export function frailejonGeometry(): THREE.BufferGeometry {
   return b.build()
 }
 
-/** Macarenia clavigera: waving red and magenta ribbons with moss-like clumps. */
+/** Wavy ribbon frond lying over the ground: rises, arches and curls, with a side-to-side wave. */
+function wavyFrond(
+  b: MeshBuilder,
+  yaw: number,
+  length: number,
+  rise: number,
+  width: number,
+  wave: number,
+  phase: number,
+  colors: Palette3,
+): void {
+  const segments = 4
+  const dir: V3 = [Math.cos(yaw), 0, Math.sin(yaw)]
+  const side: V3 = [-Math.sin(yaw), 0, Math.cos(yaw)]
+  const point = (t: number): V3 => {
+    const lateral = Math.sin(t * Math.PI * 2 + phase) * wave * t
+    const y = 0.12 + rise * Math.sin(t * Math.PI * 0.85)
+    return add(add([0, y, 0], mul(dir, length * t)), mul(side, lateral))
+  }
+  for (let i = 0; i < segments; i++) {
+    const t0 = i / segments
+    const t1 = (i + 1) / segments
+    const p0 = point(t0)
+    const p1 = point(t1)
+    const w0 = width * (1 - 0.65 * t0)
+    const w1 = width * (1 - 0.65 * t1)
+    const c0 = i < 2 ? colors[0] : colors[1]
+    const c1 = i < 1 ? colors[0] : i < 3 ? colors[1] : colors[2]
+    const a: V3 = sub(p0, mul(side, w0))
+    const bb: V3 = add(p0, mul(side, w0))
+    const c: V3 = add(p1, mul(side, w1))
+    const d: V3 = sub(p1, mul(side, w1))
+    b.quad(a, bb, c, d, c0, c0, c1, c1)
+  }
+}
+
+/**
+ * Macarenia clavigera, the aquatic plant of Caño Cristales: a low, soft cushion of many small
+ * rounded blobs (red, pink and magenta, a few yellow and green) with short wavy fronds curling
+ * out between them.
+ */
 export function macareniaGeometry(): THREE.BufferGeometry {
   const random = seededRandom(113)
   const b = new MeshBuilder()
-  b.blob([0, 0.08, 0], 0.3, [1.2, 0.3, 1.2], '#8c0f30', '#d8206a', 0)
-  for (let i = 0; i < 17; i++) {
-    const angle = random() * Math.PI * 2
-    const radius = random() * 0.32
-    blade(
-      b,
-      Math.cos(angle) * radius,
-      Math.sin(angle) * radius,
-      random() * Math.PI * 2,
-      0.55 + random() * 0.55,
-      0.14 + random() * 0.08,
-      0.25 + random() * 0.5,
-      i % 3 === 0 ? ['#a01a40', '#e0245e', '#ff8fb8'] : ['#b02048', '#ff3a6e', '#ffb2cc'],
-    )
-  }
-  // A few yellow-green algae strands between the red ribbons
-  for (let i = 0; i < 3; i++) {
-    blade(b, 0.12 * (i - 1), 0.1, i * 2.1, 0.45, 0.07, 0.25, ['#6a5a1a', '#b9a734', '#e8dc7a'])
+  // Dark red mat under the clumps, so the cushion has a base shadow
+  b.blob([0, 0.05, 0], 0.62, [1, 0.28, 1], '#6a0b22', '#a8143c', 0, 1, 0.12, 5)
+  // [x, z, radius, bottom, top]: the center ones are tall and red, the rim ones low and pink
+  const clumps: readonly (readonly [number, number, number, string, string])[] = [
+    [0.0, 0.02, 0.3, '#8c0f30', '#e22a56'],
+    [0.3, 0.12, 0.24, '#a3123c', '#ff4f78'],
+    [-0.28, 0.14, 0.25, '#98104a', '#f0307e'],
+    [0.08, -0.3, 0.23, '#a01450', '#ff6aa0'],
+    [0.36, -0.2, 0.17, '#c23a68', '#ff9cc0'],
+    [-0.34, -0.22, 0.18, '#b02a78', '#e65cae'],
+    [-0.08, 0.38, 0.17, '#c8486e', '#ffa6c6'],
+    [0.5, 0.3, 0.13, '#8a8a26', '#e4d96c'],
+    [-0.52, 0.0, 0.14, '#3f7f35', '#8cc65a'],
+  ]
+  clumps.forEach(([x, z, radius, bottom, top], i) => {
+    const y = radius * (0.5 + random() * 0.15)
+    b.blob([x, y, z], radius, [1.1, 0.78, 1.1], bottom, top, 0, 1, 0.2, i * 1.7 + 1)
+  })
+  // Wavy fronds curling out between the clumps
+  const fronds: readonly Palette3[] = [
+    ['#9c1238', '#e8285a', '#ff8fb8'],
+    ['#a8174c', '#ff4f8a', '#ffb6d0'],
+    ['#8e1a5e', '#d9399a', '#ff9ad0'],
+  ]
+  for (let i = 0; i < 5; i++) {
+    const palette: Palette3 = fronds[i % fronds.length] ?? ['#9c1238', '#e8285a', '#ff8fb8']
+    const yaw = (i / 5) * Math.PI * 2 + random() * 0.6
+    const length = 0.5 + random() * 0.18
+    wavyFrond(b, yaw, length, 0.2 + random() * 0.12, 0.2, 0.1, random() * 6, palette)
   }
   return b.build()
 }
@@ -507,48 +558,81 @@ export function cardonGeometry(): THREE.BufferGeometry {
   return b.build()
 }
 
-/** Ceiba: huge emergent tree with buttress roots and a wide, flat, layered canopy. */
+/**
+ * Ceiba: a huge emergent tree. A swollen, tall trunk flaring into curved buttress roots, and a
+ * wide umbrella crown of overlapping rounded foliage clumps on a few spreading limbs.
+ */
 export function ceibaGeometry(): THREE.BufferGeometry {
   const random = seededRandom(139)
   const b = new MeshBuilder()
-  const trunkTop = 16
-  for (let i = 0; i < 3; i++) {
-    const y0 = (trunkTop * i) / 3
-    const y1 = (trunkTop * (i + 1)) / 3
-    const tone = i === 0 ? '#8c8873' : '#9a9680'
-    b.tube(0, 0, y0, y1, 1.15 - 0.4 * (i / 3), 1.15 - 0.4 * ((i + 1) / 3), 8, tone, tone, 0)
+  // Trunk: flared foot, swollen belly, then a long clean shaft. [height, radius, color]
+  const rings: readonly (readonly [number, number, string])[] = [
+    [0, 2.3, '#6f6a58'],
+    [1.6, 1.7, '#7d7864'],
+    [6, 1.55, '#8c8873'],
+    [12, 1.25, '#98947e'],
+    [17, 1.0, '#a39f88'],
+  ]
+  for (let i = 0; i + 1 < rings.length; i++) {
+    const [y0, r0, c0] = rings[i] as readonly [number, number, string]
+    const [y1, r1, c1] = rings[i + 1] as readonly [number, number, string]
+    b.tube(0, 0, y0, y1, r0, r1, 8, c0, c1, 0)
   }
-  // Buttress roots: tall thin wedges flaring out from the foot
-  for (let i = 0; i < 6; i++) {
-    const a = (i / 6) * Math.PI * 2 + random() * 0.4
+  // Buttress roots: thin plates whose upper edge is a concave curve from the ground (far from
+  // the trunk) up the shaft. [distance from the axis, height]
+  const curve: readonly (readonly [number, number])[] = [
+    [5.2, 0],
+    [3.4, 0.7],
+    [2.2, 2.4],
+    [1.5, 5.6],
+    [1.2, 8.6],
+  ]
+  for (let i = 0; i < 5; i++) {
+    const a = (i / 5) * Math.PI * 2 + random() * 0.5
     const c = Math.cos(a)
     const s = Math.sin(a)
-    const foot: V3 = [c * 3.4, 0, s * 3.4]
-    const inner: V3 = [c * 1.1, 0, s * 1.1]
-    const hi: V3 = [c * 0.95, 5.2 + random() * 1.5, s * 0.95]
-    const w: V3 = [-s * 0.3, 0, c * 0.3]
-    b.tri(sub(foot, w), add(foot, w), hi, '#6f6a58', '#6f6a58', '#9a9680', 0)
-    b.tri(add(foot, w), sub(foot, w), hi, '#6f6a58', '#6f6a58', '#9a9680', 0)
-    b.tri(sub(foot, w), inner, hi, '#6f6a58', '#7e7a66', '#9a9680', 0)
-    b.tri(inner, add(foot, w), hi, '#7e7a66', '#6f6a58', '#9a9680', 0)
-  }
-  const lumps: readonly (readonly [number, number, number, number, number])[] = [
-    [0, 18.6, 0, 6.5, 1],
-    [7.5, 17.4, 2, 4.8, 0],
-    [-6.5, 17.6, -3.5, 5.0, 0],
-    [2, 17.2, -7.5, 4.6, 0],
-    [-2.5, 17.5, 7.2, 4.8, 0],
-    [3.5, 21.4, 1.5, 4.2, 0],
-    [-3.0, 21.0, -1.5, 3.8, 0],
-  ]
-  for (const [x, y, z, radius, detail] of lumps) {
-    if (x !== 0 || z !== 0) {
-      const from: V3 = [0, trunkTop - 1.2, 0]
-      limb(b, from, [x * 0.7, trunkTop + 0.9, z * 0.7], 0.45, 0.28, 5, '#807b66', '#8c8873', 0)
+    const reach = 0.85 + random() * 0.3
+    const w: V3 = [-s * 0.28, 0, c * 0.28]
+    const top = (k: number): V3 => {
+      const [r, y] = curve[k] as readonly [number, number]
+      return [c * r * (k === 0 ? reach : 1), y * (0.9 + 0.2 * reach), s * r * (k === 0 ? reach : 1)]
     }
-    const wobble = 0.9 + random() * 0.2
-    b.blob([x, y, z], radius, [wobble * 1.5, 0.38, wobble * 1.5], '#1b5629', '#62b043', detail)
+    for (let k = 0; k + 1 < curve.length; k++) {
+      const t0 = top(k)
+      const t1 = top(k + 1)
+      const g0: V3 = [t0[0], 0, t0[2]]
+      const g1: V3 = [t1[0], 0, t1[2]]
+      const dark = '#625d4c'
+      const light = k < 2 ? '#78735f' : '#8c8873'
+      // Both faces of the plate
+      b.quad(sub(g0, w), sub(g1, w), sub(t1, w), sub(t0, w), dark, dark, light, light, 0)
+      b.quad(add(g1, w), add(g0, w), add(t0, w), add(t1, w), dark, dark, light, light, 0)
+    }
   }
+  // Umbrella crown: a tall central dome and a ring of flatter clumps, all overlapping
+  const crownY = 18
+  const clumps: readonly (readonly [number, number, number, number])[] = [
+    // [angle, distance from the axis, height, radius]; distance 0 is the central dome
+    [0, 0, crownY + 2.4, 6.2],
+    [0.3, 9.6, crownY + 0.2, 5.4],
+    [1.35, 10.2, crownY + 0.8, 5.2],
+    [2.4, 9.4, crownY - 0.1, 5.5],
+    [3.5, 10.0, crownY + 0.6, 5.3],
+    [4.5, 9.6, crownY + 0.1, 5.4],
+    [5.5, 9.9, crownY + 1.0, 5.1],
+  ]
+  clumps.forEach(([angle, distance, y, radius], i) => {
+    const x = Math.cos(angle) * distance
+    const z = Math.sin(angle) * distance
+    if (distance > 0) {
+      // Spreading limb from the top of the trunk up into the clump
+      limb(b, [0, 15.6, 0], [x * 0.8, crownY - 0.5, z * 0.8], 0.55, 0.3, 5, '#7b765f', '#8c8873', 0)
+    }
+    const squash = distance > 0 ? 0.5 : 0.62
+    const bottom = i % 2 === 0 ? '#256a2b' : '#2b7430'
+    const top = i % 3 === 0 ? '#74c046' : '#62b043'
+    b.blob([x, y, z], radius, [1.28, squash, 1.28], bottom, top, 1, 1, 0.24, i * 2.3 + 0.5)
+  })
   return b.build()
 }
 
